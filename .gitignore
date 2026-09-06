@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.vite/
+coverage/
+*.log
+.DS_Store
+Thumbs.db
+.env
+.env.*
+# session-local claude settings
+.claude/settings.local.json
+.claude/agent-memory-local/
+# headless capture scratch (committed screenshots live in docs/visual-loop/)
+tmp/
