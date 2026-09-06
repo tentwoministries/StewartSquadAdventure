@@ -10,7 +10,7 @@
 
 | File | System | Depends on | Status |
 |---|---|---|---|
-| `heroes.md` | The four kids: color, role, silhouette, props, animation personality, kit as data, pilot Liam spec | — | not started |
+| `heroes.md` | The four kids: color, role, silhouette, props, animation personality, kit as data, pilot Liam spec | — | reviewed 2026-09-06 |
 | `enemies.md` | All 17 v27 enemy types + elites + overworld mini-bosses, each readable at gameplay distance | heroes (colors) | reviewed 2026-09-06 (heroes reconciliation pending) |
 | `story-beats.md` | The *Lights in the Dark* spine, quest graph, world map across the islands, where every canon line is delivered | — | not started |
 | `world-events-weather.md` | Day/night keyframes, weather, aurora, ambient layers, world events, the peaceful layer | — | not started |
@@ -21,6 +21,8 @@
 | `cutscenes.md` | Every shot table reshot for the 3D cinematic camera: meteor, crash landing, boss intros, biplane travel, ending | heroes, story-beats, npcs, bosses, camp | not started |
 | `ui-ux.md` | Scrapbook menus, HUD, title cards, boss bar, captured-hero overlay, input, accessibility, onboarding | heroes, camp, bosses, enemies, story-beats | not started |
 | `audio.md` | The procedural `snd()` port, music, ambient loops, per-system cue map | everything above | not started |
+
+**Decided in `heroes.md` (2026-09-06):** Liam sapphire `#2A62CF` · Noah fox orange `#EE7F24` (v27 green `#2DB86A` as accent) · Collette amethyst `#9D4FD8` · Isabella ruby `#D6294E` (v27 gold `#F0C040` as accent). Role labels: Tank · Ranger · Mage · Whirlwind. World scale: **40 px = 1 m** (1 px = 0.025 m) for every v27 distance. Hero heights 1.52 / 1.40 / 1.30 / 1.14 m.
 
 Status values: `not started` → `draft` (agent delivered) → `reviewed` (orchestrator review passed, see `docs/qa/phase-0.5-design-review-<date>.md`) → `revised` (after a later change, with its DECISIONS line).
 
