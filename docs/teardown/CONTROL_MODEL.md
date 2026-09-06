@@ -385,8 +385,8 @@ for(var i=0;i<heroes.length;i++){var h=heroes[i];
 - A caged hero is **removed from simulation entirely**. In `update` (**L9268**): `if(heroes[i]._caged&&heroes[i]._cagedBoss){ x = boss.x+rnd(-2,2); y = boss.y-boss.sz-15; vx=vy=0; continue; }` — the `continue` skips `Hero.prototype.update`, so a caged companion does not move, attack, tick cooldowns, tick regen, or take damage. The `rnd(-2,2)` gives the cage its jitter.
 - You **cannot switch to** a caged hero: the `1`–`4` path checks `!heroes[hi4]._caged` (L957). *The mouse and touch portrait paths do not check `_caged`* — see §11.
 - The boss gains `dmgMul = 1 + captured.length*0.15` and `shieldPct = captured.length*0.05` (L5232). With three caged that is **+45 % boss damage and 15 % damage reduction**, and you are down to one hero. This is the single hardest control state in the game.
-- Freeing: the cage is only damageable while `exposed` (`BOSS_BLOCKS.exposeCage`, L5239; `hitCage`, L5243). One hero is released per `1/N` HP threshold crossed (L5253), each landing at `boss.x+rnd(-60,60), boss.y+rnd(40,80)` with `hp = max(hp, maxHp*0.5)` (L5262). All are freed when cage HP hits 0 (`freeAllCaged`, L5269).
-- Canon voice lines fire on capture, staggered `1500 + ci*1200` ms (**L5236**): `1: "Hey! Let me out!"`, `2: "The structural integrity of this cage is actually pretty— OW."`, `3: "WHOA! NOT COOL!"`, `4: "HEY! LET ME OUT!"` (index `0` is empty; the `4` key is unreachable with a 4-hero party).
+- Freeing: the cage is only damageable while `exposed` (`BOSS_BLOCKS.exposeCage`, L5238; `hitCage`, L5242). One hero is released per `1/N` HP threshold crossed (L5253), each landing at `boss.x+rnd(-60,60), boss.y+rnd(40,80)` with `hp = max(hp, maxHp*0.5)` (L5262). All are freed when cage HP hits 0 (`freeAllCaged`, L5270).
+- Canon voice lines fire on capture, staggered `1500 + ci*1200` ms (**L5235–5236**): `1: "Hey! Let me out!"`, `2: "The structural integrity of this cage is actually pretty— OW."`, `3: "WHOA! NOT COOL!"`, `4: "HEY! LET ME OUT!"` (index `0` is empty; the `4` key is unreachable with a 4-hero party).
 
 ---
 
@@ -446,7 +446,7 @@ if(shk.t>0){shk.t-=dt;var _sd=shk.maxT>0?shk.t/shk.maxT:0;var _si=shk.i*_sd;
 | Zoom | `WORLD_ZOOM = 1.30` default; user-selectable `1.0 / 1.15 / 1.30`; applied as a canvas transform around screen centre, not a camera property | L589, L590, L4290 |
 | Clamp | Derived from the zoomed viewport so the world edge never shows | L9271 |
 | Shake | `screenShake(i,dur)` clamps intensity to 25 and takes the max duration (L611); applied as a linearly-decaying random offset **after** the clamp, so shake can push past the world edge | L611, L9272 |
-| Snap | Hard snap (no lerp) on auto-switch after a hero goes down (L2397), on revive-switch (L2203), on load, and on dungeon exit (L9424) | — |
+| Snap | Hard snap (no lerp) on auto-switch after a hero goes down (L2399), on revive-switch (L2203), on load, and on dungeon exit (L9424) | — |
 | Guest camera | Snapped once (`NET._camInited`) then `lerp(cam, target, 0.12)` — a **frame-rate-dependent** constant, not `*dt` | L8874–8880 |
 | Dungeon | The camera is **not used**: the room is drawn centred at `((W-DNG_COLS*DNG_TW)/2, (H-DNG_ROWS*DNG_TW)/2)` and the whole room fits on screen | L1078, L8123 |
 | Cutscene | `WORLD_ZOOM` is animated to `_csZoom` and lerped back over the exit (L4914, L5002); `cam` is driven directly | L4454–5005 |
@@ -522,7 +522,7 @@ The ultimate-ready HUD banner reads **`⚡ ULTIMATE READY — SPACE`** (element 
 
 ### 5.4 Cooldown display
 
-- Portrait ult bar: `port-ult-fill` width `= 1 - ultTimer/ultMax` (L3735), colour `rgba(168,98,196,0.6)` (CSS L91).
+- Portrait ult bar: `port-ult-fill` width `= 1 - ultTimer/ultMax` (L3733–3734), colour `rgba(168,98,196,0.6)` (CSS L91).
 - Signature: `#hudSig` shows `⚡ <sigNm> [E]` when ready, or `<sigNm> [E] (Ns)` at 50 % opacity while cooling (**L3716–3719**).
 - Ultimate: `#hudUlt` shown/hidden binary (L3710).
 - Combo: see §6.
@@ -604,26 +604,26 @@ Combo ultimates are **host-only**: the guest's `Q` is mapped to `activateCoopAbi
 
 ### 7.1 Going down
 
-In `Hero.prototype.takeDmg` when `hp <= 0` (**L2378–2410**):
+In `Hero.prototype.takeDmg` when `hp <= 0` (**L2374–2411**):
 
-1. `hp=0; dead=true; deathA=0`.
-2. If `autoRevive > 0` (Phoenix Feather): consume one charge, immediately restore to `maxHp*0.5`, `dead=false`, `downed=false` — no downed state at all (L2381–2384).
-3. Otherwise `downed=true; reviveTimer=20; reviveX=this.x; reviveY=this.y; _adaptDiff.downs++` (L2385).
-4. If the downed hero **was** the active hero, auto-switch to the nearest hero that is `unlocked && !dead && !downed && !banished` and, when host, not guest-controlled; **hard-snap the camera** to them; `announce('Switching to <NAME>!')`; `snd('heal',0.2)` (L2388–2401).
-5. If **no** hero is alive → `showDungeonFail()` in a dungeon, else `gameOver=true; showGameOverHTML(); stopBGM9()` (L2404–2409).
+1. `hp=0; dead=true; deathA=0` (L2375).
+2. If `autoRevive > 0` (Phoenix Feather): consume one charge, immediately restore to `maxHp*0.5`, `dead=false`, `downed=false` — no downed state at all (L2379–2382).
+3. Otherwise `downed=true; reviveTimer=20; reviveX=this.x; reviveY=this.y; _adaptDiff.downs++` (L2383).
+4. If the downed hero **was** the active hero, auto-switch to the nearest hero that is `unlocked && !dead && !downed && !banished` and, when host, not guest-controlled; **hard-snap the camera** to them; `announce('Switching to <NAME>!')`; `snd('heal',0.2)` (L2388–2401; camera snap L2399).
+5. If **no** hero is alive → `showDungeonFail()` in a dungeon, else `gameOver=true; showGameOverHTML(); stopBGM9()` (L2406–2410).
 
 ### 7.2 While downed
 
-- `Hero.prototype.update` returns early after the revive tick (**L2187–2211**), so a downed hero has no movement, no attacks, no cooldown ticks, and cannot be switched to.
+- `Hero.prototype.update` returns early after the revive tick (**L2189–2211**), so a downed hero has no movement, no attacks, no cooldown ticks, and cannot be switched to.
 - **Solo revive is passive and automatic**: `reviveTimer -= dt * _rvSpeed` with `_rvSpeed = 1`. A 20-second self-revive.
 - **Co-op revive**: only when `NET.playerCount > 1` — any other living hero within **60 px** sets `_rvSpeed = 3`, cutting the wait to ~6.7 s and recording `this._reviver` (L2189). **In single-player, standing next to a downed teammate does nothing.**
 - On revive: `hp = floor(maxHp*0.4)`, teleport back to `reviveX/reviveY` (the death position), `snd('revive',0.35)`, 20 particles, `screenShake(4,.15)` (L2193–2209).
 - Host-only: if the current `activeHero` is dead, downed or guest-controlled when someone revives, control jumps to the revived hero with a camera snap (L2198–2204).
-- Visual (**L2434–2444**): a translucent pulsing ghost, a blue arc ring showing `1 - reviveTimer/20`, the remaining seconds in text, and — when a reviver is present — a green outer arc plus `P<n> reviving`. Portrait shows `.downed` (opacity 0.5) with a `Ns` overlay (L3737–3739).
+- Visual (**L2433–2444**): a translucent pulsing ghost, a blue arc ring showing `1 - reviveTimer/20`, the remaining seconds in text, and — when a reviver is present — a green outer arc plus `P<n> reviving`. Portrait shows `.downed` (opacity 0.5) with a `Ns` overlay (L3735–3737).
 
 ### 7.3 Banished (Shadow Queen)
 
-Shadow Queen phase 3 kidnaps a hero over a channel; on success `kidnapTarget.banished = true; kidnapTarget.dead = true` (**L5560**) — permanently removed, no revive timer. Interrupt by dealing 150 damage during the channel (`kidnapDmg >= 150`, L5566). `banished` heroes are excluded from switch targets (L957, L1067), from the auto-switch search (L2391), and from the "anyone alive" game-over check (L2405).
+Shadow Queen phase 3 kidnaps a hero over a channel; on success `kidnapTarget.banished = true; kidnapTarget.dead = true` (**L5560**) — permanently removed, no revive timer. Interrupt by dealing 150 damage during the channel (`kidnapDmg >= 150`, L5566). `banished` heroes are excluded from switch targets (L957, L1067), from the auto-switch search (L2391), and from the "anyone alive" game-over check (L2407).
 
 ### 7.4 Caged
 
@@ -652,7 +652,7 @@ Strict **host-authoritative** over a relay WebSocket (default `ws://localhost:30
 | Rendering | Direct from local state | Interpolated at `now - interpDelay(50 ms)` between two snapshots (`getInterpolatedSnapshot`, L8829) |
 | Pause | Can pause; the pause is replicated | Cannot pause; sees `#guestPauseOverlay` "⏸ GAME PAUSED / Waiting for host to resume…" (L513, L8915) |
 
-`PLAYER_COLORS = ['#4A9ED8','#2DB86A','#D88030','#e91e63']` — **L1372**. Used for the `P1`…`P4` name list in `drawNetHUD` (L9178–9180) and the floating `drawPlayerBadge` above each controlled hero (L9182, drawn at `y-38`, 20×12 black plate, `bold 10px monospace`).
+`PLAYER_COLORS = ['#4A9ED8','#2DB86A','#D88030','#e91e63']` — **L1372**. Used for the `P1`…`P4` name list in `drawNetHUD` (L9169, list at L9178–9180) and the floating `drawPlayerBadge` above each controlled hero (L9182, drawn at `y-38`, 20×12 black plate, `bold 10px monospace`).
 
 ### 8.2 How a guest's input reaches the host
 
@@ -777,7 +777,7 @@ The `paused` gate is a single check in the main loop (**L9235**): `if(!paused){ 
 | **`F2`** | Toggle `DEV_MODE` — announces `Room-clear cheat ON 🔧` / `OFF`; shows the `🔧 DEV` HUD badge (L3706) and the perf overlay (L9243) | L963 |
 | **Tap the version label 5× within 2 s** | Toggle `DEV_MODE` from the title screen (mobile-friendly); relabels to `— V 27 — DEV MODE 🔧` in red | L9438–9444 |
 | `` ` `` (with `DEV_MODE`, in a dungeon, unpaused) | Kill every enemy + boss, solve puzzles, unlock all doors, mark the room cleared | L975–988 |
-| `` ` `` (any time) | Toggle `showNetDebug` — RTT / buffer / tick / entity counts overlay, guest only | L932, L8836 |
+| `` ` `` (any time) | Toggle `showNetDebug` — RTT / buffer / tick / entity counts overlay, guest only | L932, L9187 |
 | `F6` (DEV, overworld) | Spawn 2–4 parachute crates, or launch a supply flyover | L989–999 |
 | `F7` (DEV, overworld) | Force a biplane crash + spawn Ed | L1001–1013 |
 | `F8` (DEV, overworld) | Cycle weather `clear→rain→storm→snow→sand→fog` | L1014–1017 |
