@@ -1,5 +1,7 @@
 # Systems Inventory — Part 1: Core Gameplay Data & Formulas
 
+> **Two parts.** Part 1 (core gameplay data and formulas) starts here; Part 2 (world, structure and meta systems) begins at the heading "SYSTEMS INVENTORY — PART 2: World, Structure & Meta" further down and has its own table of contents.
+
 Every core gameplay system in `docs/legacy/stewart-squad-v27.html` (9,901 lines), with exact line ranges, complete data tables, and formulas copied verbatim from source.
 Scope: difficulty, globals, heroes, combo ultimates, XP/leveling, skill trees, enemies, mini-bosses, boss phase system, `BOSS_BLOCKS`, every boss, combat formulas, equipment/gear, loot/gold, NG+, achievements, save schema. World generation, biomes, weather, quests, NPCs, world events, dungeon structure, tutorial/cutscenes, UI overlays, input, main loop, networking and the dev console are Part 2.
 
@@ -2836,3 +2838,2906 @@ Recorded so the rebuild reproduces intent rather than accident. Each is verified
 - **Attack cooldown has no floor.** `cd` is only ever multiplied down (`0.7`, `0.92`) and added to by negative gear values, so it can reach zero or below.
 - **`cageY`** is computed in `Boss.takeDmg` (line 3218) and never used; the actual cage-hit test is `src.y < this.y-10`.
 - **Colour canon drift:** the Brief describes Noah as orange and Isabella as pink/red; `HDEFS` ships Noah green (`#2DB86A`) and Isabella gold (`#F0C040`).
+
+
+---
+
+
+> Part 1 above covers core gameplay data and formulas (heroes, skills, enemies, bosses, `BOSS_BLOCKS`, combat, gear, loot, NG+, achievements, save schema). Part 2 below covers world generation, biomes, weather and day/night mechanics, quests, dialogue mechanics, NPCs and Grandpa Ed, world events, endless mode, dungeon structure, tutorial and cutscene mechanics, arena effects, particles, overlays/HUD, input, the main loop, networking, and the dev console. Both parts were extracted from `docs/legacy/stewart-squad-v27.html` on 2026-09-06 and merged into this single file per Brief §3.
+
+# SYSTEMS INVENTORY — PART 2: World, Structure & Meta
+
+Part 2 of the v27 teardown covers everything outside the hero/combat/progression core: the noise-driven world, weather, day/night, quests, dialogue mechanics, NPCs and Grandpa Ed, world events, endless mode, the dungeon engine, tutorial/cutscene/arena/boss-intro systems, particles and projectiles, the HTML overlay + HUD layer, input, the main loop, networking, and the dev console.
+Source of truth is `docs/legacy/stewart-squad-v27.html` (9,901 lines). Heroes, abilities, combo ults, XP/leveling, skill trees, enemies, boss phase system, `BOSS_BLOCKS`, individual bosses, combat formulas, gear/equipment, loot, merchant stock, bounties, `NG_SCALE`, achievements and the save schema are **Part 1** — see Part 1 for those.
+
+---
+
+## Table of Contents
+
+1. [Utils, RNG & Seeded Noise](#1-utils-rng--seeded-noise)
+2. [World Constants & Biome System](#2-world-constants--biome-system)
+3. [World Generation, Landmarks & Init](#3-world-generation-landmarks--init)
+4. [Weather System](#4-weather-system)
+5. [Day/Night Cycle](#5-daynight-cycle)
+6. [Quest System](#6-quest-system)
+7. [Dialogue System Mechanics](#7-dialogue-system-mechanics)
+8. [NPCs, Grandpa Ed & the Biplane](#8-npcs-grandpa-ed--the-biplane)
+9. [World Events](#9-world-events)
+10. [Endless Mode](#10-endless-mode)
+11. [Dungeon System](#11-dungeon-system)
+12. [Tutorial System](#12-tutorial-system)
+13. [Cutscene System](#13-cutscene-system)
+14. [Arena Effect System & Boss Intro](#14-arena-effect-system--boss-intro)
+15. [Particles, VFX & Projectiles](#15-particles-vfx--projectiles)
+16. [Overlay / UI Structure & HUD](#16-overlay--ui-structure--hud)
+17. [Input](#17-input)
+18. [Main Loop & Init Ordering](#18-main-loop--init-ordering)
+19. [Networking](#19-networking)
+20. [Dev Console & Scenarios](#20-dev-console--scenarios)
+21. [Gaps, Oddities & Dead Code](#21-gaps-oddities--dead-code)
+
+---
+
+## 1. Utils, RNG & Seeded Noise
+
+**Legacy lines:** `// ===== UTILS =====` L579–L585; `// ===== NOISE FUNCTIONS (Seeded value noise for organic biomes) =====` L1520–L1544.
+
+### 1.1 Base helpers (L580–L585)
+
+```js
+const PI=Math.PI,TAU=PI*2;
+const lerp=(a,b,t)=>a+(b-a)*t,clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
+const dst=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),ang=(a,b)=>Math.atan2(b.y-a.y,b.x-a.x);
+const rnd=(a,b)=>a+Math.random()*(b-a),pick=a=>a[Math.floor(Math.random()*a.length)];
+function rrect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.quadraticCurveTo(x+w,y,x+w,y+r);c.lineTo(x+w,y+h-r);c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);c.lineTo(x+r,y+h);c.quadraticCurveTo(x,y+h,x,y+h-r);c.lineTo(x,y+r);c.quadraticCurveTo(x,y,x+r,y);c.closePath();}
+```
+
+`dst` is Euclidean distance between two objects carrying `.x/.y`; `ang` is the bearing from `a` to `b`; `rnd(a,b)` is a uniform float in `[a,b)`; `pick` chooses a uniform random array element; `rrect` builds a rounded-rectangle path on a 2D context.
+
+**RNG note (load-bearing for the port):** the only random source in v27 is `Math.random()`. Nothing is seeded except the biome noise below. Obstacle scatter, NPC placement, loot rolls, weather picks, bounty rolls and dungeon layout are all unseeded, so a save/reload does **not** reproduce them — they are re-rolled by `initGame()`. Only `noiseSeed` is persisted and synced.
+
+### 1.2 Seeded value noise (L1521–L1544)
+
+```js
+var noiseSeed=0;
+function initNoiseSeed(){noiseSeed=Math.floor(Math.random()*100000);}
+function hashN(x,y){
+  var n=noiseSeed+x*374761393+y*668265263;
+  n=(n^(n>>13))*1274126177;
+  n=n^(n>>16);
+  return(n&0x7fffffff)/0x7fffffff;
+}
+```
+
+`hashN` is an integer-lattice hash: it mixes the seed with two large primes (one per axis), applies two xor-shift/multiply rounds, masks off the sign bit and normalises to `[0,1)`.
+
+```js
+function smoothNoise(x,y){
+  var ix=Math.floor(x),iy=Math.floor(y);
+  var fx=x-ix,fy=y-iy;
+  fx=fx*fx*(3-2*fx);fy=fy*fy*(3-2*fy);
+  var v00=hashN(ix,iy),v10=hashN(ix+1,iy),v01=hashN(ix,iy+1),v11=hashN(ix+1,iy+1);
+  var a=v00+(v10-v00)*fx,b=v01+(v11-v01)*fx;
+  return a+(b-a)*fy;
+}
+```
+
+`smoothNoise` is classic 2D value noise: four lattice hashes bilinearly interpolated after smoothstep easing `t*t*(3-2t)` on both axes.
+
+```js
+function fbmNoise(x,y,octaves){
+  var val=0,amp=1,freq=1,maxVal=0;
+  for(var i=0;i<octaves;i++){
+    val+=smoothNoise(x*freq,y*freq)*amp;
+    maxVal+=amp;amp*=0.5;freq*=2;
+  }
+  return val/maxVal;
+}
+```
+
+`fbmNoise` sums `octaves` layers of value noise with amplitude halving and frequency doubling per octave, then divides by the total amplitude so the result stays in `[0,1)`.
+
+`noiseSeed` is the one piece of world randomness transmitted to guests — `buildStaticWorldData()` (L8788) sends it, `netApplyWorldInit()` (L1512) assigns it and clears `biomeCache`.
+
+---
+
+## 2. World Constants & Biome System
+
+**Legacy lines:** `// ===== STATE =====` L586–L624; `// ===== BIOME SYSTEM (Noise-based organic boundaries) =====` L1546–L1600.
+
+### 2.1 Constants
+
+| Constant | Line | Value | Meaning |
+|---|---|---|---|
+| `WW`, `WH` | L587 | `3200`, `3200` | Overworld is a fixed 3200 x 3200 px square. No wrapping. |
+| `WORLD_ZOOM` | L590 | `1.30` default | Global canvas zoom about screen centre. Settings offers `1.0 / 1.15 / 1.30`. |
+| `MAX_PARTICLES` | L620 | `250` | Cap on `parts[]` after the per-frame filter in `update()`. |
+| `MAX_WEATHER` | L620 | `80` | Cap on `weatherP[]` in `updWeather()`. |
+| `MAX_PROJS` | L620 | `150` | Cap on `projs[]` after the per-frame filter. |
+| `tutorialTimer` | L624 | `15` | Legacy standalone tutorial timer, superseded by the `tutorial` object (§12). |
+
+Zoom helpers (L591–L593):
+
+```js
+function beginWorldZoom(){ctx.save();ctx.translate(W/2,H/2);ctx.scale(WORLD_ZOOM,WORLD_ZOOM);ctx.translate(-W/2,-H/2);}
+function endWorldZoom(){ctx.restore();}
+function unzoomScreenPoint(sx,sy){return{x:(sx-W/2)/WORLD_ZOOM+W/2,y:(sy-H/2)/WORLD_ZOOM+H/2};}
+```
+
+`beginWorldZoom` scales the canvas about its centre; `unzoomScreenPoint` is its inverse, used to convert mouse/touch coordinates back to pre-zoom screen space before adding `cam`.
+
+### 2.2 Biome names (L1548)
+
+| Key | Display name |
+|---|---|
+| `forest` | Enchanted Forest |
+| `cave` | Crystal Caves |
+| `desert` | Scorching Sands |
+| `swamp` | Murky Swamp |
+| `frozen` | Frozen Peaks |
+
+There is no sixth *overworld* biome. `volcanic`, `citadel` and `citadel_f1..f3` exist only as dungeon biome keys.
+
+### 2.3 `getBiome(x,y)` — noise-scored organic boundaries (L1550–L1575)
+
+```js
+var biomeCache={};
+function getBiome(x,y){
+  // Cache at tile resolution (60px)
+  var tx=Math.floor(x/60),ty=Math.floor(y/60);
+  var key=tx+','+ty;
+  if(biomeCache[key]!==undefined)return biomeCache[key];
+  var nx=x/WW,ny=y/WH;
+  // Sample noise at different scales for variety
+  var n1=fbmNoise(nx*6+0.5,ny*6+0.5,3);
+  var n2=fbmNoise(nx*4+100,ny*4+100,2);
+  // Distance from center for forest core
+  var dc=Math.hypot(nx-0.5,ny-0.5);
+  // Combine noise with position bias for biome placement
+  // Forest stays near center, others around edges
+  var forestScore=0.6-dc*1.5+n1*0.3;
+  var caveScore=-0.1+(1-nx)*(1-ny)*0.8+n2*0.35-dc*0.2;
+  var desertScore=-0.1+nx*(1-ny)*0.8+n1*0.3-dc*0.2;
+  var swampScore=-0.1+ny*0.7+n2*0.3-dc*0.15;
+  var frozenScore=-0.2+(1-ny)*0.5+nx*0.2+n1*0.4-0.15;
+  // Forest gets a small bias to ensure center is always forest
+  if(dc<0.12)forestScore+=0.5;
+  var scores={forest:forestScore,cave:caveScore,desert:desertScore,swamp:swampScore,frozen:frozenScore};
+  var best='forest',bestVal=-999;
+  for(var b in scores){if(scores[b]>bestVal){bestVal=scores[b];best=b;}}
+  biomeCache[key]=best;
+  return best;
+}
+```
+
+Each biome gets a scalar score from normalised position plus a corner/edge bias plus one of two fbm samples; the highest score wins and the answer is memoised per 60 px tile.
+
+| Biome | Positional bias | Noise term |
+|---|---|---|
+| forest | strong pull to centre `0.6 - dc*1.5`, plus `+0.5` inside `dc < 0.12` | `n1 * 0.3` |
+| cave | top-left corner `(1-nx)*(1-ny)*0.8`, `-dc*0.2` | `n2 * 0.35` |
+| desert | top-right corner `nx*(1-ny)*0.8`, `-dc*0.2` | `n1 * 0.3` |
+| swamp | bottom edge `ny*0.7`, `-dc*0.15` | `n2 * 0.3` |
+| frozen | top edge + right lean `(1-ny)*0.5 + nx*0.2`, constant `-0.35` | `n1 * 0.4` |
+
+`biomeCache` is cleared in `genWorld()` (L2093), `initGame()` (L8280) and `netApplyWorldInit()` (L1512). `buildMinimapGrid()` (L3379) bakes a 20 x 20 sample of `getBiome` into `minimapBiomeGrid` using `{forest:'#162E20',cave:'#1C2040',desert:'#604828',swamp:'#143018',frozen:'#384868'}`.
+
+### 2.4 Blending at boundaries (L1577–L1585)
+
+```js
+function getBiomeBlend(x,y){
+  var b0=getBiome(x,y);
+  var step=30;
+  var neighbors=[getBiome(x+step,y),getBiome(x-step,y),getBiome(x,y+step),getBiome(x,y-step)];
+  for(var i=0;i<neighbors.length;i++){
+    if(neighbors[i]!==b0)return{biome:b0,neighbor:neighbors[i],blend:0.35};
+  }
+  return{biome:b0,neighbor:null,blend:0};
+}
+```
+
+A point counts as "in transition" if any of its four 30 px-offset neighbours resolves to a different biome; the blend weight is a flat `0.35` toward the first differing neighbour — there is no distance-based falloff.
+
+### 2.5 Ground palettes (L1587–L1600)
+
+```js
+function bioCol(b){
+  if(b==='forest')return{g:'#1E4A3A',gd:'#163828',tc:'#58B888',td:'#2E7A58'};
+  if(b==='desert')return{g:'#6A4E30',gd:'#5A3E28',tc:'#E8A860',td:'#C08040'};
+  if(b==='cave')return{g:'#2A3058',gd:'#222848',tc:'#8E98D8',td:'#6870B0'};
+  if(b==='swamp')return{g:'#2A4838',gd:'#1E3428',tc:'#70C090',td:'#408868'};
+  if(b==='frozen')return{g:'#4A6898',gd:'#3E5478',tc:'#A8D0E8',td:'#78A8D0'};
+  return{g:'#1E4A3A',gd:'#163828',tc:'#58B888',td:'#2E7A58'};
+}
+```
+
+| Biome | `g` ground | `gd` ground dark | `tc` accent | `td` accent dark |
+|---|---|---|---|---|
+| forest | `#1E4A3A` | `#163828` | `#58B888` | `#2E7A58` |
+| desert | `#6A4E30` | `#5A3E28` | `#E8A860` | `#C08040` |
+| cave | `#2A3058` | `#222848` | `#8E98D8` | `#6870B0` |
+| swamp | `#2A4838` | `#1E3428` | `#70C090` | `#408868` |
+| frozen | `#4A6898` | `#3E5478` | `#A8D0E8` | `#78A8D0` |
+
+`lerpColor(c1,c2,t)` (L1596) parses two hex strings to RGB and returns an interpolated `rgb(...)` string — the ground renderer pairs it with `getBiomeBlend().blend` to soften seams.
+
+### 2.6 Biome gameplay buffs
+
+Quest rewards write into `biomeBuff` (L720, `{forest:{},cave:{},desert:{},swamp:{},frozen:{}}`) and `getBiomeBuff(stat)` (L746) reads the **active hero's current biome**, returning the stat or a neutral value (`1` for `dmgMul`/`spdMul`/`atkSpdMul`, `0` otherwise). §6 lists which quest grants which buff.
+
+---
+## 3. World Generation, Landmarks & Init
+
+**Legacy lines:** `// ===== OBSTACLES =====` L2090–L2136 (`genWorld`, `drawObs`); `// ===== INIT =====` L8257–L8340 (`initGame`); portal L5713–L5740.
+
+### 3.1 Landmark clearance (L2094–L2097)
+
+`genWorld()` builds a landmark exclusion list first, then rejects any scatter point inside one of those discs:
+
+```js
+var _crX=ALIEN_CRATER.x,_crY=ALIEN_CRATER.y,_crR=ALIEN_CRATER.radius+50;
+// Known landmark positions to keep clear
+var _landmarks=[{x:_crX,y:_crY,r:_crR},{x:WW*.22,y:WH*.22+80,r:80},{x:WW*.78,y:WH*.22+80,r:80},{x:WW*.5,y:WH*.82+80,r:80},{x:WW*.50,y:WH*.08+80,r:80},{x:WW*.5+100,y:WH*.5,r:80},{x:ED_LANDING.x,y:ED_LANDING.y,r:80}];
+function _clearOfLandmarks(px,py){for(var li=0;li<_landmarks.length;li++){if(dst({x:px,y:py},_landmarks[li])<_landmarks[li].r)return false;}return true;}
+```
+
+Seven discs are protected: the alien crater (radius 150), the five dungeon-entrance sites, and Ed's landing strip (radius 80 each).
+
+| Landmark | Position | Clear radius |
+|---|---|---|
+| Alien crater | `(2844, 305)` (set in `initGame`, L8281) | `ALIEN_CRATER.radius + 50` = 150 |
+| Cave dungeon | `(WW*0.22, WH*0.22+80)` = `(704, 784)` | 80 |
+| Desert dungeon | `(WW*0.78, WH*0.22+80)` = `(2496, 784)` | 80 |
+| Swamp dungeon | `(WW*0.5, WH*0.82+80)` = `(1600, 2704)` | 80 |
+| Frozen dungeon | `(WW*0.50, WH*0.08+80)` = `(1600, 336)` | 80 |
+| Forest dungeon | `(WW*0.5+100, WH*0.5)` = `(1700, 1600)` | 80 |
+| Ed's landing (`ED_LANDING`) | `(floor(WW*0.35), floor(WH*0.35))` = `(1120, 1120)` | 80 |
+
+After `genWorld()` returns, `initGame()` does a **second** clearance sweep specifically for the landing strip (L8283):
+
+```js
+for(var _oi=obstacles.length-1;_oi>=0;_oi--){if(dst(obstacles[_oi],ED_LANDING)<80)obstacles.splice(_oi,1);}
+```
+
+### 3.2 Obstacle scatter table (L2098–L2116)
+
+Every scatter loop draws `x,y` from `rnd(100, WW-100)` / `rnd(100, WH-100)`, then rejects the point if `!_clearOfLandmarks(x,y)`. Trees and rocks additionally reject anything within 220 px of world centre (the spawn clearing). Biome-specific props simply `continue` unless `getBiome(x,y)` matches, so the actual placed count is far below the loop count.
+
+| Type | Loop count | Extra gate | Radius `r` | Extra fields |
+|---|---|---|---|---|
+| `tree` | 70 | `dst(pt, centre) >= 220`, any biome | `22` | `biome`, `th: rnd(15,28)` (trunk height) |
+| `rock` | 55 | `dst(pt, centre) >= 220`, any biome | `rnd(18,42)` | `biome`, `color` (biome-picked, below) |
+| `flower` | 45 | `getBiome === 'forest'` | `4` | `color` from `['#D86050','#E8A838','#D06888','#9088CC','#D07090','#F0D898']` |
+| `mush` | 25 | `getBiome === 'swamp'` | `6` | `color` from `['#D84830','#7B3CA0','#B06020']` |
+| `crystal` | 20 | `getBiome === 'cave'` | `8` | `color` from `['#6B8EC8','#a29bfe','#00cec9']` |
+| `cactus` | 18 | `getBiome === 'desert'` | `10` | — |
+| `icespike` | 18 | `getBiome === 'frozen'` | `8` | `color` from `['#b0d4f1','#d4e6f1','#aed6f1']` |
+| `pinetree` | 15 | `getBiome === 'frozen'` | `20` | `th: rnd(20,35)` |
+
+Rock colour by biome (L2103):
+
+| Biome | Palette |
+|---|---|
+| desert | `['#B88838','#A07830','#C89840']` |
+| cave | `['#484870','#505878','#3C4860']` |
+| frozen | `['#8098B8','#7088A8','#90A8C8']` |
+| swamp | `['#607060','#506858','#687868']` |
+| other | `['#707870','#808878','#606858']` |
+
+Obstacles are pure scenery for the hero (no collision in the overworld); the only code that reads their radius is `_getEdWalkPath()` (L6148), which pushes Ed's walk path 20 px away from any `tree`/`pinetree`/`rock` within 30 px.
+
+### 3.3 NPC placement inside `genWorld` (L2117–L2124)
+
+After scatter, `genWorld()` places one NPC per `NPC_DEFS` entry. For each definition it tries up to **80** random points in `rnd(200, WW-200)`:
+
+- reject unless `getBiome(nx,ny) === nd.biome`;
+- reject if within **200 px** of any dungeon entrance, spawner, or cage;
+- reject if within `(obstacle.r || 20) + 30` of any `tree`/`pinetree`/`rock`/`cactus`/`icespike`.
+
+On success it pushes `{nm,x,y,col,dk,icon,dlg,dlgIdx:0,visited:false,talkT:0,showBubble:false,bubbleT:0}`. If all 80 tries fail the NPC is simply not placed.
+
+### 3.4 `initGame()` ordering (L8258–L8340)
+
+Exact sequence (this is the canonical init order to port):
+
+1. `initSkillTrees()`; `hideAllOverlays()`.
+2. Clear all entity arrays: `heroes, enemies, projs, parts, loots, spawners, cages, obstacles, equips, weatherP, miniBosses`.
+3. Reset scalars: `sibs=0, gameOver=false, gameWon=false, paused=false, gt=0, totalXP=0, teamLv=1, xpNext=30, showLvl=false, portalOpen=false, inShadowRealm=false, shadowQueen=null, shadowQueenDefeated=false, worldEventTimer=60, activeEvent=null, eventEntities=[], bloodMoonActive=false, activeHero=0, endlessMode=false, endlessWave=0, endlessScore=0`, plus `gameStats` and `_adaptDiff`.
+4. `waveNum=0; waveTimer=3; bossUp=false; bossDefeated=false; boss=null; vig={i:0,t:0}`.
+5. `magnetStacks=0; pendingEquips=[]; tutorialTimer=15; equipPickupCount=0; dayTime=0; nightKills=0; achQueue=[]`.
+6. `initQuestLog()`; `showQuestJournal=false`; reset all achievements' `.done`.
+7. Reset `storyFlags` — **note:** the reset literal (L8272) omits `meteorSeen`, `craterVisited` and `edCraterDialogue`, so those three leak across a restart within one page load (see §21).
+8. `edQuestPhase=0; edCrashCount=0; biplaneSeen=0; questItemsCollected=[]; edNPC=null; dialogueActive=false; dialogueQueue=[]`.
+9. Reset the whole `biplane` object, including `biplane.crashReadyTimer = 90 + rnd(0,30)`.
+10. `biomeCache={}`.
+11. `ED_LANDING.x = floor(WW*0.35); ED_LANDING.y = floor(WH*0.35)` → `(1120,1120)`.
+12. `initNoiseSeed()`.
+13. `ALIEN_CRATER.x=2844; ALIEN_CRATER.y=305; discovered=false; particles=[]; lastFlavor=0`.
+14. `genWorld()` — scatter + NPCs (needs the crater and landing coordinates already set, which is why 11/13 come first).
+15. Landing-strip obstacle purge (radius 80).
+16. `buildMinimapGrid()`.
+17. Heroes: `heroes.push(new Hero(HDEFS[0], WW/2, WH/2))`, `heroes[0].unlocked=true`; heroes 1–3 created at `(0,0)` and locked.
+18. `FLAVOR_MARKERS` positions: `[0] = (WW*0.3, WH*0.3) = (960,960)`, `[1] = (WW*0.6, WH*0.7) = (1920,2240)`, `[2] = (WW*0.1, WH*0.5) = (320,1600)`; all `found=false`.
+19. Cages at `[{WW*.25,WH*.3},{WW*.75,WH*.6},{WW*.4,WH*.8}]` each `+rnd(-80,80)`, holding hero index `i+1`.
+20. Spawners at `[{.18,.18},{.82,.18},{.15,.72},{.85,.75},{.5,.12},{.5,.88}]` (fractions of WW/WH) each `+rnd(-50,50)`.
+21. Mini-bosses: `golem@(WW*.22,WH*.22)`, `sandworm@(WW*.78,WH*.22)`, `hydra@(WW*.5,WH*.82)`, `frostwyrm@(WW*.78,WH*.78)`, each `+rnd(-60,60)`.
+22. Reset dungeon state (`dungeonProgress` all false, `titanHeartObtained=false`, all dungeon arrays cleared).
+23. Dungeon entrances placed at the five sites in §3.1 with `+rnd(-40,40)` jitter.
+24. `gold=0; merchant.active=false; merchant.movT=0; spawnSecrets()`.
+25. `bountyBoard = (WW/2-120, WH/2+80) = (1480,1680)`; `rollBounties()`.
+26. `citadelEntrance = (WW/2, WH/2-100) = (1600,1500)`; `citadelFloor=0`; `citadelProgress` reset; `citHazardT=8`.
+27. If `DEV_MODE`: unlock all 4 heroes, set `lv=10`, triple `dmg`/`maxHp`, `sibs=3`, `teamLv=10`, `shadowQueenDefeated=true`, `bossDefeated=true`, `ngPlusUnlocked=true`, all `dungeonProgress` true except citadel.
+28. `checkVolcanicEntrance(); checkCitadelEntrance();`
+29. `announce(...)`, `gameStats.startTime=Date.now()`, `buildPortraitStrip()`.
+30. `tutorial = {step:0,active:true,timer:5,startX:heroes[0].x,startY:heroes[0].y,_switched:false,_openedTree:false}`; in DEV_MODE `tutorial.active=false; tutorial.step=7`.
+
+### 3.5 Hidden secrets (L672–L679)
+
+`spawnSecrets()` populates `secrets[]`:
+
+| Type | Count | Placement | Pickup effect (L9310–L9317) |
+|---|---|---|---|
+| `treasure` | 8 | `rnd(200, WW-200)` anywhere | `gold += floor(rnd(20,50))`, one `rollGearDrop(0,0.5)` equip, announce "Buried treasure found!" |
+| `lore` | 5 | one per biome centre `[{.2,.2},{.8,.2},{.5,.5},{.2,.8},{.8,.8}]` + `rnd(-200,200)`, carries `text` | `addXP(25)`, announce the lore line (colour `#a29bfe`, 4 s) |
+| `cache` | 5 | `rnd(200, WW-200)` anywhere | spawns 3 `Loot` at the site |
+| `golden` | 1 | `rnd(400, WW-400)` | `gold += 100`, one `rollGearDrop(0,0.5)`, 20-particle gold burst |
+
+Pickup radius is 40 px from the active hero; each triggers `trigAch('secretFinder')` and `updateBountyProgress('secrets',1)`. The five lore texts are family canon — see FAMILY_CANON.
+
+### 3.6 Flavor markers (L728, L5798–L5799)
+
+`FLAVOR_MARKERS` is a 3-entry array of `{x,y,text,found}`. `updateFlavorMarkers(dt)` (L5799) fires when the active hero is within **40 px**, sets `found=true`, `announce(fm.text,'#E8A838',3)` and plays `snd('achieve',0.15)`. Marker drawing (L5798) is a pulsing `#E8A838` dot with a `?` glyph. Texts are canon (FAMILY_CANON).
+
+### 3.7 Alien crater (L724, L5801–L5944)
+
+```js
+var ALIEN_CRATER={x:0,y:0,radius:100,innerRadius:50,discovered:false,particles:[],hum:null,lastFlavor:0};
+var METEOR_CUTSCENE_PLAYED=false;
+```
+
+- Position is hard-coded to `(2844, 305)` in `initGame()` (L8281) — deep in the north-east desert/frozen corner, deliberately far from spawn.
+- `updateCraterParticles(dt)` (L5801) keeps exactly 18 particles alive; each spawns at a random point inside `radius*0.9` with `vy = -rnd(10,20)` (rising), `life rnd(2,4)`, `sz rnd(1,3)`, colour from `['#A862C4','#1abc9c','#aaa']`, and drifts horizontally by `sin(gt + wp) * 0.5` per frame.
+- `updateCraterProximity(dt)` (L5934) — three mutually exclusive branches at range `< radius + 20` (120 px):
+
+```js
+if(d<ALIEN_CRATER.radius+20&&!ALIEN_CRATER.discovered){ALIEN_CRATER.discovered=true;storyFlags.craterDiscovered=true;announce("Something fell here. A long time ago.","#8850A8",4);trigAch('groundControl');var rLine=getHeroReaction(_h0.nm,'crater');if(rLine)announce(rLine,_h0.col||'#fff',3);}
+else if(d<ALIEN_CRATER.radius+20&&storyFlags.meteorSeen&&!storyFlags.craterVisited){ ... }
+else if(d<ALIEN_CRATER.radius+20&&ALIEN_CRATER.discovered&&gt-ALIEN_CRATER.lastFlavor>30){ALIEN_CRATER.lastFlavor=gt;announce(CRATER_FLAVOR[Math.floor(rnd(0,CRATER_FLAVOR.length))],"#8850A8",3);}
+```
+
+First entry discovers the crater and fires the hero `crater` reaction; the second branch (only after the meteor cutscene) sets `craterVisited` and announces one of four fixed hero lines; otherwise a `CRATER_FLAVOR` line is announced at most once per 30 s of game time.
+
+- `drawCraterVignette()` (L5943) adds a purple radial vignette that ramps to `alpha = 0.08 * (1 - d/(radius+40))` when the hero is within 140 px.
+- `METEOR_CUTSCENE_PLAYED` (L725) is **declared and never read or written anywhere else** — the meteor cutscene is actually gated on `storyFlags.meteorSeen` (see §13/§21).
+
+### 3.8 Portal (L5713–L5740)
+
+```js
+function spawnPortal(){
+  portalOpen=true;portalX=WW/2;portalY=WH*.35;portalT=0;
+  announce('A mysterious portal appears...','#A862C4',4);snd('portal',0.4);
+}
+```
+
+Fixed position `(1600, 1120)`. `drawPortal()` (L5719) advances `portalT` by `1/60` per draw and renders three counter-rotating arcs of radius `30 + sin(portalT*3)*5 + ri*8` in `rgba(168,98,196,α)` with a `#A862C4` shadow blur of `30 + sin(portalT*5)*15`, a dark disc `rgba(26,10,46,0.8)`, an inner glow `rgba(168,98,196,0.3)`, and the label `ENTER PORTAL` in `#e84393`.
+
+Collision is handled in `update()` (L9322): active hero within **40 px** ⇒ `inShadowRealm=true`, `portalOpen=false`, all unlocked living heroes teleported to `(WW/2, WH/2)`, camera snapped, `enemies=[]`, `shadowQueen = new ShadowQueen(WW/2, WH/2-200)`, `playBossIntro('THE SHADOW QUEEN','Mistress of Darkness','#A862C4','#A862C4')`, `screenShake(12,1)`.
+
+### 3.9 Late-unlock entrances (L5717–L5718)
+
+```js
+function checkCitadelEntrance(){if(!citadelUnlocked()||dungeonProgress.citadel)return;var hasCit=dungeonEntrances.some(function(d){return d.biome==='citadel';});if(!hasCit){dungeonEntrances.push(new DungeonEntrance(citadelEntrance.x,citadelEntrance.y,'citadel'));}}
+function checkVolcanicEntrance(){var allOrig=['forest','cave','desert','swamp','frozen'].every(function(b){return dungeonProgress[b]===true;});if(!allOrig||!bossDefeated)return;var hasVolc=dungeonEntrances.some(function(d){return d.biome==='volcanic';});if(!hasVolc){dungeonEntrances.push(new DungeonEntrance(WW/2,WH/2+100,'volcanic'));announce('The ground trembles... A volcanic rift opens!','#D84830',4);}}
+```
+
+Volcanic Rift appears at `(1600,1700)` once all five original dungeons are cleared **and** the Goblin King is dead. The Shadow Citadel appears at `citadelEntrance` `(1600,1500)` once `citadelUnlocked()` (L819) is true — Shadow Queen defeated **and** all five original dungeons cleared. Both checks run in `initGame()`, after `exitDungeon()`, and on the victory "keep playing" button.
+
+---
+## 4. Weather System
+
+**Legacy lines:** `// ===== WEATHER =====` L1602–L1660 (`WEATHER_TYPES` L1604, `WEATHER_BIOME` L1605, `weather` L1606, `weatherName` L1607, `updWeather` L1608–L1641, `drawWeather` L1642–L1660).
+
+Visual recipes (rain streaks, snow rotation, fog wash, aurora ribbons, lightning flash curve) belong to **ATMOSPHERE_RECIPES** — this section covers state, timers and mechanics only.
+
+### 4.1 Data
+
+```js
+var WEATHER_TYPES=['clear','rain','storm','snow','sand','fog'];
+var WEATHER_BIOME={forest:['clear','clear','rain','storm','fog'],cave:['clear','clear','clear','snow'],desert:['clear','clear','clear','sand','sand','storm'],swamp:['clear','rain','rain','fog','fog','storm'],frozen:['clear','clear','snow','snow','snow']};
+var weather={type:'clear',timer:90,transT:0,flashT:0,strikeT:rnd(8,12),strikeX:0,strikeY:0,strikeWarn:-1};
+```
+
+`WEATHER_BIOME` pools are **weighted by repetition** — `pick()` draws uniformly from the array, so duplicates raise the odds.
+
+| Biome | Pool (weights by count) | clear | rain | storm | snow | sand | fog |
+|---|---|---|---|---|---|---|---|
+| forest | clear, clear, rain, storm, fog | 2/5 | 1/5 | 1/5 | — | — | 1/5 |
+| cave | clear, clear, clear, snow | 3/4 | — | — | 1/4 | — | — |
+| desert | clear, clear, clear, sand, sand, storm | 3/6 | — | 1/6 | — | 2/6 | — |
+| swamp | clear, rain, rain, fog, fog, storm | 1/6 | 2/6 | 1/6 | — | — | 2/6 |
+| frozen | clear, clear, snow, snow, snow | 2/5 | — | — | 3/5 | — | — |
+
+Display names (`weatherName`, L1607):
+
+| Key | Name | HUD label (L3701) |
+|---|---|---|
+| `clear` | Clear Skies | (hidden) |
+| `rain` | Rain | 🌧️ Rain |
+| `storm` | Thunderstorm | ⛈️ Storm |
+| `snow` | Snowfall | 🌨️ Snow |
+| `sand` | Sandstorm | 🏜️ Sandstorm |
+| `fog` | Dense Fog | 🌫️ Fog |
+
+### 4.2 Transition timing (L1610)
+
+```js
+if(!inDungeon){weather.timer-=dt;if(weather.timer<=0){var hBiome=getBiome(_wh.x,_wh.y);var pool=WEATHER_BIOME[hBiome]||["clear"];var _prevW=weather.type;weather.type=pick(pool);weather.timer=weather.type==="clear"?rnd(60,120):rnd(20,60);weather.transT=2;weather.strikeWarn=-1;weather.flashT=0;if(weather.type==="storm"){weather.strikeT=rnd(4,8);gameStats.stormsSurvived=(gameStats.stormsSurvived||0)+1;if(gameStats.stormsSurvived>=5)trigAch("stormChaser");}if(weather.type!=="clear"){announce(weatherName(weather.type)+"!","#94C4DC",2);updateBountyProgress("weather",1);}else if(_prevW!=="clear"){announce("The weather clears.","#dfe6e9",2);}}
+```
+
+The weather clock only ticks in the overworld. On expiry it re-rolls from the pool of the biome under the **active hero** (falling back to `heroes[0]`); a `clear` roll lasts `rnd(60,120)` s, anything else `rnd(20,60)` s. `transT=2` is a two-second cross-fade counter (decremented at L1611, used by the ground/atmosphere renderer). Initial `timer` is `90`. Every non-clear transition announces, advances the `weather` bounty type, and a `storm` roll bumps `gameStats.stormsSurvived` (5 ⇒ `stormChaser` achievement).
+
+### 4.3 Lightning strikes (storm only, L1612–L1614)
+
+```js
+if(weather.type==='storm'){weather.strikeT-=dt;if(weather.strikeWarn>0)weather.strikeWarn-=dt;if(weather.strikeT<=0){weather.strikeT=rnd(10,18);weather.strikeWarn=1.0;var _newSX=_wh.x+rnd(-400,400);var _newSY=_wh.y+rnd(-400,400);var _prevD=Math.hypot(_newSX-(weather.strikeX||0),_newSY-(weather.strikeY||0));if(_prevD<200){_newSX+=(_newSX>_wh.x?200:-200);_newSY+=(_newSY>_wh.y?200:-200);}
+weather.strikeX=_newSX;weather.strikeY=_newSY;}
+if(weather.strikeWarn<=0&&weather.strikeWarn>-1&&weather.strikeWarn!==-1){weather.strikeWarn=-1;weather.flashT=0.12;snd('boom',0.3);var tgts=enemies;for(var si=0;si<tgts.length;si++){if(tgts[si]&&!tgts[si].dead&&typeof tgts[si].takeDmg==='function'&&dst({x:weather.strikeX,y:weather.strikeY},tgts[si])<60)tgts[si].takeDmg(30,null);}for(var li=0;li<12;li++){var la=rnd(0,TAU),ls=rnd(60,180);parts.push(new Part(weather.strikeX,weather.strikeY,{vx:Math.cos(la)*ls,vy:Math.sin(la)*ls,life:0.3,sz:rnd(2,5),col:pick(['#fff','#6B8EC8','#a29bfe']),fric:0.9}));}}}
+```
+
+Storms schedule a strike every `rnd(10,18)` s (first one `rnd(4,8)` s after the storm begins). The target lands `rnd(-400,400)` from the hero on each axis, nudged 200 px further out if it would land within 200 px of the previous strike. A **1.0 s telegraph** (`strikeWarn`) draws two pulsing `#E8A838` rings at radius 60 and 30 (L1646). On detonation: `flashT = 0.12` white flash, `snd('boom',0.3)`, **30 flat damage to every non-dead overworld enemy within 60 px** (heroes are never hit), and a 12-particle spark burst.
+
+### 4.4 Gameplay effects
+
+| Weather | Effect | Line |
+|---|---|---|
+| `snow` | Hero damage `d = floor(d * 1.1)` (+10% DMG, overworld only) | L2329 |
+| `rain`, `storm` | Enemy speed multiplier `nightSpd *= 0.9` (-10% enemy speed) | L2776 |
+| `storm` | Lightning: 30 damage in a 60 px radius on a 10–18 s cycle with a 1 s telegraph | L1613 |
+| `sand` | Fog-of-war radius multiplier `*= 0.625` | L878 |
+| `fog` | Fog-of-war radius multiplier `*= 0.5625` | L878 |
+| `storm`, `sand` | Parachute crate `driftDir` widens from `rnd(-5,5)` to `rnd(-20,20)` | L5969 |
+| `fog`, `sand` | Full-screen wash: `rgba(200,200,200,0.25)` / `rgba(194,154,100,0.2)` | L1643 |
+| `rain`, `storm` | Screen darkening: `rgba(10,10,30,0.08)` / `rgba(10,10,30,0.2)` | L1644 |
+| any non-clear | `updateBountyProgress('weather',1)` on transition | L1610 |
+
+No weather type changes hero movement speed. The visibility formula is combined with night in `nightFogMul()` — see §5.3.
+
+### 4.5 Particle emission rates (per `updWeather` call, i.e. per frame)
+
+| Condition | Spawn rule | Particle |
+|---|---|---|
+| `rain` | 3 per frame | `vy rnd(300,450)`, `vx rnd(-30,-10)`, `life rnd(0.8,1.5)`, `ml 1.5`, `tp:'rain'` |
+| `storm` | 5 per frame | same shape as rain |
+| `snow` (weather) | `Math.random()<0.6` | `vy rnd(30,80)`, `vx rnd(-30,30)`, `life rnd(3,6)`, `ml 6`, `rot`, `rv rnd(-2,2)` |
+| `sand` (weather) | `Math.random()<0.5` | spawns at `cam.x-10`, `vx rnd(120,220)`, `life rnd(1,2)`, `ml 2` |
+| night, any biome | `Math.random()<0.3` | `tp:'firefly'`, `#ffe066`, `life rnd(3,6)`, flicker phase `fl` |
+| `forest` biome | `Math.random()<0.25` | `tp:'leaf'`, colour from `['#B03828','#D87828','#E8A838','#38A866']` |
+| `swamp` biome | `Math.random()<0.2` | `tp:'fly'`, `#7dff7d`, rising `vy rnd(-12,-3)` |
+| `desert` biome | `Math.random()<0.4` | `tp:'sand'`, `vx rnd(50,110)` |
+| `cave` biome | `Math.random()<0.12` | `tp:'dust'`, `rgba(200,200,220,0.3)` |
+| `frozen` biome | `Math.random()<0.45` | `tp:'snow'` |
+
+Ambient `parts[]` (not `weatherP[]`) additions: night+forest fireflies at `0.05`/frame; sandstorm dust motes at `0.02`; swamp bubbles at `0.03`; cave sparkles at `0.02` (L1633–L1636).
+
+Caps (L1639–L1641): `weatherP` is truncated to `MAX_WEATHER` (80); there is a redundant second truncation at 500 and a `parts` truncation at 800 in the same block.
+
+### 4.6 Aurora (L1656)
+
+```js
+if(!inDungeon&&isNight()&&getBiome(cam.x+W/2,cam.y+H/2)==='frozen'){var auroraT=gt*0.3; ... }
+```
+
+Trigger conditions are exactly three, all required: **not in a dungeon**, `isNight()` true (day-phase `night`, i.e. `dayTime%240` in `[108, 180)` s), and the biome at the **camera centre** is `frozen`. It is not gated on weather. Three horizontal ribbons at `y = 30 + i*15 + sin(auroraT + i*1.5)*10`, each a 10 px band with a left-to-right gradient `transparent → colA(0.3) → colB(0.7) → transparent`, alpha `0.12 + sin(auroraT*0.5 + i)*0.05`. Colour pairs: `['#00b894','#00cec9']`, `['#6c5ce7','#a29bfe']`, `['#fd79a8','#e84393']`. Full recipe in ATMOSPHERE_RECIPES.
+
+---
+
+## 5. Day/Night Cycle
+
+**Legacy lines:** `// ===== DAY/NIGHT CYCLE =====` L855–L879.
+
+### 5.1 Phases
+
+```js
+let dayTime=0; // 0-240 seconds cycle (4 minutes)
+const DAY_CYCLE=240;
+function getDayPhase(){
+  var t=dayTime%DAY_CYCLE,p=t/DAY_CYCLE;
+  // 0-0.35=day, 0.35-0.45=dusk, 0.45-0.75=night, 0.75-0.85=dawn, 0.85-1=day
+  if(p<0.35)return{phase:'day',blend:0};
+  if(p<0.45)return{phase:'dusk',blend:(p-0.35)/0.1};
+  if(p<0.75)return{phase:'night',blend:1};
+  if(p<0.85)return{phase:'dawn',blend:1-(p-0.75)/0.1};
+  return{phase:'day',blend:0};
+}
+```
+
+A full cycle is 240 s (4 minutes) of unpaused overworld time. `dayTime` is advanced in `gameLoop` only when `!paused && !inDungeon` (L9235) — dungeons freeze the clock.
+
+| Phase | `p` range | Seconds | `blend` |
+|---|---|---|---|
+| day | `0.00 – 0.35` | 0 – 84 | `0` |
+| dusk | `0.35 – 0.45` | 84 – 108 | ramps `0 → 1` |
+| night | `0.45 – 0.75` | 108 – 180 | `1` |
+| dawn | `0.75 – 0.85` | 180 – 204 | ramps `1 → 0` |
+| day | `0.85 – 1.00` | 204 – 240 | `0` |
+
+### 5.2 Screen tint
+
+```js
+function getDayTint(){
+  var dp=getDayPhase();
+  if(dp.phase==='day')return{r:0,g:0,b:0,a:0};
+  if(dp.phase==='dusk')return{r:60,g:20,b:0,a:dp.blend*0.18};
+  if(dp.phase==='night')return{r:10,g:15,b:50,a:0.32};
+  if(dp.phase==='dawn')return{r:60,g:20,b:0,a:dp.blend*0.18};
+  return{r:0,g:0,b:0,a:0};
+}
+```
+
+Dusk and dawn share the same warm tint `rgb(60,20,0)` fading in/out to `α 0.18`; night is a flat cold `rgba(10,15,50,0.32)`. Applied as a full-screen fill by `drawDayNightTint()` (L3337), which early-returns during cutscenes and is overridden entirely inside the Shadow Realm by `rgb(60,0,80)` at `α 0.25`.
+
+### 5.3 Gameplay effects
+
+```js
+function isNight(){var dp=getDayPhase();return dp.phase==='night';}
+function nightXPMul(){return isNight()?1.5:1;}
+function nightEnemySpeedMul(){return isNight()?1.15:1;}
+function nightFogMul(){var m=isNight()?0.75:1;if(!inDungeon){if(weather.type==='sand')m*=0.625;if(weather.type==='fog')m*=0.5625;}return Math.max(m,0.5);}
+```
+
+| Effect | Value | Where consumed |
+|---|---|---|
+| XP | **×1.5 at night** (`bloodMoonActive` overrides with ×3) | `addXP()` L2704 |
+| Enemy speed | **×1.15 at night**; further `×0.9` in rain/storm; `×1.25` under Blood Moon | Enemy update L2774–L2778, mini-boss L2901 |
+| Fog-of-war radius | `×0.75 at night`, then `×0.625` sandstorm or `×0.5625` fog, floored at `0.5` | `drawFog()` L3332 (`fogR = 300 * nightFogMul()`), `render()` L3340 (`FOG_R = 320 * nightFogMul()` for culling) |
+| HUD | `hudDayNight` shows 🌙 / 🌅 / ☀️; `hudNightXP` ("XP +50%") shown only at night | `updateV5Hud` L3698–L3699 |
+| Fireflies | spawn at 0.3/frame in every biome at night | `updWeather` L1623 |
+| Forest night motes | extra `parts` at 0.05/frame when camera biome is forest | L1633 |
+| Aurora | frozen biome at night (§4.6) | L1656 |
+
+Night does **not** change enemy spawn counts, enemy HP or damage; the only stat effect is speed. Blood Moon (§9) is the event that stacks on top of night.
+
+---
+## 6. Quest System
+
+**Legacy lines:** `// ===== V11: QUEST SYSTEM =====` L696–L747; quest-item helpers L722–L737; NPC quest handlers L8341–L8389 (`getNPCQuestState`, `getNPCDialogue`, `spawnEscortNPC`, `spawnQuestWaypoints`, `npcQuestInteract`, `npcQuestInteractAs`); Ed's chain handler `edInteract` L8392–L8408.
+
+### 6.1 `QUEST_DEFS` (L697–L719) — all 18 quests
+
+Every entry has `{id, npc, biome, title, desc, hint, type, target, biomeReq, prereq, rewardXP, rewardDesc, chain, rewardFn}`; some add `talkTarget`, `questGroup`, `itemBiome`.
+
+| id | NPC | Title | Objective (`type` / `target`) | `biomeReq` | Prereq | XP | Reward effect (`rewardFn`) |
+|---|---|---|---|---|---|---|---|
+| `forest_1` | Rootkeeper Elm | Roots of the Problem | `kill_spawners` / 2 | forest | — | 50 | `biomeBuff.forest.dmgMul *= 1.1` |
+| `forest_2` | Rootkeeper Elm | Whispers in the Grove | `talk_to` / 1, `talkTarget:'Lamplighter Quartz'` | — | `forest_1` | 75 | none (desc: "Compass range upgrade") |
+| `forest_3` | Rootkeeper Elm | Heart of the Hollow | `clear_dungeon` / 1 | forest | `forest_2` | 100 | every hero `regen += 2` |
+| `cave_1` | Lamplighter Quartz | Crystal Resonance | `kill_enemies` / 20 | cave | — | 50 | `biomeBuff.cave.dmgMul *= 1.1` |
+| `cave_2` | Lamplighter Quartz | Shattered Reflections | `collect_items` / 5 | — | `cave_1` | 75 | every hero `crit += 0.05` |
+| `cave_3` | Lamplighter Quartz | Depths of Power | `defeat_boss` / 1 | cave | `cave_2` | 100 | `questRewards.mapEnemies = true` |
+| `desert_1` | Dunewalker Sol | Desert Trials | `survive_event` / 3 | — | — | 50 | `biomeBuff.desert.spdMul *= 1.15` |
+| `desert_2` | Dunewalker Sol | Nomad's Path | `visit_locations` / 3 | desert | `desert_1` | 75 | every hero `maxHp += 50`, `hp += 50` |
+| `desert_3` | Dunewalker Sol | Tomb Raider | `clear_dungeon` / 1 | desert | `desert_2` | 100 | every hero `maxHp += 50`, `hp += 50` |
+| `swamp_1` | Mistweaver Fern | Witch's Errand | `kill_enemies` / 15 | swamp | — | 50 | `biomeBuff.swamp.lifesteal += 0.1` |
+| `swamp_2` | Mistweaver Fern | Toxic Harvest | `escort_npc` / 1 | swamp | `swamp_1` | 75 | `questRewards.poisonImmune = true` |
+| `swamp_3` | Mistweaver Fern | Swamp Sovereign | `defeat_boss` / 1 | swamp | `swamp_2` | 100 | `questRewards.potionMul = 2` |
+| `frozen_1` | Hearthkeeper Neve | Cold Front | `kill_spawners` / 2 | frozen | — | 50 | `biomeBuff.frozen.atkSpdMul *= 1.15` |
+| `frozen_2` | Hearthkeeper Neve | The Hermit's Test | `kill_miniboss` / 2 | — | `frozen_1` | 75 | every hero `dmgReduction += 0.1` |
+| `frozen_3` | Hearthkeeper Neve | Ice Citadel | `clear_dungeon` / 1 | frozen | `frozen_2` | 100 | `questRewards.xpMul *= 1.2` |
+| `ground_ed_1` | Grandpa Ed | Ground-Ed: The Propeller | `fetch_item` / 1, `itemBiome:'frozen'` | — | — | 75 | `gold += 100`, `storyFlags.edGoggles = true` |
+| `ground_ed_2` | Grandpa Ed | Ground-Ed: The Rudder | `fetch_item` / 1, `itemBiome:'swamp'` | — | `ground_ed_1` | 100 | `gold += 100`, `storyFlags.edEdibles = 3` |
+| `ground_ed_3` | Grandpa Ed | Ground-Ed: The Spark Plug | `fetch_item_dungeon` / 1, `itemBiome:'cave'` | — | `ground_ed_2` | 150 | `gold += 150`, `storyFlags.edQuestComplete = true`, `storyFlags.betterDrops = true` |
+
+18 quests total: five three-step chains (forest, cave, desert, swamp, frozen), one per biome NPC, plus Grandpa Ed's three-step `questGroup:'ground_ed'` chain. `rewardDesc` strings (shown on turn-in) are, in order: `+10% DMG in forest`, `Compass range upgrade`, `+2 HP regen/s all biomes`, `+10% DMG in cave`, `+5% crit chance`, `Mini-map enemy dots`, `+15% speed in desert`, `+50 max HP all heroes`, `+50 max HP all heroes`, `+10% lifesteal in swamp`, `Poison immunity`, `Potions heal 2x`, `+15% attack speed in frozen`, `+10% damage reduction`, `+20% XP from all sources`, `Aviator Goggles + 100 Gold`, `Ed-ible x3 + 100 Gold`, `Better supply drops + 150 Gold`. All `desc`/`hint`/`title` strings are family canon — see FAMILY_CANON.
+
+`questRewards` (L721) starts `{mapEnemies:false, poisonImmune:false, potionMul:1, xpMul:1}`.
+
+### 6.2 Quest state machine
+
+`questLog[qid] = {status, progress}` with `status ∈ {'available','active','completable','complete'}`. `initQuestLog()` (L735) sets every quest to `available/0` and resets all `QUEST_ITEMS` flags. `activeQuests[]` holds the ids currently `active` and is **capped at 3** (see acceptance below).
+
+**Progress** — `updateQuestProgress(type, data)` (L738):
+
+```js
+for(var i=0;i<activeQuests.length;i++){var qid=activeQuests[i];var qd=QUEST_DEFS[qid];var qs=questLog[qid];
+  if(qs.status!=='active')continue;if(qd.type!==type)continue;
+  if(qd.biomeReq&&data.biome&&data.biome!==qd.biomeReq)continue;
+  if(type==='talk_to'&&qd.talkTarget&&data.npcName!==qd.talkTarget)continue;
+  qs.progress++;if(qs.progress>=qd.target){qs.status='completable';
+    questNotifs.push({text:qd.title+' — Ready to turn in!',col:'#3DCC7A',timer:4});snd('achieve',0.2);}
+  else{questNotifs.push({text:qd.title+': '+qs.progress+'/'+qd.target,col:'#E8A838',timer:3});}}
+```
+
+Only *active* quests of the matching `type` advance; a `biomeReq` filters on `data.biome` **only when the caller supplied one**; `talk_to` additionally matches `data.npcName` against `talkTarget`. Progress is always `+1` per call.
+
+Callers of `updateQuestProgress`:
+
+| `type` | Fired from |
+|---|---|
+| `talk_to` | `updateNPCs9()` when any living hero is within 60 px of an NPC and `npcTalkCD <= 0` (L8448) |
+| `escort_npc` | escort NPC reaches its destination (within 30 px), L8460 |
+| `visit_locations` | hero within 30 px of a quest waypoint, `{biome:'desert'}` (L8466) |
+| `clear_dungeon` | `exitDungeon(true)` with `{biome}` (L7113) |
+| `fetch_item` | `updateQuestItems()` on pickup, `{biome: it.biome}` (L734) |
+| `fetch_item_dungeon` | `exitDungeon(true)` when `biome==='cave'` and `ground_ed_3` is active (L7113) |
+| `survive_event` | blood moon / spring / earthquake ending (L6296, L6306, L6334) |
+| `kill_spawners`, `kill_enemies`, `defeat_boss`, `kill_miniboss`, `collect_items` | Part 1 combat/loot code |
+
+**Acceptance & turn-in** — `npcQuestInteract()` (L8357), triggered by the interact key when a hero is within **60 px** of an NPC:
+
+```js
+if(st.completable){var qid=st.completable,qd=QUEST_DEFS[qid];questLog[qid].status='complete';var idx=activeQuests.indexOf(qid);if(idx>=0)activeQuests.splice(idx,1);addXP(qd.rewardXP);qd.rewardFn();
+  questNotifs.push({text:'✅ '+qd.title+' — Complete! '+qd.rewardDesc,col:'#3DCC7A',timer:4});snd('achieve',0.3);announce('✅ '+qd.title+' complete!','#3DCC7A',3);
+  ... if(getCompletedQuestCount()>=15)trigAch('questMaster');npc.bubbleT=4;npc.showBubble=true;npcTalkCD=1;setTimeout(autoSave,500);return true;}
+if(st.available&&activeQuests.length<3){var qid=st.available,qd=QUEST_DEFS[qid];questLog[qid].status='active';questLog[qid].progress=0;activeQuests.push(qid);
+  ... if(qd.type==='escort_npc')spawnEscortNPC();if(qd.type==='visit_locations')spawnQuestWaypoints();npc.bubbleT=4;npc.showBubble=true;npcTalkCD=1;return true;}
+```
+
+Turn-in awards XP, runs `rewardFn`, removes from `activeQuests`, fires a 20-particle burst at the NPC and schedules an autosave 500 ms later; 15 completed quests unlocks `questMaster`. Acceptance only happens when fewer than 3 quests are active, and side-spawns the escort NPC or the three waypoints for those quest types. `npcQuestInteractAs(hero)` (L8367) is the byte-identical host-side variant used for guest-controlled heroes.
+
+**Availability gating** — `getNPCQuestState(npc)` (L8341) scans every `QUEST_DEFS` entry owned by that NPC and returns `{available, active, completable, allDone}`. A quest is offered only when `status === 'available'` **and** (`!prereq` or `questLog[prereq].status === 'complete'`). Only the first matching available quest is returned. `getNPCDialogue(npc)` (L8348) turns that into the bubble text:
+
+| State | Bubble |
+|---|---|
+| completable | `✅ <title> — Complete! Press SPACE to turn in.` |
+| available | `❗ <title>: <desc> [SPACE to accept]` |
+| active | `… <title>: <progress>/<target> — <hint>` |
+| allDone | one of `'Thank you, hero. The land is safe.'` / `'You have done everything I asked.'` / `'Go forth with my blessing!'` |
+| otherwise | `NPC_DEFS[i].dlg[npc.dlgIdx % dlg.length]` |
+
+The floating marker above an NPC (`drawNPC9`, L8425) is `✓` `#3DCC7A` for completable, `!` `#E8A838` for available, `...` grey for active, `!` for never-visited.
+
+### 6.3 Quest items (L722–L737)
+
+```js
+var QUEST_ITEMS={ed_propeller:{nm:'Propeller',col:'#888',glowCol:'#FFD700',biome:'frozen',dungeon:false,x:0,y:0,spawned:false,collected:false,ambush:false},ed_rudder:{nm:'Rudder',col:'#228B22',glowCol:'#228B22',biome:'swamp',dungeon:false,x:0,y:0,spawned:false,collected:false,ambush:true,ambushCount:4,ambushDone:false},ed_sparkplug:{nm:'Spark Plug',col:'#C0C0C0',glowCol:'#00d2ff',biome:'cave',dungeon:true,x:0,y:0,spawned:false,collected:false,ambush:false}};
+```
+
+| Key | Name | Biome | In dungeon? | Ambush | Glow |
+|---|---|---|---|---|---|
+| `ed_propeller` | Propeller | frozen | no | no | `#FFD700` |
+| `ed_rudder` | Rudder | swamp | no | **yes, 4 enemies** | `#228B22` |
+| `ed_sparkplug` | Spark Plug | cave | **yes** (awarded on dungeon clear) | no | `#00d2ff` |
+
+`spawnQuestItem(key)` (L729): dungeon items just flag `spawned=true`; overworld items try up to **100** random points in `rnd(100, WW-100)` until `getBiome` matches, falling back to world centre.
+
+`updateQuestItems(dt)` (L734): within **80 px** an un-triggered ambush spawns `ambushCount` (4) enemies at `rnd(60,120)` around the item with `announce("Ambush!","#D84830",2)`; within **40 px** (and ambush resolved) the item is collected — pushed to `questItemsCollected`, 10-particle burst in `glowCol`, `snd('achieve',0.2)`, and `updateQuestProgress('fetch_item',{biome:it.biome})`.
+
+The spark plug is granted by `exitDungeon(true)` when clearing the cave dungeon with `ground_ed_3` active (L7113):
+
+```js
+if(biome==='cave'&&questLog.ground_ed_3&&questLog.ground_ed_3.status==='active'){if(questItemsCollected.indexOf('ed_sparkplug')<0)questItemsCollected.push('ed_sparkplug');QUEST_ITEMS.ed_sparkplug.spawned=true;QUEST_ITEMS.ed_sparkplug.collected=true;updateQuestProgress('fetch_item_dungeon',{biome:'cave'});announce('Spark Plug recovered from the Crystal Depths!','#00d2ff',3);}
+```
+
+### 6.4 Escort quest and waypoints
+
+`spawnEscortNPC()` (L8351) looks up an NPC named **`'Bog Witch'`** — which does not exist in `NPC_DEFS` (the swamp NPC is `Mistweaver Fern`), so the function returns immediately and the escort never spawns. See §21.
+
+```js
+function spawnEscortNPC(){var witch=npcs.find(function(n){return n.nm==='Bog Witch';});if(!witch)return; ... }
+```
+
+Had it spawned, the escort would be `{hp: 50+teamLv*5, spd:40, sz:8}` walking to a point `rnd(300,500)` away, arriving within 30 px, un-sticking itself by `rnd(-20,20)` after 5 s of no movement, and taking `en.dmg*0.3` from enemies within 80 px at `1%*dt*60` probability per enemy per frame. Escort death resets `swamp_2` to `available` and removes it from `activeQuests` (L8462).
+
+`spawnQuestWaypoints()` (L8354) has the same problem in weaker form — it looks for an NPC named **`'Sand Nomad'`** (also absent) but falls back to `(WW*0.78, WH*0.22)`, so waypoints do work: 3 points, each found by up to 30 tries of `centre + rnd(-400,400)` clamped to `[100, WW-100]`, preferring `getBiome === 'desert'`.
+
+### 6.5 Story flags (L749)
+
+```js
+var storyFlags={edMet:false,edGoggles:false,edEdibles:0,edQuestComplete:false,betterDrops:false,craterDiscovered:false,edSpaceHints:0,meteorSeen:false,craterVisited:false,edCraterDialogue:false};
+```
+
+| Flag | Type | Set by | Read by |
+|---|---|---|---|
+| `edMet` | bool | `spawnEd()` L8390 | biplane crash gate (`canCrash` L6021) — once Ed exists, no more crash flyovers |
+| `edGoggles` | bool | `ground_ed_1.rewardFn` | cosmetic / save only |
+| `edEdibles` | number | `ground_ed_2.rewardFn` sets `3` | cosmetic / save only |
+| `edQuestComplete` | bool | `ground_ed_3.rewardFn` | unlocks Ed's scheduled supply flights (L6031), `post_quest` dialogue, crater-awareness gate |
+| `betterDrops` | bool | `ground_ed_3.rewardFn` | supply drop count `rnd(6,11)` vs `rnd(3,8)` (L6100); crate heal 60% vs 30%, gold `rnd(40,80)` vs `rnd(20,40)` (L6008) |
+| `craterDiscovered` | bool | `updateCraterProximity` first entry; cutscene Scene 6 `onEnd` | Ed `crater_hint` branch (L8405) |
+| `edSpaceHints` | number | never incremented anywhere | nothing |
+| `meteorSeen` | bool | `exitDungeon` on **first** dungeon clear (L7112); cutscene Scene 6 `onEnd` | gates the crater-visit reactions and Ed's crater dialogue |
+| `craterVisited` | bool | `updateCraterProximity` second branch | Ed `crater_awareness` gate |
+| `edCraterDialogue` | bool | `edInteract` when the awareness scene plays | one-shot guard |
+
+### 6.6 The ALIEN_CRATER / meteor wiring
+
+The chain, end to end:
+
+1. `initGame()` pins the crater at `(2844, 305)` and clears `discovered` (L8281).
+2. `genWorld()` keeps a 150 px radius free of props around it (L2095).
+3. `exitDungeon(true)` counts cleared dungeons; on the **first** clear it sets `storyFlags.meteorSeen = true` and schedules the cutscene 2.5 s later (L7112):
+
+```js
+var _dungCleared=0;for(var _dk in dungeonProgress)if(dungeonProgress[_dk])_dungCleared++;
+if(_dungCleared===1&&!storyFlags.meteorSeen){storyFlags.meteorSeen=true;setTimeout(function(){triggerMeteorCutscene();},2500);}
+```
+
+4. `triggerMeteorCutscene()` (L4451) plays the 7-shot sequence (§13). Scene 6's `onEnd` sets `storyFlags.meteorSeen`, `ALIEN_CRATER.discovered` and `storyFlags.craterDiscovered` all true (L4991).
+5. Walking to the crater afterwards sets `storyFlags.craterVisited` and fires one of four hero lines (L5936–L5941).
+6. Talking to Ed with `edQuestComplete && craterVisited && meteorSeen && !edCraterDialogue` opens `DIALOGUE.grandpaEd.crater_awareness` with the `ed_crater` hero reaction and latches `edCraterDialogue` (L8403).
+7. `F10` in DEV_MODE replays the cutscene (L1021); the dev console has a `▶ Meteor` button (L9825).
+
+`METEOR_CUTSCENE_PLAYED` (L725) is vestigial — never read, never written.
+
+### 6.7 Quest UI
+
+- `questNotifs[]` — toasts `{text,col,timer}` decremented in `updateNPCs9` (L8470) and drawn by `drawQuestNotifs()` when neither the journal nor bestiary is open.
+- `showQuestJournal` toggled by the `questJournal` bind (`j`), which also closes bestiary/skill tree/inventory/pause and sets `paused` accordingly (L960).
+- `drawQuestTracker()` renders the tracked quest at `(W-140, 142)`, size 130 x 42; clicking it cycles `questTrackerIdx` through `activeQuests` (L1043).
+- `getNextObjective9()` (L8475) drives the compass; priority order is: completable quest turn-in target (Ed first) → unopened cages → uncollected overworld quest items → Ed when he has an available quest and `edQuestPhase < 4` → escort NPC → unvisited waypoints → living mini-bosses → uncleared dungeon entrances → Goblin King → open portal → Volcanic Rift.
+
+---
+## 7. Dialogue System Mechanics
+
+**Legacy lines:** `// ===== V22: DIALOGUE SYSTEM =====` L751–L835. All spoken text is family canon and lives in FAMILY_CANON — this section lists **keys, triggers, and the selection/rendering machinery only**.
+
+### 7.1 State (L752–L753)
+
+```js
+var dialogueActive=false,dialogueQueue=[],dialogueCharIdx=0,dialogueTyping=true,dialogueLineIdx=0;
+var dialoguePortrait=null,dialogueName='',dialogueNameCol='#fff';
+```
+
+`dialogueQueue` is an array of `{text,name,col,portrait}`; `dialogueLineIdx` is the current line; `dialogueCharIdx` is the typewriter cursor.
+
+### 7.2 `DIALOGUE` shape (L754–L798) — keys and triggers
+
+Only one speaker exists: `DIALOGUE.grandpaEd`.
+
+| Category key | Lines | Trigger |
+|---|---|---|
+| `greetings` | 6 | `edInteract()` fallback when no Ed quest is available/completable and `edQuestComplete` is false (L8407); paired with hero reaction `quest_intro` |
+| `quest_ground_ed.phase1_intro` | 4 | accepting `ground_ed_1` (L8399); reaction `quest_intro` |
+| `quest_ground_ed.phase1_return` | 1 | turning in `ground_ed_1` (L8394); no reaction |
+| `quest_ground_ed.phase2_intro` | 3 | accepting `ground_ed_2` |
+| `quest_ground_ed.phase2_return` | 1 | turning in `ground_ed_2` |
+| `quest_ground_ed.phase3_intro` | 3 | accepting `ground_ed_3` |
+| `quest_ground_ed.phase3_return` | 1 | turning in `ground_ed_3` |
+| `quest_ground_ed.quest_complete` | 4 | immediately after `phase3_return` (L8396); reaction `space_hint` |
+| `crash_landing` | 4 | **declared but never opened by any call site** (see §21) |
+| `post_quest` | 5 | `edInteract()` when `storyFlags.edQuestComplete` (L8406); reaction `space_hint` |
+| `crater_awareness` | 5 | `edInteract()` when `edQuestComplete && craterVisited && meteorSeen && !edCraterDialogue` (L8403); reaction `ed_crater` |
+| `crater_hint` | — | **referenced at L8405 but no such key exists** — the call is a silent no-op |
+
+Nested categories are addressed with a dotted path (`'quest_ground_ed.phase1_intro'`), resolved by `reduce` inside `openDialogue`.
+
+### 7.3 `HERO_REACTIONS` (L799–L802) — contexts per hero
+
+```js
+function getHeroReaction(heroName,context){var pool=HERO_REACTIONS[heroName];if(!pool||!pool[context])return null;var lines=pool[context];return lines[Math.floor(Math.random()*lines.length)];}
+```
+
+Keyed by the hero's uppercase `nm`. Each context holds an array (all are single-element in v27), and one line is picked uniformly.
+
+| Context | LIAM | NOAH | COLLETTE | ISABELLA | Where used |
+|---|---|---|---|---|---|
+| `crash_landing` | ✓ | ✓ | ✓ | ✓ | *no call site* |
+| `quest_intro` | ✓ | ✓ | ✓ | ✓ | Ed quest accept + greetings |
+| `space_hint` | ✓ | ✓ | ✓ | ✓ | `quest_complete`, `post_quest` |
+| `dungeon_enter` | ✓ | ✓ | ✓ | ✓ | *no call site* |
+| `boss_appear` | ✓ | ✓ | — | ✓ | *no call site* |
+| `sibling` | ✓ | — | — | — | *no call site* |
+| `swamp_item` | — | ✓ | ✓ | — | *no call site* |
+| `crater` | — | ✓ | — | ✓ | `updateCraterProximity` first discovery (L5934) |
+| `ed_crater` | — | ✓ | — | ✓ | Ed `crater_awareness` (L8403) |
+| `mid_boss` | — | — | ✓ | — | *no call site* |
+| `victory` | — | — | ✓ | — | *no call site* |
+| `snack_reward` | — | — | — | ✓ | *no call site* |
+| `following_collette` | — | — | — | ✓ | *no call site* |
+
+`getHeroReaction` returns `null` when the active hero has no line for that context, and `openDialogue` simply omits the reaction line — so contexts defined for only some heroes degrade gracefully.
+
+### 7.4 `openDialogue` — selection and queue build (L804)
+
+```js
+function openDialogue(charKey,category,heroReactionCtx){var dlgData=DIALOGUE[charKey];if(!dlgData)return;var lines=category.indexOf('.')>=0?category.split('.').reduce(function(o,k){return o&&o[k];},dlgData):dlgData[category];if(!lines||!lines.length)return;dialogueQueue=[];for(var i=0;i<lines.length;i++)dialogueQueue.push({text:lines[i].text||lines[i],name:charKey==='grandpaEd'?'Grandpa Ed':charKey,col:charKey==='grandpaEd'?'#228B22':'#fff',portrait:charKey==='grandpaEd'?'ed':null});if(heroReactionCtx){var h0=heroes[activeHero];if(h0){var rLine=getHeroReaction(h0.nm,heroReactionCtx);if(rLine)dialogueQueue.push({text:rLine,name:h0.nm,col:HDEFS[activeHero].col||'#fff',portrait:null});}}dialogueActive=true;dialogueLineIdx=0;dialogueCharIdx=0;dialogueTyping=true;events.emit('dialogueOpen',{charKey:charKey,category:category});}
+```
+
+The whole category is queued in array order — **there is no rotation, no random pick, and no "seen" tracking**: `greetings` always plays all six lines from the top, every time. A hero reaction, when requested and available, is appended as the final line in the active hero's colour with no portrait. Opening emits `dialogueOpen` on the event bus.
+
+**"Greeting rotation" caveat:** the biome NPCs (not Ed) do have a rotation field — `npc.dlgIdx` indexes `NPC_DEFS[i].dlg` in `getNPCDialogue` (L8348), but `dlgIdx` is only ever reset to `0` on first visit (L8447) and never incremented, so in practice each biome NPC shows only its first line. Ed's `dlgIdx` is likewise unused.
+
+### 7.5 Advance / typewriter (L805)
+
+```js
+function advanceDialogue(){if(dialogueTyping){dialogueCharIdx=9999;dialogueTyping=false;return;}dialogueLineIdx++;if(dialogueLineIdx>=dialogueQueue.length){dialogueActive=false;dialogueQueue=[];dialogueLineIdx=0;dialogueCharIdx=0;events.emit('dialogueClose');return;}dialogueCharIdx=0;dialogueTyping=true;}
+```
+
+First press completes the current line instantly; the second advances. Falling off the end closes the box and emits `dialogueClose`. The interact key routes here first (L970) and the mobile interact button does the same (L1006).
+
+Typewriter speed: `update()` short-circuits while dialogue is open and advances two characters per frame (L9248):
+
+```js
+if(dialogueActive){dialogueCharIdx+=2;return;}
+```
+
+Because this is `return`-before-everything, **the entire overworld simulation is frozen while dialogue is up** (no enemy AI, no timers, no biplane — `updateBiplane` also early-returns on `dialogueActive`, L5973).
+
+### 7.6 Box rendering (L806)
+
+`drawDialogueBox()` draws a rounded panel at `x=20, y=H-120, w=W-40, h=100`, fill `rgba(11,14,26,0.94)`, 1.5 px `#E8A838` border, corner radius 12. Layout inside: portrait/avatar circle radius 22 at `(x+38, y+38)`; speaker name in `bold 13px sans-serif` at `x+70`; body text `12px sans-serif` word-wrapped to `bw-80` px with 16 px line height starting at `y+42`. When the line is fully typed a `▶` marker pulses in the bottom-right at `alpha = 0.5 + 0.5*sin(gt*6)`.
+
+### 7.7 Portrait system (L807)
+
+`drawPortrait(ctx2, cx, cy, charId, mood)` currently implements exactly one portrait, `'ed'`: a `#228B22` head circle (r 18), two white eyes (r 4) with `#228B22` pupils (r 2.2) and white specular dots, brown `#7A4018` goggle rings (r 5) joined by a strap, translucent lens highlights, a smile arc, and a swaying `#1a5c1a` scarf driven by `sin(gt*2)*3`. `mood` is accepted and only `'happy'`/`'wink'` change anything (they add two small `#165B16` cheek strokes) — every other mood string renders identically. `drawDialogueBox` always calls it with `'happy'`, so **mood is effectively unused at runtime** even though every canon line carries one.
+
+Moods present in the canon data (for a future portrait set): `happy, wink, smirk, wistful, dreamy, nervous, cheerful, sheepish, thinking, serious, worried, relieved, excited, annoyed, overjoyed, triumphant, proud, puzzled, hopeful, resigned, secretive, curious, stunned, distracted`.
+
+---
+
+## 8. NPCs, Grandpa Ed & the Biplane
+
+**Legacy lines:** `NPC_DEFS` L626–L632; `FAMILY_NPC_DEFS` L633; `ED_LANDING`/`edNPC` L634; `biplane` L635–L646; NPC update L8443–L8474; Ed draw L8380; `spawnEd`/`despawnEd`/`edInteract` L8390–L8408; biplane logic L5945–L6285.
+
+### 8.1 `NPC_DEFS` (L626–L632)
+
+| Name | Biome | `col` | `dk` | Icon |
+|---|---|---|---|---|
+| Rootkeeper Elm | forest | `#58B888` | `#2E7A58` | 🌳 |
+| Lamplighter Quartz | cave | `#8E98D8` | `#5868A8` | 🔮 |
+| Dunewalker Sol | desert | `#E8A860` | `#987040` | 🏜️ |
+| Mistweaver Fern | swamp | `#70C090` | `#386848` | 🧪 |
+| Hearthkeeper Neve | frozen | `#A8D0E8` | `#5878A0` | ❄️ |
+
+Each carries a 3-line `dlg` array (canon; FAMILY_CANON). Placement rules are in §3.3. Runtime instance fields: `{nm,x,y,col,dk,icon,dlg,dlgIdx,visited,talkT,showBubble,bubbleT}`.
+
+`updateNPCs9(dt)` (L8443) per frame:
+- `npcTalkCD = max(0, npcTalkCD - dt)` (a 1 s cooldown set on every quest interaction).
+- For each NPC, check **all** unlocked living heroes (not just the active one) for proximity `< 60`. If near and `npcTalkCD <= 0`: `showBubble = true`, `bubbleT = 5`, first visit sets `visited=true, dlgIdx=0`, and `updateQuestProgress('talk_to',{npcName:npc.nm})` fires.
+- `bubbleT` decays; the bubble also clears if no hero is within 120 px.
+- Escort NPC, quest waypoints, quest-notification timers and Ed proximity (60 px, `bubbleT = 3`) are all updated in the same function.
+
+`drawNPC9` (L8409) renders a body ellipse (`dk` shadow ellipse + `col` body 12x14 + head r 9), eyes, a `rgba(255,255,255,0.4)` accent ring, a bobbing emoji at `sy-30 + sin(gt*2)*3`, the name at `sy+28`, the quest marker at `(sx+18, sy-20)`, and a word-wrapped speech bubble (`min(200, len*7+20)` wide, 40 tall) at `sy-65` with a downward pointer.
+
+### 8.2 `FAMILY_NPC_DEFS` and Ed's NPC form (L633–L634, L8390)
+
+```js
+var FAMILY_NPC_DEFS={grandpaEd:{nm:'Grandpa Ed',col:'#228B22',dk:'#165B16',icon:'✈️',dialogueKey:'grandpaEd',questGroup:'ground_ed',portrait:'ed',drawFn:'drawGrandpaEd'}};
+var ED_LANDING={x:0,y:0};var edNPC=null;
+function spawnEd(){edNPC={x:ED_LANDING.x,y:ED_LANDING.y,nm:'Grandpa Ed',col:'#228B22',dk:'#165B16',showBubble:false,bubbleT:0,visited:false,dlgIdx:0};storyFlags.edMet=true;}
+function despawnEd(){edNPC=null;}
+```
+
+`FAMILY_NPC_DEFS` is a data table that describes Ed but is **not read by any runtime code** — `spawnEd()` hard-codes the same values. `ED_LANDING` is `(1120, 1120)`, set in `initGame`. `despawnEd()` is never called.
+
+`drawGrandpaEd(npc)` (L8380): shadow ellipse; `#165B16` body 15x16 with `#228B22` overlay 14x15; head circle r 10; brown `#7A4018` goggles (two r-4 rings + strap) with white highlight dots; white eyes r 2.8 with `#228B22` pupils; smile arc; a `#1a5c1a` scarf whose sway is `sin(gt*2 + npc.x)*3`; name label at `sy+30`; and, when the active hero is within 70 px, a `rgba(34,139,34,0.3)` interaction ellipse (20 x 22).
+
+### 8.3 The `biplane` state object (L635–L646)
+
+```js
+var biplane={active:false,x:0,y:0,alt:50,vx:0,vy:0,wobbleT:0,sputterT:0,sputterOn:false,smokeTrail:[],crashing:false,crashT:0,timer:20,crate:null,fromEdge:0,event:'none',
+  flightTime:0,startX:0,startY:0,
+  hasCrashed:false,
+  crashReady:false,crashReadyTimer:0,flyoverCount:0,
+  edFlying:false,edTakeoff:0,edLanding:0,
+  edWalkPath:null,edWalkT:0,edFlightCooldown:0,
+  parachuteCrates:[],_dropped:false,
+  heading:0,targetHeading:0,turnRate:0,
+  trick:null,trickCooldown:0,
+  courseTimer:0,courseTarget:{x:0,y:0}
+};
+```
+
+### 8.4 Ed state machine (`updateBiplane`, L5973–L6146)
+
+`updateBiplane(dt)` early-returns on `inDungeon || paused || dialogueActive || state!=='playing'`. Parachute crates are updated first and unconditionally (they persist after the plane leaves).
+
+**Phase A — pre-crash (while `!biplane.hasCrashed`, L5997–L6027).** With the plane inactive:
+
+```js
+biplane.timer-=dt;
+if(!biplane.crashReady&&!storyFlags.edMet){
+  biplane.crashReadyTimer-=dt;
+  if(biplane.crashReadyTimer<=0)biplane.crashReady=true;
+}
+if(biplane.timer<=0){
+  biplane.flyoverCount++;
+  var nextInterval;
+  if(biplane.flyoverCount<3)nextInterval=25+rnd(0,15);
+  else if(biplane.flyoverCount<6)nextInterval=35+rnd(0,20);
+  else nextInterval=50+rnd(0,25);
+  biplane.timer=nextInterval;
+  var canCrash=biplane.crashReady&&!storyFlags.edMet&&!inDungeon&&!bossUp&&!activeEvent&&!dialogueActive;
+  if(canCrash){ _launchBiplane('crash',true); announce('✈️ A biplane sputters overhead!','#D94848',2); }
+  else { var evt2=Math.random()<0.4?'supply':'flyover'; _launchBiplane(evt2,true); announce(evt2==='supply'?'✈️ Supply drop inbound!':'✈️ A biplane flies overhead!','#E8A838',2); }
+}
+```
+
+| Timer | Initial | Cadence |
+|---|---|---|
+| `biplane.timer` (next flyover) | `20` s | flyovers 1–2: `25 + rnd(0,15)`; 3–5: `35 + rnd(0,20)`; 6+: `50 + rnd(0,25)` |
+| `biplane.crashReadyTimer` | `90 + rnd(0,30)` s | counts down only while Ed has not been met; hitting 0 arms the crash |
+
+Non-crash launches are 40% `supply`, 60% `flyover`.
+
+**Phase B — post-repair scheduled flights (L6031–L6039).** Once `storyFlags.edQuestComplete` and Ed is on the ground:
+
+```js
+biplane.edFlightCooldown-=dt;
+if(biplane.edFlightCooldown<=0){
+  biplane.edFlying=true;biplane.edWalkT=0;
+  biplane.edWalkPath=_getEdWalkPath(edNPC.x,edNPC.y,ED_LANDING.x,ED_LANDING.y);
+  announce("Ed: \"Time for a supply run!\"","#228B22",2);
+}
+```
+
+`edFlightCooldown` is set to `999` at crash-landing (disabling flights) and to `120 + rnd(0,60)` after each completed supply run (L6122).
+
+**Phase C — walk to the plane (L6042–L6058).** Ed walks his path at **80 px/s**; the path comes from `_getEdWalkPath` (L6148), which samples the straight line every 30 px and pushes each sample 20 px away from any `tree`/`pinetree`/`rock` within 30 px. On arrival Ed snaps to `ED_LANDING`, `_launchBiplane('supply', false)` fires, `edNPC._hidden = true`, and if the takeoff is off-screen `edTakeoff` is zeroed so the plane starts at altitude.
+
+**Phase D — active flight (L6061–L6118).**
+
+```js
+if(biplane.edTakeoff>0){biplane.edTakeoff-=dt;biplane.alt=Math.min(150,(2.5-biplane.edTakeoff)*60);if(biplane.edTakeoff<=0)biplane.alt=150;}
+```
+
+Takeoff is a 2.5 s climb to altitude 150 at 60 px/s.
+
+Steering (non-crash events only):
+
+```js
+biplane.courseTimer-=dt;
+if(biplane.courseTimer<=0&&!biplane.trick){biplane.courseTimer=rnd(2.5,5);var curA=Math.atan2(biplane.vy,biplane.vx);biplane.targetHeading=curA+rnd(-0.6,0.6);}
+...
+var velA=Math.atan2(biplane.vy,biplane.vx);var desiredA=biplane.targetHeading||velA;
+var steerDiff=_normA(desiredA-velA);var maxSteer=1.2*dt;
+var steerAmt=steerDiff>0?Math.min(steerDiff,maxSteer):Math.max(steerDiff,-maxSteer);
+var newA=velA+steerAmt;biplane.vx=Math.cos(newA)*nomSpd;biplane.vy=Math.sin(newA)*nomSpd;
+var headDiff=_normA(newA-biplane.heading);biplane.heading+=headDiff*Math.min(1,3.5*dt);
+biplane.turnRate=lerp(biplane.turnRate,steerDiff*2.5,4*dt);
+```
+
+Nominal speed `nomSpd = 100` px/s; heading changes at most `1.2 rad/s`; the visual `heading` chases the velocity angle at `3.5/s`; `turnRate` (used for bank roll) eases toward `steerDiff*2.5` at `4/s`. Course is re-randomised every `rnd(2.5,5)` s by up to ±0.6 rad.
+
+**Aerobatics (L6074–L6081):**
+
+```js
+biplane.trickCooldown-=dt;
+if(!biplane.trick&&biplane.trickCooldown<=0&&biplane.flightTime>2.5&&biplane.event!=='crash'){
+  biplane.trickCooldown=rnd(7,15);var tType=Math.random()<0.5?'barrel_roll':'loop';var tDir=Math.random()<0.5?1:-1;
+  biplane.trick={type:tType,t:0,dur:tType==='barrel_roll'?1.0:1.8,dir:tDir};
+}
+```
+
+| Trick | Duration | Direction |
+|---|---|---|
+| `barrel_roll` | 1.0 s | ±1, 50/50 |
+| `loop` | 1.8 s | ±1, 50/50 |
+
+First trick cooldown is `rnd(4,8)` (set at launch); subsequent `rnd(7,15)`. Tricks are suppressed during crash runs and for the first 2.5 s of any flight, and they freeze course re-randomisation while running.
+
+**Engine sputter (L6091–L6092):** every `2.5` s the engine coughs — `sputterOn=true` and `alt -= 3`; `0.15` s later it recovers and `alt` climbs back by 3 (capped at 150). Smoke: while `smokeTrail.length < 80`, 40% chance per frame to append `{x,y,life:1.5,sz:rnd(2,5)}` at a point 20 px behind the nose, offset upward by `alt`.
+
+**Path progress & event payloads (L6094–L6106):**
+
+```js
+var distTraveled=Math.hypot(biplane.x-biplane.startX,biplane.y-biplane.startY);var totalPath=Math.max(W,H)+160;var pathProg=distTraveled/totalPath;
+if(biplane.event==='crash'&&pathProg>0.4){biplane.crashing=true;biplane.crashT=0;edCrashCount++;}
+```
+
+| Event | Trigger point | Payload |
+|---|---|---|
+| `crash` | `pathProg > 0.4` | begins the crash spiral |
+| `supply` | `pathProg > 0.2` | `numCrates = betterDrops ? floor(rnd(6,11)) : floor(rnd(3,8))`, staggered `delay = i*0.7 + rnd(0,0.2)` s; `announce('📦 Supply crates incoming!','#E8A838',2)`; emits `biplaneSupplyDrop` |
+| `flyover` | `pathProg > 0.35` | `floor(rnd(3,6))` crates, same 0.7 s stagger, **no announce** |
+
+**Exit (L6109–L6118).** After `flightTime > 1.5` s, the plane despawns once it is more than 300 px outside the camera rect or 100 px outside the world. If it was one of Ed's flights: `edLanding = 2`, `edFlying = false`, Ed is un-hidden and snapped to `ED_LANDING`, `edFlightCooldown = 120 + rnd(0,60)`, and `announce("Ed's back from his supply run!","#228B22",2)`.
+
+**Crash sequence (L6120–L6134):**
+
+```js
+biplane.crashT+=dt;var tx=ED_LANDING.x,ty=ED_LANDING.y;var dToLanding=Math.hypot(biplane.x-tx,biplane.y-ty);
+var crashSpd=Math.max(200,dToLanding*1.5);var cAng=Math.atan2(ty-biplane.y,tx-biplane.x);
+var spiral=Math.sin(biplane.crashT*4)*40;
+biplane.vx=Math.cos(cAng)*crashSpd+Math.cos(cAng+PI/2)*spiral;biplane.vy=Math.sin(cAng)*crashSpd+Math.sin(cAng+PI/2)*spiral;
+...
+biplane.alt=Math.max(0,biplane.alt-25*dt);
+```
+
+The plane homes on `ED_LANDING` at `max(200, distance*1.5)` px/s with a perpendicular sine wobble of amplitude 40 at 4 rad/s, descending 25 px/s, heading chasing velocity at `5/s`, smoke at 70%/frame up to 120 puffs. On touchdown (`dToLanding < 30` **or** `alt <= 0`):
+
+```js
+biplane.active=false;biplane.hasCrashed=true;biplane.x=tx;biplane.y=ty;
+shk.i=8;shk.t=0.5;shk.maxT=0.5;
+for(var di=0;di<15;di++)parts.push(new Part(tx,ty,{vx:rnd(-100,100),vy:rnd(-100,-20),life:1,sz:rnd(2,6),col:pick(['#8B4513','#654321','#a0522d']),grav:200}));
+snd('boom',0.3);if(!edNPC)spawnEd();events.emit('biplaneCrash');announce("Grandpa Ed has crash-landed!","#228B22",3);
+biplane.edFlightCooldown=999;
+```
+
+Screen shake 8 for 0.5 s, a 15-piece wood-debris burst, `snd('boom',0.3)`, Ed spawns at the landing strip (setting `storyFlags.edMet`), and the `biplaneCrash` event fires.
+
+### 8.5 `_launchBiplane(evt, fromCam)` (L5945–L5965)
+
+```js
+biplaneSeen++;biplane.event=evt;biplane.fromEdge=Math.floor(rnd(0,4));
+var sx,sy,evx,evy;var spd=100;
+if(fromCam){
+  if(biplane.fromEdge===0){sx=cam.x-80;sy=cam.y+H*0.3+rnd(0,H*0.4);evx=spd;evy=rnd(-15,15);}
+  else if(biplane.fromEdge===1){sx=cam.x+W+80;sy=cam.y+H*0.3+rnd(0,H*0.4);evx=-spd;evy=rnd(-15,15);}
+  else if(biplane.fromEdge===2){sy=cam.y-80;sx=cam.x+W*0.3+rnd(0,W*0.4);evy=spd;evx=rnd(-15,15);}
+  else{sy=cam.y+H+80;sx=cam.x+W*0.3+rnd(0,W*0.4);evy=-spd;evx=rnd(-15,15);}
+} else {
+  sx=ED_LANDING.x;sy=ED_LANDING.y;
+  var ta=rnd(0,TAU);evx=Math.cos(ta)*spd;evy=Math.sin(ta)*spd;
+}
+```
+
+`fromCam` launches from one of the four camera edges 80 px off-screen at altitude 150; `fromCam=false` (Ed's own flights) launches from the landing strip at altitude 0 with `edTakeoff = 2.5`. `biplaneSeen >= 10` unlocks the `frequentFlyer` achievement; every launch emits `biplaneFlyover`.
+
+### 8.6 Parachute supply drops (L5966–L6015)
+
+```js
+function _spawnParachuteCrate(x,y,planeVx,planeVy){
+  var crate={x:x,y:y,alt:biplane.alt||60,vy:0,vx:planeVx*0.3,ground:false,glow:0,life:45,
+    chuteDeploy:0,chuteOpen:false,chuteSize:0,
+    drift:0,driftDir:weather.type==='storm'||weather.type==='sand'?rnd(-20,20):rnd(-5,5),
+    spin:rnd(-4,4),swayPhase:rnd(0,TAU),landBounce:0};
+  biplane.parachuteCrates.push(crate);
+}
+```
+
+Descent physics:
+
+```js
+pc.chuteDeploy+=dt;
+if(!pc.chuteOpen&&pc.chuteDeploy>0.35){pc.chuteOpen=true;pc.chuteSize=0.1;}
+if(pc.chuteOpen){
+  pc.chuteSize=Math.min(pc.chuteSize+dt*2.5,1);
+  var chuteEffect=pc.chuteSize*pc.chuteSize;
+  var targetVy=18+15*(1-chuteEffect);
+  pc.vy=lerp(pc.vy,targetVy,dt*3);
+  pc.vx=lerp(pc.vx,pc.driftDir,dt*1.5);
+  pc.spin=lerp(pc.spin,0,dt*3);
+} else {
+  pc.vy+=350*dt;
+  pc.spin+=rnd(-2,2)*dt;
+}
+pc.alt-=pc.vy*dt;pc.x+=pc.vx*dt;
+```
+
+Free-fall for 0.35 s at 350 px/s², then the canopy inflates over 0.4 s (`chuteSize` at 2.5/s) and terminal velocity eases from 33 px/s down to 18 px/s as `chuteSize²` reaches 1. Horizontal velocity eases toward `driftDir` at 1.5/s; spin damps to zero at 3/s.
+
+On landing: `alt=0`, `ground=true`, `landBounce=1`, `snd('equip',0.15)`, six `#c8b88a` dust particles.
+
+Pickup (active hero within **45 px**), L6008:
+
+```js
+var heal=storyFlags.betterDrops?0.6:0.3;
+if(Math.random()<0.6){_ch.hp=Math.min(_ch.maxHp,_ch.hp+_ch.maxHp*heal);announce("Supply crate: Healed!","#3DCC7A",2);}
+else{var gAmt=storyFlags.betterDrops?rnd(40,80):rnd(20,40);gold+=Math.floor(gAmt);announce("Supply crate: +"+Math.floor(gAmt)+" Gold!","#E8A838",2);}
+```
+
+60% heal (30% of max HP, or 60% with `betterDrops`), 40% gold (`rnd(20,40)`, or `rnd(40,80)` with `betterDrops`). Crates expire after `life = 45` s on the ground.
+
+### 8.7 `edInteract()` — the repair quest chain handler (L8392–L8408)
+
+Order of checks, first match wins:
+
+1. **Turn-in:** for `qids = ['ground_ed_1','ground_ed_2','ground_ed_3']`, if any is `completable` → open `quest_ground_ed.phase<N>_return`, mark `complete`, remove from `activeQuests`, run `rewardFn`, add `rewardXP` directly to `totalXP` (bypassing `addXP`) with a `+XP` particle per 10 XP, set `edQuestPhase = phase+1`, emit `questComplete`. If phase 3: also open `quest_complete` with the `space_hint` reaction, `announce("The Green Meanie lives again!","#228B22",4)`, `trigAch('wellEducated')`, `edQuestPhase = 4`. Then auto-offer the next quest in the chain (setting it `active` and calling `spawnQuestItem` for the matching item).
+2. **Offer:** for the same three ids, the first `available` one whose prereq is complete → open `quest_ground_ed.phase<N>_intro` with the `quest_intro` reaction, set it `active`, push to `activeQuests`, set `edQuestPhase = N`, `spawnQuestItem(...)`.
+3. **Crater awareness:** `edQuestComplete && craterVisited && meteorSeen && !edCraterDialogue` → latch `edCraterDialogue`, open `crater_awareness` with the `ed_crater` reaction.
+4. **Crater hint:** `craterDiscovered && !edCraterDialogue && meteorSeen && !edQuestComplete` → `openDialogue('grandpaEd','crater_hint','ed_crater')` — **no-op, the key does not exist**.
+5. **Post-quest:** `edQuestComplete` → `post_quest` with `space_hint`.
+6. **Default:** `greetings` with `quest_intro`.
+
+`edQuestPhase` therefore reads: `0` = nothing started, `1..3` = that phase active, `4` = whole chain done.
+
+Interaction range is **70 px** (checked in the keydown handler at L970 and the mobile interact button at L1006, both before the merchant/bounty/NPC checks) — Ed takes priority over every other overworld interactable.
+
+---
+## 9. World Events
+
+**Legacy lines:** `// ===== WORLD EVENTS =====` L5742; `trigWorldEvent` L5743–L5796; `updateWorldEvents` L6286–L6348; `drawWorldEventEffects` L6349–L6376. State declared at L5379: `let worldEventTimer=60,activeEvent=null,eventEntities=[];`
+
+### 9.1 Scheduling (L6286–L6293)
+
+```js
+function updateWorldEvents(dt){
+  if(inShadowRealm||bossUp||inDungeon)return; // No events during boss fights or dungeons
+  worldEventTimer-=dt;
+  if(worldEventTimer<=0&&!activeEvent){
+    trigWorldEvent();
+    worldEventTimer=90;
+  }
+  if(!activeEvent)return;
+  activeEvent.timer-=dt;
+```
+
+First event fires 60 s into a run (`worldEventTimer=60` in `initGame`), then every 90 s. The timer does not tick in the Shadow Realm, during the Goblin King fight, or in a dungeon. Only one event runs at a time. `trigWorldEvent()` picks uniformly from `['caravan','bloodmoon','treasure','spring','earthquake']` and plays `snd('event_start',0.3)`.
+
+### 9.2 Event table
+
+| Event | Duration | Setup | Resolution | Rewards |
+|---|---|---|---|---|
+| **caravan** — 💰 GOBLIN CARAVAN! Kill them for loot! | 20 s | 8 goblins spawned along an edge-to-edge path (start edge picked from 4), each `hp/maxHp = 40`, `spd = 60`, `type = 'caravan_goblin'`, `xp = 10`, `caravanTarget = {ex,ey}`; laid out at `gx + i*25, gy + i*15` | all 8 dead → `lootDropped` | 3 × `rollGearDrop(0,1)` equips at the goblins' centroid ±30, plus `addXP(50)`, `announce('Caravan loot secured!','#E8A838',2)` |
+| **bloodmoon** — 🔴 BLOOD MOON! 2x enemy speed, 3x XP! | 25 s | `bloodMoonActive = true`; `trigAch('eventSurvivor')` | timer expiry clears the flag, `announce('Blood Moon fades...')`, `updateQuestProgress('survive_event')` | XP ×3 (replaces the night ×1.5), enemy speed ×1.25 on top of night, enemy damage ×1.5 |
+| **treasure** — 💰 TREASURE GOBLIN! Catch it! | 15 s | one goblin at `hero ± rnd(-200,200)`, `hp/maxHp = 100`, `spd = 200`, `col '#E8A838'`, `dk '#C89E28'`, `sz 10`, `type 'treasure_goblin'`, `xp 20`, `fleeing = true` | killed → loot; timer expiry **or** goblin reaching a world edge (`x<10 || x>WW-10 || y<10 || y>WH-10`) → escaped | `trigAch('treasureHunter')`, one `rollGearDrop(1,1)` at the corpse plus two `rollGearDrop(1,0)` at ±20 |
+| **spring** — 💚 Healing Spring appeared! | 20 s | pool at `hero ± rnd(-300,300)` clamped to `[100, WW-100]` | timer expiry, `announce('The spring fades...')`, `updateQuestProgress('survive_event')` | heals every unlocked, living, non-downed, non-banished hero inside **80 px** at `25 HP/s` |
+| **earthquake** — 🌋 EARTHQUAKE! Enemies stunned! | 3 s | `screenShake(12,3)`; every living enemy gets `stunT = 2` | timer expiry, `updateQuestProgress('survive_event')` | 2 s stun on all overworld enemies |
+
+Note the asymmetry: `caravan` and `treasure` do **not** call `updateQuestProgress('survive_event')`, so the `desert_1` quest ("Survive 3 world events") only counts bloodmoon, spring and earthquake.
+
+### 9.3 Shadow pools (`eventEntities`, L6339–L6347)
+
+```js
+eventEntities=eventEntities.filter(function(e){
+  e.life-=dt;
+  if(e.type==='shadow_pool'){
+    for(var i=0;i<heroes.length;i++){
+      var h=heroes[i];if(!h.unlocked||h.dead||h.downed||h.banished)continue;
+      if(dst(h,e)<e.r)h.takeDmg(Math.floor(e.dmg*dt*60));
+    }
+  }
+  return e.life>0;
+});
+```
+
+`shadow_pool` entities are spawned by the Shadow Queen (Part 1). They tick `floor(dmg * dt * 60)` per frame to any hero inside `e.r` and expire on `life`. Rendering (L6367) is a `rgba(100,0,150,0.4)` disc with an `rgba(232,67,147,0.6)` rim, alpha `clamp(life/1, 0, 0.5)`.
+
+### 9.4 Event visuals (`drawWorldEventEffects`, L6349)
+
+- **Blood moon:** full-screen `rgba(180,0,0,1)` at `globalAlpha = 0.2 + sin(gt*3)*0.05`.
+- **Spring:** `rgba(46,204,113,0.3)` filled disc r 80 plus a breathing `rgba(46,204,113,0.6)` ring at `r = 80 + sin(gt*4)*5`, alpha `0.4 + sin(gt*3)*0.1`, labelled "Healing Spring" at `sy-85`. Also drawn on the minimap as a 3 px `#3DCC7A` dot (L3396).
+
+---
+
+## 10. Endless Mode
+
+**Legacy lines:** `// ===== ENDLESS MODE =====` L6627–L6727.
+
+Entered from the victory overlay (`vicEndless` button, L9428) which calls `startEndlessMode()`.
+
+### 10.1 Entry (L6628–L6639)
+
+```js
+function startEndlessMode(){
+  endlessMode=true;endlessWave=0;endlessScore=0;endlessWaveTransitioning=false;
+  inShadowRealm=false;shadowQueen=null;
+  enemies=[];miniBosses=[];boss=null;
+  for(var i=0;i<heroes.length;i++){
+    if(heroes[i].unlocked){heroes[i].hp=heroes[i].maxHp;heroes[i].dead=false;heroes[i].downed=false;heroes[i].banished=false;}
+  }
+  announce('ENDLESS MODE - Survive!','#e84393',3);
+  snd('event_start',0.4);
+  nextEndlessWave();
+}
+```
+
+All unlocked heroes are fully restored; the Shadow Realm is exited; every combat entity is cleared.
+
+### 10.2 Wave scaling (`nextEndlessWave`, L6640–L6692)
+
+```js
+endlessWave++;
+var isBoss=endlessWave%10===0;
+endlessBossWave=isBoss;
+// v20-fix: Sane enemy scaling — caps at 15, grows slowly
+var enemyCount=Math.min(4+Math.floor(endlessWave*0.8),15);
+var mul=1+endlessWave*0.05; // gentler scaling multiplier
+```
+
+| Quantity | Formula | Cap |
+|---|---|---|
+| Enemy count | `min(4 + floor(wave*0.8), 15)` | 15 (reached at wave 14) |
+| Stat multiplier `mul` | `1 + wave*0.05` | none |
+| Enemy HP / DMG | `floor(base * mul)` | — |
+| Enemy speed | `min(spd*(1 + wave*0.01), spd*2)` | 2× base |
+| Enemy XP | `floor((xp||5) * (1 + wave*0.03))` | — |
+| Boss wave | every 10th wave; enemy count reduced to `max(2, floor(count*0.4))` | — |
+| Mini-boss | every 5th wave that is **not** a boss wave, 1 spawned with `mul` applied | — |
+
+Boss waves alternate: `bossNum = floor(wave/10)`; odd `bossNum` (waves 10, 30, 50 …) spawns a scaled **Goblin King** (`boss`, `bossUp=true`), even (waves 20, 40 …) spawns a scaled **Shadow Queen** (`shadowQueen`). Boss position is `activeHero ± rnd(-300,300)` clamped to `[100, WW-100]`, announced as `'WAVE N - BOSS!'` with `snd('boss',0.5)`.
+
+Enemy type pool grows with the wave:
+
+| Wave | Pool |
+|---|---|
+| 1–9 | `goblin, orc, bat, slime, skeleton, mushroom` |
+| 10–19 | + `shielded, archer, troll` |
+| 20+ | + `fire_elemental, obsidian_guard` |
+
+Spawn position is `activeHero ± rnd(-400,400)` clamped to `[50, WW-50]`. Mini-boss types are `['golem','sandworm','hydra','frostwyrm']` spawned at `hero ± rnd(-250,250)` clamped to `[100, WW-100]`.
+
+### 10.3 Wave clear and scoring (`updateEndless`, L6694–L6721)
+
+```js
+if(endlessWaveTransitioning||paused||showLvl)return;
+var alive=enemies.filter(function(e){return!e.dead;}).length;
+var mbAlive=miniBosses.filter(function(m){return!m.dead;}).length;
+var bAlive=(boss&&!boss.dead)?1:0;
+var sqAlive=(shadowQueen&&!shadowQueen.dead)?1:0;
+if(alive===0&&mbAlive===0&&bAlive===0&&sqAlive===0){
+  endlessWaveTransitioning=true; // prevent re-entry
+  var waveScore=endlessWave*100+(endlessBossWave?500:0);
+  endlessScore+=waveScore;
+  announce('+'+waveScore+' points!','#E8A838',1.5);
+  setTimeout(function(){if(endlessMode&&!gameOver)nextEndlessWave();},2500);
+  endlessBossWave=false;
+  bossUp=false;
+}
+if(endlessScore>endlessHighScore){
+  endlessHighScore=endlessScore;
+  try{localStorage.setItem('ssq_highscore',endlessHighScore+'');}catch(e){}
+}
+```
+
+Score per wave is `wave × 100`, plus a `+500` bonus on boss waves. Next wave starts 2.5 s after the field is clear. The high score is persisted to `localStorage` under `ssq_highscore`.
+
+`drawEndlessHUD()` (L6722) prints right-aligned at the bottom right: `ENDLESS` (`#e84393`) at `H-50`, `Wave: N` at `H-34`, `Score: N` at `H-18`, and `Best: N` in grey at `H-4` when a high score exists.
+
+Endless mode does not stop world events, weather or the day/night cycle — the normal overworld `update()` continues to run alongside it.
+
+---
+## 11. Dungeon System
+
+**Legacy lines:** `// ===== DUNGEON STATE =====` L747; V7 state L836–L852; `CITADEL_FLOORS` L820–L826; `// ===== DUNGEON SYSTEM V6 =====` L6729 through L8256 (data L6730–L6820, entrance L6833–L7061, entry/exit L7062–L7131, generation L7132–L7217, room loading L7218–L7317, interaction L7318–L7357, reachability/waves L7358–L7375, dungeon boss L7376–L7933, renderer L7934–L8114, update L8115–L8256).
+
+Dungeon bosses themselves (Ancient Treant, Pharaoh Wraith, Crystal Colossus, Hydra Matriarch, Frost Lich, Magma Titan, Citadel Warden) and their phase logic are **Part 1**.
+
+### 11.1 Constants and naming tables
+
+```js
+var DNG_TW=40,DNG_COLS=16,DNG_ROWS=12;
+```
+
+Every room is a fixed **16 × 12 grid of 40 px tiles = 640 × 480 px**, drawn centred in the canvas at `ox = floor((W - 640)/2)`, `oy = floor((H - 480)/2)`. Room coordinates are room-local (0,0 at the top-left tile), not world coordinates; `cam` is forced to `(0,0)` while rendering the room.
+
+**`DUNGEON_NAMES` (L6730)**
+
+| Key | Name |
+|---|---|
+| `forest` | The Hollow Grove |
+| `cave` | The Crystal Depths |
+| `desert` | The Buried Tomb |
+| `swamp` | The Sunken Temple |
+| `frozen` | The Ice Citadel |
+| `volcanic` | The Volcanic Rift |
+| `citadel` | The Shadow Citadel |
+| `citadel_f1` | Shadow Citadel — Floor 1 |
+| `citadel_f2` | Shadow Citadel — Floor 2 |
+| `citadel_f3` | Shadow Citadel — Floor 3 |
+
+**`DUNGEON_DESCS` (L6731)** — shown on the entry overlay:
+
+| Key | Description |
+|---|---|
+| `forest` | Ancient roots twist into a maze of thorns. The Treant awaits. |
+| `cave` | Crystals pulse with eerie light. A colossus guards the heart. |
+| `desert` | Sand-swept corridors hide cursed chambers. The Pharaoh stirs. |
+| `swamp` | Toxic waters flood forgotten halls. The Hydra nests below. |
+| `frozen` | Ice walls echo with dark magic. A lich commands the frost. |
+| `volcanic` | Magma churns beneath obsidian halls. The Titan waits in fire. |
+| `citadel` | The ultimate darkness awaits within. Three floors stand between you and the Citadel Warden. |
+
+**`DUNGEON_COLORS` (L6732)**
+
+| Key | Colour |
+|---|---|
+| `forest` | `#58B888` |
+| `cave` | `#8E98D8` |
+| `desert` | `#E8A860` |
+| `swamp` | `#70C090` |
+| `frozen` | `#A8D0E8` |
+| `volcanic` | `#D86840` |
+| `citadel` | `#8068B0` |
+| `citadel_f1` | `#9070B8` |
+| `citadel_f2` | `#8068B0` |
+| `citadel_f3` | `#A83828` |
+
+**`DUNGEON_TILE_COLORS` (L6733–L6736)**
+
+| Key | floor | wall | accent | door |
+|---|---|---|---|---|
+| `forest` | `#1A3830` | `#102820` | `#224840` | `#4A9070` |
+| `cave` | `#1E2850` | `#161E3C` | `#303868` | `#6880D8` |
+| `desert` | `#5C4028` | `#48321E` | `#805438` | `#D89050` |
+| `swamp` | `#1C3828` | `#142820` | `#2A5040` | `#489870` |
+| `frozen` | `#3C5580` | `#2E4265` | `#5C78A8` | `#98C8E8` |
+| `volcanic` | `#2a1a0a` | `#1a0a05` | `#4a2010` | `#ff4400` |
+| `citadel_f1` | `#18102a` | `#0e0818` | `#2a1a40` | `#6a3a8a` |
+| `citadel_f2` | `#140a20` | `#0a0410` | `#22103a` | `#5a2a7a` |
+| `citadel_f3` | `#100818` | `#08040e` | `#1a0830` | `#4a1a6a` |
+
+**`DNG_AMBIENT` (L842)** — the darkness fill colour composited over each room:
+
+| Key | Value |
+|---|---|
+| `forest` | `rgba(8,20,10,0.70)` |
+| `cave` | `rgba(12,10,28,0.72)` |
+| `desert` | `rgba(40,28,8,0.62)` |
+| `swamp` | `rgba(8,18,8,0.72)` |
+| `frozen` | `rgba(8,14,35,0.73)` |
+| `volcanic` | `rgba(35,8,4,0.65)` |
+| `citadel` | `rgba(18,8,28,0.72)` |
+
+**`DNG_WALL_V` (L843–L844)** — three-tone wall variation palettes:
+
+| Key | Tones |
+|---|---|
+| `forest` | `#2A4A28`, `#1C3818`, `#382818` |
+| `cave` | `#281840`, `#1A2440`, `#362848` |
+| `desert` | `#987838`, `#7A5C28`, `#5A4220` |
+| `swamp` | `#183810`, `#0E280A`, `#283820` |
+| `frozen` | `#506888`, `#405878`, `#6888A8` |
+| `volcanic` | `#3D1A0A`, `#2A0E0E`, `#4A2010` |
+| `citadel_f1` | `#2A1840`, `#201030`, `#382050` |
+| `citadel_f2` | `#281438`, `#1E0C2C`, `#341848` |
+| `citadel_f3` | `#381414`, `#2C0E0E`, `#401818` |
+
+**`DNG_DECOR` (L845)** — breakable props:
+
+| `nm` | `hp` | `w` × `h` | `col` | `dk` | `lc` | `lh` | `pc` particle | `pn` count | `sd` sound |
+|---|---|---|---|---|---|---|---|---|---|
+| `pot` | 1 | 16 × 18 | `#8B6914` | `#6a5010` | 0.5 | 0.2 | `#8B6914` | 6 | `destroy_pot` |
+| `crate` | 2 | 18 × 18 | `#a0803a` | `#806028` | 0.6 | 0.15 | `#c4a060` | 8 | `destroy_crate` |
+| `bones` | 1 | 16 × 12 | `#d0c8b0` | `#a09880` | 0.3 | 0.0 | `#e0d8c0` | 4 | `destroy_pot` |
+
+(`lc`/`lh` are the loot chance and heal chance used by the Part 1 decor-break handler.)
+
+**`DNG_ATMO` (L846–L849)** — per-biome ambient particle recipe (`cnt` particles kept alive, speed range `sMin..sMax`, lifetime `lMin..lMax`, alpha `aMin..aMax`, `dir ∈ {up, down, drift}`):
+
+| Key | col | cnt | sMin | sMax | lMin | lMax | aMin | aMax | dir |
+|---|---|---|---|---|---|---|---|---|---|
+| `forest` | `#B8C858` | 18 | 5 | 15 | 4 | 6 | .3 | .5 | drift |
+| `cave` | `#7868A8` | 12 | 5 | 10 | 3 | 5 | .3 | .6 | drift |
+| `desert` | `#E86820` | 18 | 15 | 25 | 2 | 4 | .5 | .8 | up |
+| `swamp` | `#280838` | 12 | 8 | 12 | 3 | 5 | .3 | .5 | up |
+| `frozen` | `#E8E8F0` | 22 | 10 | 20 | 3 | 5 | .4 | .7 | down |
+| `volcanic` | `#E86820` | 20 | 12 | 22 | 2 | 4 | .4 | .7 | up |
+| `citadel_f1` | `#8850A8` | 20 | 8 | 16 | 3 | 5 | .3 | .6 | drift |
+| `citadel_f2` | `#7B3CA0` | 25 | 10 | 18 | 3 | 5 | .4 | .7 | up |
+| `citadel_f3` | `#A83828` | 30 | 12 | 22 | 2 | 4 | .5 | .8 | drift |
+
+`initDngAtmo(biome)` (L7307) seeds `cnt` particles at random room positions; `dir==='up'` gives `vy = -rnd(sMin,sMax)`, `vx = rnd(-3,3)`; `down` gives `vy = +rnd(sMin,sMax)`, `vx = rnd(-5,5)`; `drift` gives `vx = rnd(-sMax,sMax)`, `vy = rnd(-sMax/2, sMax/2)`. `updDngAtmo(dt)` (L7311) recycles any particle that dies or leaves the room, re-entering from the bottom for `up`, the top for `down`, anywhere for `drift`.
+
+**`DUNGEON_EQUIPS` (L6737)** — the guaranteed clear reward applied by `applyEq()` in `exitDungeon(true)`:
+
+| Biome | Name | Effect | Stat | Colour | Icon |
+|---|---|---|---|---|---|
+| `forest` | Hearthroot Seed | +3 HP regen/s all | `regen: 3` | `#58B888` | 🌿 |
+| `desert` | Sunstone Crest | +12% crit chance | `critRate: 0.12` | `#E8A860` | 👹 |
+| `cave` | Lampstone Core | +80 max HP all | `maxHp add 80` | `#8E98D8` | 💎 |
+| `swamp` | Marshlight Vial | +15% lifesteal | `lifesteal: 0.15` | `#70C090` | ☠️ |
+| `frozen` | Hearthice Crown | Attacks slow +1s | `slow add 1` | `#A8D0E8` | ❄️ |
+| `volcanic` | Emberforge Heart | +12% HP, +8% DMG all | `titanHeart: 1` | `#D86840` | 🌋 |
+
+All have `h: -1` (applies to the whole party). There is no `citadel` entry — clearing the Citadel awards the four legendaries instead (§11.9).
+
+### 11.2 Door states (L841)
+
+```js
+var DOOR_OPEN=0,DOOR_CLOSED=1,DOOR_LOCKED=2,DOOR_BARRED=3;
+```
+
+| Constant | Value | Meaning | How it opens |
+|---|---|---|---|
+| `DOOR_OPEN` | 0 | passable | — |
+| `DOOR_CLOSED` | 1 | declared but **never assigned anywhere** | — |
+| `DOOR_LOCKED` | 2 | needs a key | consumes one `dungeonInventory.keys`, either via `heroInteract()` within 60 px of the door centre or automatically when walking into it with a key in hand |
+| `DOOR_BARRED` | 3 | lever puzzle | every `lever` object in the room set `active` (L7325) |
+
+Doors are per-room, per-direction: `room.doorStates = {n,s,e,w}`. `dungeonDoorsLocked` is a separate *global* boolean that gates **all** exits during unresolved combat/puzzle/boss rooms.
+
+### 11.3 Tile vocabulary and templates
+
+Room templates are flat 192-element arrays (`16*12`), row-major.
+
+| Tile | Meaning |
+|---|---|
+| `0` | floor |
+| `1` | wall |
+| `2` | north door (row 0, cols 7–8) |
+| `3` | south door (row 11, cols 7–8) |
+| `4` | east door (col 15, rows 5–6) |
+| `5` | west door (col 0, rows 5–6) |
+| `6` | enemy spawn marker (used by templates only; waves actually use `dngFloorPos()`) |
+| `7` | pressure plate |
+| `8` | push block |
+| `9` | chest |
+| `10` | spike trap |
+| `11` | lever (no template contains one; only spawned by save-restore paths) |
+| `12` | cracked wall (written at runtime into an ability room's wall, L7272) |
+
+**`V7T` (L6739–L6744)** — three fixed "structural" templates used for specific room types:
+
+| Key | Use |
+|---|---|
+| `hub` | the `start` room — open 14×10 interior with all four doors carved |
+| `puz` | declared but **never referenced** by the generator (contains 2 plates and 2 blocks) |
+| `treas` | the `treasure` room — open interior with a single chest at row 4, col 7 |
+| `bossv7` | `null` — the generator therefore falls back to `ROOM_TEMPLATES.boss` |
+
+**`ROOM_TEMPLATES` (L6747–L6754)** — the generic per-type fallbacks: `rest`, `combat` (4 spawn markers), `puzzle` (1 plate + 1 block + wall clusters), `trap` (16 spikes in a staggered gauntlet), `treasure` (1 chest), `boss` (no doors on row 0 — the boss room has only the south entrance).
+
+**`DUNGEON_LAYOUTS` (L6755–L6763)** — a fixed 6-room ordering per biome. In v27 this is **only used for its first entry's `lore` string** (the start room's flavour line); the actual room graph is procedural. Contents:
+
+| Biome | Sequence | Start-room lore |
+|---|---|---|
+| forest | rest, combat, puzzle, trap, combat, boss | "The roots of the Hollow Grove run deep..." |
+| cave | rest, combat, trap, puzzle, combat, boss | "Crystal light flickers in the depths..." |
+| desert | rest, trap, combat, puzzle, combat, boss | "Sand whispers through the tomb halls..." |
+| swamp | rest, combat, trap, treasure, combat, boss | "Toxic air fills the sunken temple..." |
+| frozen | rest, combat, trap, puzzle, combat, boss | "The ice citadel groans with dark magic..." |
+| volcanic | rest, combat, trap, combat, puzzle, boss | "Heat radiates from the obsidian walls..." |
+
+The two mid-dungeon `lore` strings that exist (`'Ancient mechanisms block the way.'` on forest/frozen puzzle rooms and `'Magma channels block the way.'` on volcanic) are shadowed by the generator, which assigns its own lore.
+
+**`BIOME_TEMPLATES` (L6764–L6820)** — hand-authored per-biome variants selected by `getBiomeTemplate(biome, roomType)`:
+
+```js
+function getBiomeTemplate(biome,roomType){var bt=BIOME_TEMPLATES[biome];if(bt&&bt[roomType]&&bt[roomType].length>0){return pick(bt[roomType]).slice();}return ROOM_TEMPLATES[roomType]?ROOM_TEMPLATES[roomType].slice():ROOM_TEMPLATES.rest.slice();}
+```
+
+| Biome | combat variants | puzzle variants | trap variants | Authored intent (from comments) |
+|---|---|---|---|---|
+| forest | 2 | 1 | 1 | "pillars of trees with clearings", "vine corridor", "root maze with push blocks", "spike gauntlet through tree barriers" |
+| cave | 2 | 1 | 1 | "crystal alcoves", "central pillar arena", "crystal maze" |
+| desert | 2 | 1 | 1 | "tomb pillars", "sarcophagus blocks" |
+| swamp | 2 | 1 | 1 | "flooded channels" |
+| frozen | 2 | 1 | 1 | "ice barrier arena" |
+| volcanic | 1 | 1 | 1 | "lava pillars arena", "pressure plates and lava channels", "eruption hazard room" |
+
+There are **no** `rest`, `treasure`, `boss` or `ability` entries in `BIOME_TEMPLATES`; those always come from `V7T`/`ROOM_TEMPLATES`. There is no `citadel_f*` entry either — citadel floors reuse their mapped source biome (`cave`, `swamp`, `frozen`).
+
+**`CITADEL_FLOORS` (L820–L826)**
+
+| Floor | `nm` | Visual/source biome | Rooms (unused) | `enemyScale` | Hazard | Mini-boss |
+|---|---|---|---|---|---|---|
+| 1 | Outer Ward | `cave` | 4 | 1.5 | `spikes` | `{type:'golem', hp:400, dmg:25, spd:40, sz:22, col:'#5D6D7E', nm:'Stone Sentinel'}` |
+| 2 | Inner Sanctum | `swamp` | 5 | 2.0 | `poison` | `{type:'wraith', hp:350, dmg:30, spd:70, sz:18, col:'#7B3CA0', nm:'Phantom Warden'}` |
+| 3 | Throne of Shadows | `frozen` | 3 | 2.5 | `ice` | `null` (the Citadel Warden is the floor boss) |
+
+`CITADEL_WARDEN` (L827): `{hp:2000, maxHp:2000, dmg:35, spd:45, sz:28, col:'#4a0080', nm:'Citadel Warden', type:'citadelWarden'}`. The `rooms`, `hazard` and `miniBoss` fields are **declared but not consumed** by the generator — only `biome` and `enemyScale` are read (L7370). Floor hazards are implemented separately (§11.7).
+
+### 11.4 Entrances, labels and cleared state (L6833–L7061)
+
+```js
+function DungeonEntrance(x,y,biome){this.x=x;this.y=y;this.biome=biome;this.t=rnd(0,TAU);}
+```
+
+`DungeonEntrance.prototype.draw` renders a ground shadow ellipse (48 × 14) with glow alpha `cleared ? 0.15 : 0.25 + p1*0.08`, biome-coloured ambient particles, per-biome portal art, and — when cleared — a dark ellipse plus a `#3DCC7A` `✓` at 32 px with a 14 px glow.
+
+**Label system (L7044–L7059):**
+
+```js
+var labelAlpha=isNear?1:Math.max(0,1-(nearDist-160)/120);
+```
+
+The name is always drawn above the entrance, fully opaque within 160 px and fading to zero at 280 px. It sits in a rounded pill (`rgba(0,0,0,0.65)` fill, biome-colour 1.5 px stroke at `0.6α`, radius 8) at `sy-76`, text `bold 13px sans-serif` with a 4 px glow. Below it: `✓ CLEARED` in `#3DCC7A` when cleared, or `Press to Enter` in `rgba(255,255,255,0.7)` when near.
+
+Entrance collision (L9320): any unlocked, living hero within **40 px** of an entrance whose `dungeonProgress[biome]` is false calls `showDungeonEntryOverlay(biome)`. Gated by `!inDungeon && !inShadowRealm && !bossUp && !paused && !showLvl && !gameWon && !gameOver && dungeonEntryCooldown<=0`.
+
+### 11.5 Run flow: entrance → boss → exit
+
+**1. Entry overlay** (`showDungeonEntryOverlay`, L7066): fills `dngEntryNm` (name in biome colour), `dngEntryBiome` (`BIOME + ' DUNGEON'`), `dngEntryDesc`, sets `paused = true`, shows `dungeonEntryOverlay`. `dngEnterBtn` → `enterDungeon(pendingDungeonBiome)`; `dngCancelBtn` (and Escape) → hide, `paused=false`, `pendingDungeonBiome=null`, `dungeonEntryCooldown=2`.
+
+**2. `enterDungeon(biome)` (L7070–L7076):**
+
+```js
+if(biome==='citadel'){citadelFloor=1;biome=CITADEL_FLOORS[0].biome;announce('Shadow Citadel — Floor 1: Outer Ward','#7B3CA0',3);}
+var visualBiome=citadelFloor>0?'citadel_f'+citadelFloor:biome;
+dungeonEntrySnapshot=serializeOverworldState();inDungeon=true;currentDungeon=visualBiome;dungeonXPGained=0;resetHeroStats();initDungeon(biome);
+var col=DUNGEON_COLORS[biome]||'#7B3CA0';
+playBossIntro(citadelFloor>0?'Shadow Citadel — Floor '+citadelFloor:DUNGEON_NAMES[biome],citadelFloor>0?CITADEL_FLOORS[citadelFloor-1].nm:biome.toUpperCase()+' DUNGEON',citadelFloor>0?'#7B3CA0':col,citadelFloor>0?'#7B3CA0':col);
+```
+
+`currentDungeon` holds the **visual** key (`citadel_f2`), while `biome` (passed to `initDungeon`) is the **mechanical** source biome. The overworld is snapshotted so a failed run can be rolled back. Entry always plays the letterbox name-card intro.
+
+**3. `initDungeon(biome)` (L7212–L7217):** clears every dungeon array, generates the room graph, builds `dungeonMinimapData` (one `{visited,type,pos}` per room), places all unlocked heroes at `(320, 420)` ± jitter, zeroes `cam`, and calls `loadDungeonRoom(0)`.
+
+**4. Room-to-room traversal** — see §11.6.
+
+**5. Boss room:** `loadDungeonRoom` sets `dungeonDoorsLocked = true` and calls `spawnDungeonBoss(currentDungeon)`, which plays a slam intro (`dungeonCinematicActive`, 5 s, letterbox bars) before combat. Boss defeat unlocks the doors and `showDungeonVictory()` is triggered by the Part 1 boss-death path.
+
+**6. `showDungeonVictory()` (L7125):** `paused = true`, then `showVictoryStatsHTML(name + ' CLEARED!', 'Per-hero combat breakdown', cb)`; the callback fills `dngVicTitle/Sub/Stats` (XP earned, room count), shows the `DUNGEON_EQUIPS` reward card if one exists, opens `dungeonVictoryOverlay` and plays `snd('victory',0.5)`. `dngVicBtn` → `exitDungeon(true)`.
+
+**7. `showDungeonFail()` (L7130):** title `DUNGEON FAILED`, sub `The Stewart Squad couldn't clear <name>...`, stat card showing `floor(dungeonXPGained*0.3)` partial XP. Triggered when no hero is alive (L8252), when walking out the south door of room 0 (L8246), or from the pause menu's Retreat button (which relabels it `DUNGEON RETREAT`, L9445). `dngFailBtn` → `exitDungeon(false)`.
+
+**8. `exitDungeon(success)` (L7077–L7124):**
+
+- Citadel floors 1→2 and 2→3 are intercepted first: mark `citadelProgress['floor'+n]`, increment `citadelFloor`, announce the flavour line (floor 2: `'The shadows deepen... dark whispers fill the air.'`; floor 3: `'The final threshold. No turning back.'`), heal every living hero by **30% of max HP**, tear down dungeon state and immediately `enterDungeon(nextFloor.biome)` — no overworld return.
+- Floor 3 success sets `dungeonProgress.citadel`, `citadelFloor = 0`, `trigAch('citadelConqueror')`, unlocks NG+ if not already, and awards every un-owned `LEGENDARY_EQ` item to its hero (achievement `legendaryHero` when all four are held; `trueFinalBoss` at `ngPlus >= 5`).
+- Skill trees and 45 per-hero skill-derived stats are snapshotted **before** the overworld deserialize and restored **after**, so dungeon-earned progression survives the rollback (L7108–L7118).
+- On failure: restore the snapshot and award `floor(dungeonXPGained * 0.3)`.
+- On success: restore the snapshot, set `dungeonProgress[biome] = true`, award full `dungeonXPGained`, `applyEq(DUNGEON_EQUIPS[biome])`, `trigAch('dungeoneer')`, `updateQuestProgress('clear_dungeon',{biome})`, the spark-plug grant (§6.3), `updateBountyProgress('dungeon',1)`, the first-clear meteor cutscene hook (§6.6), `gold += 30`, **+1 skill point for all four heroes**, and `edsLanding` achievement if any hero finished at exactly 1 HP.
+- Always: `dungeonEntrySnapshot = null`, `dungeonEntryCooldown = 3`, `paused = false`, `citadelFloor = 0`; if all five original dungeons are now clear and the Goblin King has not appeared, `spawnBoss()` after 2 s; `checkVolcanicEntrance()`, `checkCitadelEntrance()`, `buildPortraitStrip()`, and an autosave 1 s later on success.
+
+### 11.6 Procedural generation (`generateDungeonGraph`, L7152–L7211)
+
+Grid is `GW=4` columns × `GH=5` rows of room slots. Up to **10 attempts**:
+
+1. Start room at column 0, row `1 + floor(random*3)` (rows 1–3), type `start`.
+2. Target size `target = floor(rnd(7,11))` (7–10 rooms). Up to 200 growth iterations: pick a random existing room, shuffle `['n','s','e','w']`, and attach a new room in the first direction whose neighbouring grid cell is in-bounds and empty. Both rooms get reciprocal `connections` and `doorStates = DOOR_OPEN`.
+3. Reject the attempt if `counts.combat < 2` or `rooms.length < 6`.
+4. **Boss placement:** BFS from the start (`bfsPath9`) finds the farthest room; a boss room is attached to it in a free direction. The connecting door from the farthest room is `DOOR_LOCKED`; the reverse door is `DOOR_OPEN`. Reject the attempt if no free direction exists.
+5. **Key placement:** BFS from the boss room finds the `treasure` room with the smallest distance to the boss; that room gets `hasKey = true`. If no treasure room exists, the first non-start/non-boss room is converted to one.
+6. **Tile assignment:** `start` → `V7T.hub`; `boss` → `ROOM_TEMPLATES.boss` (because `V7T.bossv7` is `null`); `treasure` → `V7T.treas`; everything else → `getBiomeTemplate(biome, type === 'ability' ? 'combat' : type)`. Then `injectDoors9` rewrites the eight door tiles.
+7. **Validation:** BFS from room 0 must reach the last room (the boss). Otherwise retry.
+
+Room-type quotas (`pickRoomType9`, L7144):
+
+```js
+if(counts.combat<4)pool.push('combat','combat','combat');
+if(counts.puzzle<2)pool.push('puzzle');
+if(counts.treasure<2)pool.push('treasure');
+if(counts.rest<1)pool.push('rest');
+if(counts.ability<1&&allUnlocked>=2)pool.push('ability');
+if(pool.length===0)pool.push('combat');
+```
+
+| Type | Max | Pool weight while under quota |
+|---|---|---|
+| `combat` | 4 | 3 entries (heavily favoured) |
+| `puzzle` | 2 | 1 |
+| `treasure` | 2 | 1 |
+| `rest` | 1 | 1 |
+| `ability` | 1 | 1, and only when ≥ 2 heroes are unlocked |
+
+`injectDoors9` (L7138):
+
+```js
+if(conns.n!==undefined){t[0*DNG_COLS+7]=2;t[0*DNG_COLS+8]=2;}else{t[0*DNG_COLS+7]=1;t[0*DNG_COLS+8]=1;}
+if(conns.s!==undefined){t[11*DNG_COLS+7]=3;t[11*DNG_COLS+8]=3;}else{t[11*DNG_COLS+7]=1;t[11*DNG_COLS+8]=1;}
+if(conns.e!==undefined){t[5*DNG_COLS+15]=4;t[6*DNG_COLS+15]=4;}else{t[5*DNG_COLS+15]=1;t[6*DNG_COLS+15]=1;}
+if(conns.w!==undefined){t[5*DNG_COLS+0]=5;t[6*DNG_COLS+0]=5;}else{t[5*DNG_COLS+0]=1;t[6*DNG_COLS+0]=1;}
+```
+
+Every door is a two-tile-wide gap; unconnected sides are walled off.
+
+**Linear fallback (L7205–L7211):** if all 10 attempts fail, a six-room chain `start → combat → puzzle → treasure → combat → boss` is built running north, with `doorStates.n` set to `DOOR_LOCKED` for the last link, `DOOR_OPEN` for links 0 and 2, and `DOOR_BARRED` for links 1 and 3; the treasure room carries the key.
+
+### 11.7 Room loading (`loadDungeonRoom(idx, fromDir)`, L7218–L7306)
+
+1. **Persist the previous room** into `dungeonRoomStates[dungeonRoom]`: chest `{x,y,opened,isKeyChest}`, plate `{x,y,active}`, block `{x,y}`, lever `{x,y,active}`, and a `decor[].dead` array.
+2. Reset the per-room arrays and flags; mark `dungeonMinimapData[idx].visited = true`.
+3. `buildReachable(tmpl)` (L7359): BFS from every door tile across non-wall tiles, then collect all reached interior tiles (excluding the outer ring) into `dngReachable[]` (world-space centres) and `dngReachSet{}`. `dngFloorPos()` (L7363) returns a random reachable tile centre with `rnd(-12,12)` jitter — this is the placement primitive for spawns, ability objects and bonus chests.
+4. **Objects from tiles**, restoring saved state where available: `7 → plate`, `8 → block`, `9 → chest` (`isKeyChest = room.hasKey`), `10 → spike {active:false, timer:rnd(0,3), period:2}`, `11 → lever`.
+5. **Torches:** collect every wall tile adjacent to a floor tile, then pick `floor(rnd(4,7))` of them: `{x,y,ph:rnd(0,TAU),br:50}`.
+6. **Decor** (skipped in boss rooms): build an `occupiedTiles` set from every plate/block/chest/lever **plus its 8 neighbours**, then choose `min(floor(rnd(2,5)), available)` interior floor tiles (rows 2–9, cols 2–13) and place a random `DNG_DECOR` prop. Saved `dead` flags are re-applied.
+7. `initDngAtmo(currentDungeon)`.
+8. **Puzzle rooms** get `dungeonPuzzleState = {solved:false, checkSolved(){ every plate active }}`.
+9. **Room-type activation** (only when the room is not already in `dungeonRoomsCleared`):
+
+| Type | Effect |
+|---|---|
+| `combat` | `dungeonDoorsLocked = true`, `dungeonCombatWaves = 2`, `snd('bars_slam',0.3)`, spawn wave 1 |
+| `puzzle` | `dungeonDoorsLocked = true` (opens when the plates are solved) |
+| `boss` | `dungeonDoorsLocked = true`, `spawnDungeonBoss(currentDungeon)` |
+| `ability` | `dungeonDoorsLocked = true`, `dungeonCombatWaves = 1`, spawn wave 1, place the hero-specific object, announce the hint |
+| `start` / `rest` | heal every living hero by **30% of max HP**; announce `room.lore` if present |
+
+10. **Hero repositioning** by entry direction (L7279–L7284):
+
+```js
+var cx2=DNG_COLS*DNG_TW/2,cy2=DNG_ROWS*DNG_TW-60;
+if(fromDir==='n'){cy2=DNG_ROWS*DNG_TW-60;}
+else if(fromDir==='s'){cy2=40;}
+else if(fromDir==='e'){cx2=40;cy2=DNG_ROWS*DNG_TW/2;}
+else if(fromDir==='w'){cx2=DNG_COLS*DNG_TW-40;cy2=DNG_ROWS*DNG_TW/2;}
+if(room.type==='boss')cy2=DNG_ROWS*DNG_TW-80;
+```
+
+Heroes appear on the wall opposite the door they used: north exit → bottom of the new room, east exit → left wall, etc. Applied with `rnd(-20,20)` x-jitter, and only when `idx>0 || fromDir` (so the initial room-0 placement from `initDungeon` is preserved).
+
+11. **Biome hazards** (skipped in `start`/`rest` rooms, L7285–L7299). A door-adjacency mask excludes the 3 × 3 neighbourhood of every door tile; `hzOk9(x,y)` additionally requires a plain floor tile:
+
+| Dungeon | Count | Hazard |
+|---|---|---|
+| `desert` | `rnd(2,4)` | `sand_slow`, r 35 |
+| `cave` | `rnd(2,3)` | `crystal_glow`, r 28 |
+| `swamp` | `rnd(2,3)` | `poison_patch`, r 30, `dmg 4` |
+| `frozen` | `rnd(3,5)` | `ice_tile`, r 30 |
+| `forest` | `rnd(2,3)` | `vine_snare`, r 25, `snareT/coolT` |
+| `volcanic` | `rnd(3,5)` + `rnd(1,3)` | `lava_tile` r 32 `dmg 10`; `eruption` r 40 `eruptT rnd(3,6)` `eruptCd rnd(4,7)` |
+
+Note the check is on `currentDungeon` (the *visual* key), so `citadel_f1..f3` rooms generate **no** biome hazards; the Citadel uses its own floor hazards instead.
+
+12. **Citadel floor hazards** (`updateDungeon`, L8165–L8169): floor 1 spawns 3 fresh spikes at random positions every 8 s (`citHazardT`); floor 2 deals `floor(5*dt)` damage per frame to any hero within 40 px of the room border; floor 3 has no coded hazard.
+
+13. If hosting, the full room payload (`tiles, doors, torches, decor, hazards, objects`) is sent to guests as an `event`/`roomChange` message.
+
+### 11.8 Combat waves (`spawnDungeonCombatWave`, L7364–L7375)
+
+```js
+var count=Math.min(3+Math.floor(dungeonRoom/2)+dungeonCombatWaveNum,8);var scale=1+teamLv*0.03;var coopScale=1+0.3*((NET.playerCount||1)-1);
+if(citadelFloor>0){var cFloor=CITADEL_FLOORS[citadelFloor-1];scale*=cFloor?cFloor.enemyScale:1.5;count=Math.min(count+1,10);}
+for(var i=0;i<count;i++){var sp=dngFloorPos();var e=new Enemy(sp.x,sp.y,pick(types));e.hp=Math.floor(e.hp*scale*coopScale);e.maxHp=e.hp;e.dmg=Math.floor(e.dmg*scale);e.spd=e.spd*(1+teamLv*0.01);e.isDungeonEnemy=true;e.stuckT=0;dungeonEnemies.push(e);}
+```
+
+Enemy count is `min(3 + floor(roomIndex/2) + waveNumber, 8)`, raised by 1 and capped at 10 in the Citadel. HP scales with team level (3%/level) **and** player count (30% per extra player); damage scales with team level only; speed by 1%/level.
+
+Enemy type pools:
+
+| Dungeon | Pool |
+|---|---|
+| `forest` | goblin, orc, bat, healer |
+| `cave` | bat, shielded, goblin, wraith |
+| `desert` | archer, orc, goblin, brute |
+| `swamp` | troll, bat, goblin, healer |
+| `volcanic` | fire_elemental, lava_slime, ember_sprite, obsidian_guard |
+| anything else (incl. `frozen`) | shielded, archer, goblin, bomber |
+| Citadel floor 1 | shielded, orc, archer, troll, wraith |
+| Citadel floor 2 | troll, fire_elemental, shielded, obsidian_guard, brute |
+| Citadel floor 3 | obsidian_guard, fire_elemental, troll, shielded, bomber, healer |
+
+Wave clearing (L8236): when `dungeonDoorsLocked` and the room is `combat`/`ability` and no wave spawn is pending, a zero-alive check either schedules the next wave (`dungeonWaveSpawning = true`, 1200 ms `setTimeout`) or unlocks the doors, pushes the room index into `dungeonRoomsCleared`, announces `'Room cleared!'` and plays `snd('equip',0.3)`.
+
+### 11.9 Keys, locks and interaction (`heroInteract`, L7318–L7338)
+
+Range for every interactable is **50 px** (60 px for ability objects' prompts and for door unlocking).
+
+| Object | Effect |
+|---|---|
+| `chest` (key chest) | `dungeonInventory.keys++`, `announce('Dungeon Key found!','#E8A838',3)`, `snd('equip',0.4)`, 20-particle gold burst |
+| `chest` (normal) | heal every living hero `+50` HP, `announce('Treasure! +50 HP all!')`, `dungeonXPGained += 15` |
+| `lever` | toggles `active`; when **all** levers in the room are active, every `DOOR_BARRED` in the room becomes `DOOR_OPEN`, `dungeonDoorsLocked = false`, `snd('door_unlock',0.4)`, `announce('Bars retracted!')` |
+| `cracked_wall` | LIAM only — `snd('boom',0.4)`, `dungeonXPGained += 50`, 15 debris particles, `ab9Complete()`; other heroes get `'This requires LIAM's ability!'` |
+| `target_switch` | NOAH with `aType==='arrow'` only — `snd('puzzle_solve',0.4)`, `+50` dungeon XP, `ab9Complete()` |
+| `magic_seal` | COLLETTE only — requires **3 channel presses**; each intermediate press announces `'Channeling... (N more)'` with `snd('magic',0.2)` |
+| `gear_lock` | ISABELLA only — instant, `+50` dungeon XP, `ab9Complete()` |
+| Locked door | with `keys > 0` and within 60 px of the door centre: consume a key, set `DOOR_OPEN`, `snd('door_unlock',0.4)`, `announce('Door unlocked!')` |
+
+`ab9Complete()` (L7316) drops a bonus (non-key) chest at a random reachable tile with a 20-particle burst.
+
+`heroInteractAs(hero)` (L7340) is the identical host-side version used for guest-controlled heroes.
+
+**Ability room objects** by hero index (L7268–L7277): `abilityTypes = ['cracked_wall','target_switch','magic_seal','gear_lock']` indexed by the chosen hero (0=Liam … 3=Isabella), chosen once per room from the unlocked heroes and cached on `room.abilityHero`. The cracked wall is written into the template as tile `12` at the first wall found in column 13, rows 3–8; the other three are spawned as objects (`target_switch` pinned to `x = DNG_COLS*DNG_TW - 60`). Hints:
+
+| Hero | Hint |
+|---|---|
+| LIAM | These cracks look weak... Liam could smash through! |
+| NOAH | A distant target... Noah could hit it! |
+| COLLETTE | A magic seal... Collette could channel it! |
+| ISABELLA | Gears are jammed... Isabella could break them! |
+
+### 11.10 Door transitions and room-slide (L8239–L8249, L8117)
+
+```js
+var doorXMin=7*DNG_TW,doorXMax=9*DNG_TW,doorYMin=5*DNG_TW,doorYMax=7*DNG_TW;
+```
+
+Trigger bands: north `y < 25` with `280 < x < 360`; south `y > 455` with the same x band; east `x > 615` with `200 < y < 280`; west `x < 25` with the same y band. **Every** unlocked living hero is tested (so a guest can open a door). If the door state is `DOOR_LOCKED` and a key is held, the key is consumed inline and the door opens.
+
+Transition state:
+
+```js
+roomTransitionActive=true;roomTransitionTimer=0.6;roomTransitionPhase='out';roomTransitionDir=<dir>;roomTransitionTarget=<idx>;
+```
+
+and in `updateDungeon` (L8117):
+
+```js
+if(roomTransitionActive){roomTransitionTimer-=dt;if(roomTransitionPhase==='out'&&roomTransitionTimer<=0.3){roomTransitionPhase='in';loadDungeonRoom(roomTransitionTarget,roomTransitionDir);}if(roomTransitionTimer<=0){roomTransitionActive=false;}return;}
+```
+
+A 0.6 s transition: the room actually swaps at the 0.3 s midpoint, and the whole simulation is paused for the duration. The overlay (L8114) slides a black rect of alpha `min(0.8, slideAmt)` in from the travelled direction, where `slideAmt = phase==='out' ? 1 - timer/0.6 : timer/0.6`.
+
+Walking south out of room 0 with no south connection is the **retreat** action and calls `showDungeonFail()` (L8246).
+
+### 11.11 Cleared state and the minimap
+
+- `dungeonRoomsCleared[]` — room indices whose combat/ability challenge is resolved. Re-entering a cleared room skips wave spawning and door locking.
+- `dungeonRoomStates{}` — per-room object/decor persistence (see §11.7 step 1).
+- `dungeonMinimapData[]` — `{visited, type, pos}` per room, drawn at `(W-130, H-110)` in a 120 × 100 panel with 22 × 16 px cells offset by `pos.c`/`pos.r`, connections drawn as lines between cell centres, and lock icons on locked doors (L8069–L8089).
+- `dungeonProgress{forest,cave,desert,swamp,frozen,volcanic}` (L836) plus `citadel` added at runtime — the persistent "cleared" record that drives entrance `✓` badges, the Volcanic/Citadel unlock checks and the Goblin King spawn.
+
+### 11.12 Dungeon render pipeline (`renderDungeon`, L7934–L8114)
+
+Draw order per frame:
+
+1. `ctx.clearRect`; `beginWorldZoom()`.
+2. Floor/wall tiles from `room.tiles` with `DUNGEON_TILE_COLORS` and `DNG_WALL_V` variation (seeded by `dungeonRoom*137`), including tile 12 cracked walls.
+3. Wall torches — teardrop flames with per-torch phase `ph` and frequency `9.4 + (ph%2 - 0.5)*1.2`, a warm halo `rgba(255,140,40,0.06)` at radius `14 + flVal*3`, outer orange flame and `#ffd166` inner core.
+4. Decor props (damaged crates get a cracked variant at 1 HP).
+5. Objects (plates, blocks, chests, spikes, levers), ability objects, and the healing-spring visual in rest rooms.
+6. Biome hazards.
+7. The area outside the 640 × 480 room is filled with `rgba(0,0,0,0.95)`.
+8. Clip to the room rect; draw arena effects and ability VFX (with `cam` forced to `0,0`), boss block hazards/tether/containment/charge trail, then all entities.
+9. **Dynamic lighting**: an offscreen canvas (`window._lightCvs`) is filled with `DNG_AMBIENT[biome]`, then light holes are punched with `globalCompositeOperation='destination-out'` radial gradients — hero glow radius `180` in boss rooms else `120`, torch lights synced to the flame oscillator, projectile lights scaled by type, enemy glows, boss glow. The layer is then composited over the main canvas with `drawImage`.
+10. Atmosphere particles drawn **on top** of the darkness so they glow.
+11. Interaction prompts (`[SPACE] Open` / `Pull` / `Interact`), room border, citadel visual effects.
+12. Minimap, boss cinematic letterbox (`barH = 60 * clamp(...)`), phase flash overlay, mobile action buttons.
+13. HUD: dungeon name (biome colour) at `(12, H-35)`, `Room N/M` at `(12, H-18)`, `🔒 LOCKED` in `#D84830` at `(12, H-52)` when doors are locked; rest-room lore in italic below the room.
+14. `drawAnnounce()`, `drawAchievements()`, `drawJoystick()`, `drawTouchButtons()`, boss bar, equipment tooltip, room-transition slide.
+
+### 11.13 Dungeon update order (`updateDungeon`, L8115–L8256)
+
+Wrapped in `try/catch` (errors logged as `'updateDungeon error:'`). Order:
+
+1. Room transition (early return if active).
+2. `getInput()`.
+3. Boss cinematic (early return if active; 5 s, atmosphere still ticks).
+4. `updDngAtmo(dt)`.
+5. Heroes — movement, then wall-tile collision using the four corners of a `hr9` box, curse timers, biome-hazard effects (reduced-friction slide rather than an additive push), eruption geyser timers.
+6. Decor hits; projectile-vs-decor.
+7. Puzzle check (co-op plates: any hero standing on a plate activates it in every dungeon).
+8. Citadel floor hazards.
+9. Dungeon enemies — with wall collision plus a stuck-enemy warp: an enemy standing on an unreachable tile for > 1 s is teleported to a reachable floor tile.
+10. Boss.
+11. Projectiles (cave crystal reflect bounces projectiles off walls).
+12. Particles.
+13. Spike damage; melee heroes damaging ice walls; vine collision.
+14. Push-block puzzle: cardinal-only grid-snapped pushes with wall and block collision, plate activation and deactivation checks, hero push-back.
+15. Combat/ability room clear checks.
+16. Door transitions.
+17. All-heroes-dead check → `showDungeonFail()`.
+18. Screen shake decay.
+
+---
+## 12. Tutorial System
+
+**Legacy lines:** `tutorial` state L4313; `TUTORIAL_STEPS` L4314–L4322; `updateTutorial` L4323–L4327; `drawTutorial` L4328–L4337.
+
+```js
+var tutorial={step:0,active:true,timer:5,startX:0,startY:0,_switched:false,_openedTree:false};
+```
+
+`initGame()` re-creates this with `startX/startY` set to hero 0's spawn (L8338); in DEV_MODE it is disabled with `step = 7`.
+
+### 12.1 Steps — trigger and completion (message text is canon; see FAMILY_CANON)
+
+| # | Message key (emoji + text) | Completion condition |
+|---|---|---|
+| 0 | 🎮 WASD to move (or drag left side on mobile) | `hypot(heroes[0].x - tutorial.startX, heroes[0].y - tutorial.startY) > 100` |
+| 1 | ⚔️ Click to attack enemies! | `gameStats.kills >= 1` |
+| 2 | 🔑 Walk to the cage to rescue your sibling! | `sibs >= 1` |
+| 3 | 👥 Press 1-4 to switch heroes | `tutorial._switched` |
+| 4 | ⬆️ Choose a card to level up! | `teamLv >= 2` |
+| 5 | 🌳 Press T to open Skill Trees | `tutorial._openedTree` |
+| 6 | 🗺️ Explore the biomes! Check the minimap. | `tutorial.timer -= 1/60; return tutorial.timer <= 0` |
+
+`_switched` is set by the hero-switch keydown path (L942) and the mobile portrait tap (L1002); `_openedTree` is set by the skill-tree keybind (L951). Note step 6's `check()` mutates `tutorial.timer` by a hard-coded `1/60` per call rather than `dt` — it is frame-rate dependent, giving ~5 s at 60 fps.
+
+### 12.2 Update and draw
+
+```js
+function updateTutorial(dt){
+  if(!tutorial.active||!settings.showTutorial)return;
+  if(tutorial.step>=TUTORIAL_STEPS.length){tutorial.active=false;return;}
+  if(TUTORIAL_STEPS[tutorial.step].check()){tutorial.step++;tutorial.timer=5;snd('achieve',0.15);if(tutorial.step>=TUTORIAL_STEPS.length)tutorial.active=false;}
+}
+```
+
+Steps advance strictly in order, one per frame at most, each resetting `timer` to 5 and playing `snd('achieve',0.15)`. `updateTutorial` is the very first call inside `update()` (L9247), so it does not run inside dungeons.
+
+`drawTutorial()` renders a rounded bar `min(W-40, 500)` px wide, 30 px tall, centred at `y = H-65`, fill `rgba(0,0,0,0.6)`, radius 8, with `bold 13px sans-serif` white text pulsing at `alpha = 0.85 + sin(gt*3)*0.15`.
+
+The whole system is gated on the `showTutorial` setting (default `true`, toggled in the settings overlay).
+
+---
+
+## 13. Cutscene System
+
+**Legacy lines:** `// ===== V24: CUTSCENE SYSTEM =====` L4362–L4396; V27 cinematic helpers L4400–L4450; `triggerMeteorCutscene` L4451–L5016.
+
+### 13.1 Shot structure
+
+```js
+var cutscene={active:false,steps:[],stepIdx:0,stepTimer:0,letterbox:0};
+function startCutscene(steps){
+  cutscene.steps=steps;cutscene.stepIdx=0;cutscene.stepTimer=0;
+  cutscene.letterbox=0;cutscene.active=true;
+  if(steps[0]&&steps[0].onStart)steps[0].onStart();
+}
+```
+
+A cutscene is an array of **shots**, each a plain object:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `duration` | number (s) | how long the shot runs |
+| `onStart` | `function()` | fired once when the shot begins (including shot 0 at `startCutscene`) |
+| `draw` | `function(t, duration)` | called every frame with elapsed time and duration |
+| `onEnd` | `function()` | fired once when the shot's time expires (and on skip, for every remaining shot) |
+
+```js
+function updateCutscene(dt){
+  if(!cutscene.active)return false;
+  cutscene.letterbox=Math.min(1,cutscene.letterbox+dt*3);
+  cutscene.stepTimer+=dt;
+  var step=cutscene.steps[cutscene.stepIdx];
+  if(!step){cutscene.active=false;return false;}
+  if(cutscene.stepTimer>=step.duration){
+    if(step.onEnd)step.onEnd();
+    cutscene.stepIdx++;cutscene.stepTimer=0;
+    if(cutscene.stepIdx>=cutscene.steps.length){
+      cutscene.active=false;cutscene.letterbox=0;return false;
+    }
+    if(cutscene.steps[cutscene.stepIdx].onStart)cutscene.steps[cutscene.stepIdx].onStart();
+  }
+  return true;
+}
+```
+
+Letterbox opens over **1/3 second** (`+dt*3`, clamped to 1) and snaps to 0 when the cutscene finishes.
+
+```js
+function drawCutscene(){
+  var step=cutscene.steps[cutscene.stepIdx];
+  if(step&&step.draw)step.draw(cutscene.stepTimer,step.duration);
+  var barH=60*cutscene.letterbox;
+  ctx.fillStyle='#000';
+  ctx.fillRect(0,0,W,barH);
+  ctx.fillRect(0,H-barH,W,barH);
+  ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.4)';
+  ctx.fillText('Press SPACE to skip',W/2,H-barH-8);
+}
+```
+
+Bars are 60 px at full extension; the skip hint sits 8 px above the bottom bar.
+
+```js
+function skipCutscene(){
+  if(!cutscene.active)return;
+  for(var i=cutscene.stepIdx;i<cutscene.steps.length;i++){
+    if(cutscene.steps[i].onEnd)cutscene.steps[i].onEnd();
+  }
+  cutscene.active=false;cutscene.letterbox=0;cutscene.steps=[];cutscene.stepIdx=0;cutscene.stepTimer=0;
+}
+```
+
+Skipping runs every remaining `onEnd` so state flags still land. Bound to **Space or Enter** at the very top of the keydown handler (L933), before any other key routing.
+
+In the main loop, an active cutscene fully replaces update+render (L9234):
+
+```js
+if(cutscene.active){updateCutscene(dt);if(inDungeon)renderDungeon();else render();drawCutscene();if(DEV_MODE)drawPerfOverlay(performance.now()-_frameStart);return;}
+```
+
+The world is rendered but **not simulated** — `update()` never runs, so `gt`, `dayTime` and every timer freeze. `drawFog()` and `drawDayNightTint()` both early-return while `cutscene.active` (L3330, L3338).
+
+### 13.2 Shared cinematic helpers (L4400–L4450)
+
+```js
+function smoothDamp(current, target, smoothTime, dt) {
+    var t = Math.exp(-smoothTime * dt * 10);
+    return target + (current - target) * t;
+}
+```
+
+An exponential ease toward `target`; higher `smoothTime` converges faster (note the sign: `exp(-smoothTime*dt*10)` shrinks the residual).
+
+`emberPool[]` with `spawnEmber(x,y,vx,vy,life,color,sz)` reuses any slot whose `life <= 0`, growing the pool only when none is free. `updateAndDrawEmbers(dt, worldSpace)` runs the whole pool under `globalCompositeOperation='lighter'` with `alpha = (life/maxLife)*0.8`, applying `vy += grav*dt` and `vx *= 0.98` drag; `worldSpace` toggles between camera-relative and screen coordinates.
+
+```js
+var cineShake={x:0,y:0,intensity:0};
+function updateCineShake(dt){
+    if(cineShake.intensity>0){
+        cineShake.x=(Math.random()-0.5)*2*cineShake.intensity;
+        cineShake.y=(Math.random()-0.5)*2*cineShake.intensity;
+        cineShake.intensity-=dt*15;if(cineShake.intensity<0)cineShake.intensity=0;
+    } else {cineShake.x=0;cineShake.y=0;}
+}
+```
+
+An independent shake channel (separate from `shk`) that decays at 15 units/s.
+
+### 13.3 The meteor cutscene — shot list (L4451–L5016)
+
+Setup (L4452–L4457) computes a framing zoom that keeps the world edges off-screen:
+
+```js
+var _edgeX=Math.min(_mcrX,WW-_mcrX),_edgeY=Math.min(_mcrY,WH-_mcrY);
+var _csZoom=Math.max(WORLD_ZOOM+0.5,W/(2*Math.max(_edgeX-20,1))*1.15,H/(2*Math.max(_edgeY-20,1))*1.15);
+_csZoom=Math.min(_csZoom,4.5);
+```
+
+The original camera and `WORLD_ZOOM` are captured for restoration in Scene 7.
+
+| # | Name | Duration | Structure (visuals are ATMOSPHERE_RECIPES; text is FAMILY_CANON) |
+|---|---|---|---|
+| 1 | FIRST-PERSON CALM | 4.0 s | `onStart` resets `_prevT`, `cs.vigA`, and the `_smoke`/`_ssEmbers`/`_mTrail` buffers. Establishing beat before the meteor is visible. |
+| 2 | SKY WATCH | 4.2 s | `onStart` clears `_mTrail`. The meteor first appears in the sky. |
+| 3 | THE CROSSING | 4.5 s | `onStart` clears smoke, embers and trail. The meteor crosses frame. |
+| 4 | THE DIVE | 3.5 s | `onStart` clears buffers. The meteor descends toward the crater site. |
+| 5 | THE IMPACT | 1.5 s | `onStart`: `cs.impFlash=1.0`, `cs.freezeTimer=0.06`, `WORLD_ZOOM=_csZoom`, camera snapped to the crater, `cineShake.intensity=40`, `snd('boom',0.6)`, `screenShake(22,0.9)`, three staggered shockwave rings (delays `0 / 0.18 / 0.35`, radii `400 / 320 / 260`), a 40-piece debris burst, and **1200 pooled embers** at `angle = random*TAU`, `power = 200 + random*1300`, upward bias `-(200 + random*600)`, colours `['#1abc9c','#7b2d8e','#ffffff','#e67e22','#ff6b6b','#E8A838']`. |
+| 6 | THE AFTERMATH | 3.0 s | Camera settles with `smoothDamp(cam, crater, 0.15, dt)`; background `#0B0E1A`; smoke/debris/rings update; crater particles and `drawCrater()`; settling dust haze `rgba(80,60,40, 0.15*(1-p))`; vignette lerps `0.7 → 0.4`; after `p>0.4` a purple radial glow ramps to `alpha = easeOut2((p-0.4)/0.6)*0.08`; after `p>0.7`, `announce("A strange light glows in the distance...","#8850A8",4)`. **`onEnd` sets `storyFlags.meteorSeen`, `ALIEN_CRATER.discovered` and `storyFlags.craterDiscovered` all true.** |
+| 7 | THE RETURN | 3.5 s | `onStart` ramps the BGM master gain back to `bgm.vol` over 2 s. `WORLD_ZOOM` lerps `_csZoom → _origZoom` on `ease3(p)`; camera lerps from the crater back to the pre-cutscene position and is clamped to `[-halfW*0.1, WW-W+halfW*0.1]` (same for Y); embers continue settling; vignette fades `0.4 → 0`. |
+
+Total runtime: **24.2 s**. Trigger: first dungeon clear (§6.6) or `F10` / the dev console's `▶ Meteor` button.
+
+---
+
+## 14. Arena Effect System & Boss Intro
+
+### 14.1 Arena effects (L5018–L5061)
+
+```js
+var arenaEffects=[];
+var MAX_ARENA_EFFECTS=8;
+function addArenaEffect(opts){
+  if(arenaEffects.length>=MAX_ARENA_EFFECTS)return;
+  arenaEffects.push({
+    x:opts.x,y:opts.y,radius:opts.radius,
+    duration:opts.duration,timer:0,
+    telegraphTime:opts.telegraphTime||1.0,
+    active:false,
+    drawTelegraph:opts.drawTelegraph,
+    drawActive:opts.drawActive,
+    onHeroInside:opts.onHeroInside,
+    onEnd:opts.onEnd||function(){}
+  });
+}
+```
+
+An arena effect is a **circular ground zone with a two-phase lifetime**: a telegraph window of `telegraphTime` (default 1.0 s) followed by an active window of `duration`. The list is hard-capped at 8; a request over the cap is silently dropped.
+
+```js
+function updateArenaEffects(dt){
+  for(var i=arenaEffects.length-1;i>=0;i--){
+    var ae=arenaEffects[i];
+    ae.timer+=dt;
+    if(!ae.active&&ae.timer>=ae.telegraphTime)ae.active=true;
+    if(ae.active&&ae.onHeroInside){
+      for(var hi=0;hi<heroes.length;hi++){
+        var h=heroes[hi];
+        if(!h.unlocked||h.dead||h.downed)continue;
+        if(dst(h,ae)<ae.radius)ae.onHeroInside(h,dt);
+      }
+    }
+    if(ae.timer>=ae.telegraphTime+ae.duration){
+      ae.onEnd();arenaEffects.splice(i,1);
+    }
+  }
+}
+```
+
+`onHeroInside(hero, dt)` is called **every frame** for every hero inside the radius while active — callers are responsible for scaling by `dt` (a per-frame tick, not a one-shot hit).
+
+```js
+function drawArenaEffects(){
+  for(var i=0;i<arenaEffects.length;i++){
+    var ae=arenaEffects[i];
+    if(!ae.active&&ae.drawTelegraph){
+      ae.drawTelegraph(ae.x-cam.x,ae.y-cam.y,ae.radius,ae.timer/ae.telegraphTime);
+    }else if(ae.active&&ae.drawActive){
+      ae.drawActive(ae.x-cam.x,ae.y-cam.y,ae.radius,ae.timer-ae.telegraphTime);
+    }
+  }
+}
+function clearArenaEffects(){arenaEffects.length=0;}
+```
+
+The telegraph callback receives a **normalised 0→1 progress**; the active callback receives **elapsed seconds since activation**. Both receive screen-space coordinates (in dungeons `cam` is zeroed and the whole call is wrapped in a `translate(ox,oy)`).
+
+`clearArenaEffects()` is called by `enterDungeon` indirectly and explicitly by the dev scenarios to prevent zones leaking between fights.
+
+Representative caller shapes (all Part 1 boss code): radial blast `{radius, duration:0.5, telegraphTime:chargeTime}` (L5073), charge attack `{radius:20, duration:0.1, telegraphTime:0.4}` (L5169), treant vine grab `{radius:80, duration:2.0, telegraphTime:1.0}` (L7445), colossus beam sweep `{radius:250, duration:1.0, telegraphTime:1.2}` (L7592), blizzard ring `{radius:300, duration:4.0, telegraphTime:1.5}` (L7608).
+
+### 14.2 Boss intro (L5326–L5346)
+
+```js
+var bossIntroActive=false;
+function playBossIntro(name,subtitle,color,borderColor){
+  if(bossIntroActive)return;bossIntroActive=true;paused=true;
+  var lbT=document.getElementById('lbTop'),lbB=document.getElementById('lbBot');
+  var nc=document.getElementById('bossNamecard');
+  document.getElementById('bossNm').textContent=name;
+  document.getElementById('bossNm').style.color=color;
+  document.getElementById('bossTitle').textContent=subtitle;
+  nc.style.borderColor=borderColor;
+  lbT.className='letterbox-top show';lbB.className='letterbox-bot show';
+  setTimeout(function(){nc.classList.add('show');snd('boss',.5);},800);
+  setTimeout(function(){
+    nc.classList.remove('show');
+    setTimeout(function(){lbT.className='letterbox-top hide';lbB.className='letterbox-bot hide';
+      setTimeout(function(){lbT.className='letterbox-top';lbB.className='letterbox-bot';bossIntroActive=false;paused=false;},500);
+    },400);
+  },3200);
+}
+```
+
+**Timeline (total 4.1 s, game paused throughout):**
+
+| t | Event |
+|---|---|
+| 0 ms | `paused = true`; letterbox bars start the `letterboxIn` animation (`0 → 60px`, 0.5 s, `ease-out`) |
+| 800 ms | name-card slides in from the right (`transform: translate(100%,-50%) → translate(0,-50%)`, 0.6 s, `cubic-bezier(0.34,1.56,0.64,1)` overshoot); `snd('boss',0.5)` |
+| 3200 ms | name-card slides back out (same 0.6 s transition) |
+| 3600 ms | bars start `letterboxOut` (`60px → 0`, 0.4 s, `ease-in`) |
+| 4100 ms | classes reset, `bossIntroActive = false`, `paused = false` |
+
+CSS (L31–L32, L254–L262): bars are `#0B0E1A`, `position:fixed`, `z-index:55`; the name card is `z-index:56`, right-anchored, `padding:16px 40px 16px 24px`, `border-left:4px solid <borderColor>`, `border-radius:8px 0 0 8px`, gradient background `rgba(15,10,30,0.95) → rgba(25,15,40,0.95)` with an 8 px backdrop blur. Boss name is `clamp(20px,3vw,30px)` bold with `letter-spacing:3px` and a 20 px `currentColor` glow; the subtitle is 12 px `#aaa` at `letter-spacing:1px`.
+
+Call sites: `enterDungeon` (dungeon/floor name card, L7074), the Shadow Queen portal transition (L9331), and Part 1's Goblin King spawn. `enterDungeon` clears `bossIntroActive = false` first so a queued intro cannot block the new one.
+
+### 14.3 Mini-boss popup (L5338)
+
+```js
+function showMiniBossPopup(name,subtitle,color){
+  var p=document.getElementById('mbPopup');
+  document.getElementById('mbNm').textContent=name;document.getElementById('mbNm').style.color=color;
+  document.getElementById('mbSub').textContent=subtitle;
+  p.classList.add('show');
+  setTimeout(function(){p.classList.remove('show');},2500);
+}
+```
+
+A non-blocking 2.5 s banner: `position:fixed; top:60px; left:50%`, `transform: translateX(-50%) translateY(-100%) → translateY(0)` over 0.4 s with an opacity fade, `z-index:15`. It does **not** pause the game.
+
+### 14.4 Small VFX helpers in the same block
+
+- `levelUpBurst(h)` (L5354): 30 particles, `speed rnd(80,250)`, `life rnd(0.6,1.2)`, `sz rnd(2,6)`, colours `[hero.col, '#E8A838', '#fff']`, `grav 150`, `fric 0.93`.
+- `equipPickupVFX(h, eqCol)` (L5362): 10 particles converging inward from `r rnd(30,60)` at speed 80, `life 0.5`, plus a floating `'NEW GEAR!'` label in `#E8A838`.
+
+---
+
+## 15. Particles, VFX & Projectiles
+
+**Legacy lines:** `// ===== PARTICLES =====` L1724–L1745; `// ===== V24: ABILITY VFX SYSTEM =====` L1746–L1751; `// ===== PROJECTILES =====` L1752–L1757; `// ===== LOOT =====` L1758.
+
+### 15.1 Particle pool
+
+```js
+var parts=[];
+function Part(x,y,o){this.x=x;this.y=y;o=o||{};this.vx=o.vx||0;this.vy=o.vy||0;this.life=o.life||.5;this.ml=this.life;this.sz=o.sz||3;this.col=o.col||'#fff';this.grav=o.grav||0;this.fric=o.fric||.98;this.txt=o.txt||null;this.fs=o.fs||16;this.bounce=o.bounce||false;this.bd=false;this.crit=o.crit||false;this.scalePulse=o.scalePulse||0;}
+Part.prototype.update=function(dt){this.life-=dt;this.vy+=this.grav*dt;this.vx*=this.fric;this.vy*=this.fric;this.x+=this.vx*dt;this.y+=this.vy*dt;if(this.bounce&&!this.bd&&this.vy>0&&this.life<this.ml*.6){this.vy=-80;this.bd=true;}return this.life>0;};
+```
+
+| Field | Default | Meaning |
+|---|---|---|
+| `vx`,`vy` | 0 | velocity px/s |
+| `life`/`ml` | 0.5 | remaining / max lifetime, alpha = `life/ml` |
+| `sz` | 3 | radius (drawn as `max(0.1, sz*alpha)` — particles shrink as they fade) |
+| `col` | `#fff` | fill |
+| `grav` | 0 | px/s² added to `vy` |
+| `fric` | 0.98 | per-frame velocity multiplier (frame-rate dependent, not `dt`-scaled) |
+| `txt` | null | if set, renders as text instead of a dot |
+| `fs` | 16 | font size for text particles |
+| `bounce` | false | one-shot upward kick of `-80` once `vy > 0` and 40% of life has elapsed |
+| `crit` | false | adds a 10 px `shadowBlur` glow |
+| `scalePulse` | 0 | text scales by `1 + scalePulse*(life/ml)` |
+
+`Part.prototype.draw` (L1728) draws text particles with a `bold Npx sans-serif` fill plus a 2 px `rgba(0,0,0,0.5)` stroke outline; dot particles are a simple arc.
+
+**Cap:** `parts` is filtered each frame in `update()` and then truncated: `if(parts.length>MAX_PARTICLES)parts.length=MAX_PARTICLES;` (250). `updWeather` has a second guard truncating `parts` to 800 (L1641). Note truncation keeps the **oldest** entries and drops the newest.
+
+**Density scaling:** `getParticleMul()` (L602) returns `0.3 / 0.6 / 1.0` for the `low / med / high` particle-density setting; call sites multiply their spawn counts by it.
+
+### 15.2 Named particle emitters
+
+| Function | Line | Recipe |
+|---|---|---|
+| `dust(x,y)` | L1730 | 1 particle, offset `rnd(-5,5)/rnd(-2,2)`, `vx rnd(-20,20)`, `vy rnd(-30,-10)`, `life 0.4`, `sz rnd(2,4)`, colour from `['#c4a35a','#d4b86a','#b8956a']`, `grav 60` |
+| `dmgN(x,y,n,col,crit)` | L1731 | damage number — see below |
+| `hitFx(x,y,col)` | L1743 | 6 particles, `speed rnd(60,150)`, `life 0.3`, `sz rnd(2,5)`, `fric 0.92`, plus `snd('hit',0.12)` |
+| `xpFx(x,y)` | L1744 | 8 particles, `speed rnd(40,100)`, `life 0.6`, `sz rnd(2,4)`, colours `['#3DCC7A','#2D8C56','#E8A838']`, `grav 80`, `fric 0.95` |
+| `announce(t,c,d)` | L1745 | sets `annText`, `annTimer = d || 2.5`, `annColor = c || '#E8A838'` |
+
+`dmgN` (L1731) in full:
+
+```js
+if(!settings.showDmgNumbers)return;
+var dmgCount=0;for(var di=0;di<parts.length;di++)if(parts[di].txt)dmgCount++;
+if(dmgCount>=30){for(var di2=0;di2<parts.length;di2++){if(parts[di2].txt){parts.splice(di2,1);break;}}}
+var _nv=typeof n==='number'?n:0;var _bfs=clamp(16+Math.floor(_nv/20)*2,16,32);
+var _dcol=col||'#fff';if(typeof n==='number'&&!col){_dcol=_nv<10?'#fff':_nv<30?'#E8A838':_nv<60?'#D88030':'#D84830';}
+var _cfs=crit?Math.floor(_bfs*1.3):_bfs;var _csp=crit?0.3:0;
+parts.push(new Part(x+rnd(-15,15),y-10,{vy:-130,life:1,txt:(crit?'CRIT! ':'')+n,fs:_cfs,col:_dcol,grav:180,bounce:true,crit:crit,vx:rnd(-20,20),scalePulse:_csp}));
+if(crit){for(var ci=0;ci<6;ci++){ ... }}
+```
+
+At most **30** text particles exist at once (the oldest is evicted). Font size grows 2 px per 20 damage from 16 to 32; crits are 1.3× larger with a 0.3 scale pulse, a `CRIT! ` prefix and a 6-spark burst. Auto-colour by magnitude: `<10` white, `<30` `#E8A838`, `<60` `#D88030`, else `#D84830`.
+
+### 15.3 Ability VFX (L1746–L1751)
+
+```js
+var abilityVFX=[];
+function addAbilityVFX(opts){abilityVFX.push({x:opts.x,y:opts.y,timer:0,duration:opts.duration||1,data:opts.data||{},update:opts.update||function(){},draw:opts.draw||function(){}});}
+function updateAbilityVFX(dt){for(var i=abilityVFX.length-1;i>=0;i--){abilityVFX[i].timer+=dt;if(abilityVFX[i].update)abilityVFX[i].update(abilityVFX[i],dt);if(abilityVFX[i].timer>=abilityVFX[i].duration)abilityVFX.splice(i,1);}}
+function drawAbilityVFX(){for(var i=0;i<abilityVFX.length;i++){var v=abilityVFX[i];if(v.draw)v.draw(v,v.x-cam.x,v.y-cam.y,v.timer/v.duration);}}
+```
+
+A generic closure-driven effect: `update(self, dt)` each frame, `draw(self, screenX, screenY, progress)` with a normalised progress. **There is no cap** on `abilityVFX` — unlike `arenaEffects` (8) and `parts` (250). Data lives on `self.data`.
+
+### 15.4 Projectiles (L1752–L1757)
+
+```js
+var projs=[];
+function Proj(x,y,a,spd,o){this.nid=netId();this.x=x;this.y=y;o=o||{};this.vx=Math.cos(a)*spd;this.vy=Math.sin(a)*spd;this.life=o.life||2;this.dmg=o.dmg||10;this.sz=o.sz||4;this.col=o.col||'#E8A838';this.homing=o.homing||false;this.tgt=o.tgt||null;this.slow=o.slow||0;this.dot=o.dot||0;this.chain=o.chain||0;this.trail=[];this.friendly=o.friendly!==false;this.pierce=o.pierce||false;this.hits=new Set();this.reflected=o.reflected||false;this.src=o.src||null;}
+```
+
+| Field | Default | Meaning |
+|---|---|---|
+| `nid` | `netId()` | network identity (rolling 1…2,000,000,000) |
+| `life` | 2 s | despawn timer |
+| `dmg` | 10 | on-hit damage |
+| `sz` | 4 | collision radius and draw radius |
+| `col` | `#E8A838` | fill + 12 px shadow glow |
+| `homing` | false | steer toward `tgt` |
+| `tgt` | null | homing target |
+| `slow` | 0 | seconds of `slowT` applied on hit |
+| `dot` | 0 | damage-over-time value; sets `_dotDmg` and `_dotT = 4` on the victim |
+| `chain` | 0 | chain-lightning counter (consumed by Part 1 hero code) |
+| `friendly` | true | true = hits enemies, false = hits heroes |
+| `pierce` | false | survives the first hit |
+| `hits` | `Set` | per-target hit dedupe |
+| `reflected` | false | set when a Crystal Golem bounces it back |
+| `src` | null | originating hero, for damage attribution |
+
+```js
+Proj.prototype.update=function(dt){this.life-=dt;if(this.homing&&this.tgt&&!this.tgt.dead){var ta=ang(this,this.tgt),ca=Math.atan2(this.vy,this.vx),d=ta-ca;while(d>PI)d-=TAU;while(d<-PI)d+=TAU;ca+=d*3*dt;var sp=Math.hypot(this.vx,this.vy);this.vx=Math.cos(ca)*sp;this.vy=Math.sin(ca)*sp;}this.x+=this.vx*dt;this.y+=this.vy*dt;this.trail.push({x:this.x,y:this.y,a:1});if(this.trail.length>8)this.trail.shift();for(var i=0;i<this.trail.length;i++)this.trail[i].a-=dt*3;return this.life>0&&this.x>-50&&this.x<WW+50&&this.y>-50&&this.y<WH+50;};
+```
+
+Homing turns toward the target at `3 rad/s` while preserving speed. The trail is an 8-sample ring buffer whose alphas decay at `3/s`. A projectile dies on `life <= 0` or 50 px outside the world bounds.
+
+**Collision (overworld, `update()` L9261–L9272)** — resolved in this order for friendly projectiles:
+
+1. **Enemies** — `dst(p,e) < e.sz + p.sz`, skipping `p.hits`. Applies damage, attributes it to `p.src.stats.dmgDealt`, runs `onKillEffects` on death, applies `slow` (`slowT = max(slowT, p.slow)`) and `dot` (`_dotDmg = p.dot; _dotT = 4`), adds to `hits`, and sets `life = 0` unless `pierce`.
+2. **Mini-bosses** — same radius test. **Crystal Golem special case:** an unreflected projectile is bounced (`vx,vy *= -1`, `friendly = false`, `reflected = true`, colour `#6B8EC8`, `REFLECT!` damage number). A reflected projectile hitting the golem damages it normally.
+3. **Goblin King boss** — `dst < boss.sz + p.sz`, `slowT = 1` if slowing, always consumed.
+4. **Shadow Queen** — identical.
+5. **Spawners** — fixed radius `30 + p.sz`, always consumed.
+
+Hostile projectiles (`friendly === false`) test only heroes at a fixed radius of `15 + p.sz`.
+
+**Cap:** `if(projs.length>MAX_PROJS)projs.length=MAX_PROJS;` (150) after the filter.
+
+`Proj.prototype.draw` (L1756) renders the trail as fading dots of radius `max(0.5, sz*(i/trailLen))` at `alpha = a*0.5`, then the head with a 12 px `shadowBlur` glow and a white `rgba(255,255,255,0.8)` core at 40% radius.
+
+In dungeons, projectiles are updated inside `updateDungeon` with an extra wall-bounce rule for the cave dungeon (crystal reflection, L8182).
+
+### 15.5 Screen shake and hit-stop (L613–L614)
+
+```js
+function screenShake(intensity,duration){if(!settings.screenShake)return;shk.i=Math.min(shk.i+intensity,25);shk.t=Math.max(shk.t,duration);shk.maxT=shk.t;}
+function hitStop(duration){if(!settings.hitStop)return;window._hitStop=Math.max(window._hitStop,duration);}
+```
+
+Shake intensity accumulates but is clamped at **25**; duration takes the max of the current and requested value. Application (L9256):
+
+```js
+if(shk.t>0){shk.t-=dt;var _sd=shk.maxT>0?shk.t/shk.maxT:0;var _si=shk.i*_sd;cam.x+=rnd(-_si,_si);cam.y+=rnd(-_si,_si);if(shk.t<=0){shk.i=0;shk.maxT=0;}}
+```
+
+Amplitude decays linearly to zero over the remaining duration. Hit-stop freezes the entire frame (`return` before anything else, L9227), so it also stops rendering.
+
+---
+## 16. Overlay / UI Structure & HUD
+
+**Legacy lines:** CSS L7–L308 (overlay blocks at L39 start screen, L66 HUD, L97 overlay base, L107 level-up, L134 skill tree, L154 inventory, L221 pause, L232 game over, L240 victory, L254 boss intro, L266 dungeon overlays, L291 responsive); DOM L310–L516; `// ===== V5 OVERLAY SYSTEM =====` L3645–L3742; `// ===== V5 OVERLAY SHOW/HIDE =====` (the HTML builders) L3742–L4279; `hideAllOverlays` + settings L4280–L4312; the canvas-drawn screens (`drawVictoryStats` L6378, level-up choices L6424, skill-tree viewer L6468, inventory screen L6532, pause menu L6563, floating skill icons L6603) L6377–L6626.
+
+The v27 UI is **HTML DOM layered over the canvas**, except the minimap, quest journal, bestiary, dialogue box, compass, tutorial bar, boss bars, announcements and touch controls, which are canvas-drawn.
+
+### 16.1 Overlay inventory
+
+| Element id | Purpose | Shown by | Hidden by | Pauses? |
+|---|---|---|---|---|
+| `loading` | Start screen | initial page state | `startGame()` / `loadSlotFromTitle()` (adds `.hidden`, `display:none` after 500 ms) | n/a |
+| `hud` | In-game HUD | `showV5Hud()` | `hideV5Hud()` | no |
+| `levelUpOverlay` | Level-up card picker | `showLevelUpHTML()` (L3746) | card selection | yes (`showLvl`) |
+| `skillTreeOverlay` | Skill trees | `toggleSkillTree()` → `showSkillTreeHTML()` (L3819) | `toggleSkillTree()` | yes |
+| `inventoryOverlay` | Gear/inventory/stash | `toggleInventory()` → `showInventoryHTML()` (L3991) | `toggleInventory()` | yes |
+| `pauseOverlay` | Pause menu | `togglePause()` → `showPauseHTML()` (L4178) | `togglePause()` | yes |
+| `gameOverOverlay` | Game over | Part 1 death path | `goBtn` (restart) / `goTitleBtn` | — |
+| `victoryOverlay` | Victory | `showVictoryHTML()` | `vicKeepPlaying` / `vicEndless` / `vicNGPlus` / `vicAgain` / `vicTitle` | — |
+| `victoryStatsOverlay` | Per-hero stat breakdown | `showVictoryStatsHTML(title, sub, cb)` (L4221) | `vicStatsContinueBtn` → runs `cb` | — |
+| `dungeonEntryOverlay` | "Enter this dungeon?" | `showDungeonEntryOverlay(biome)` | `dngEnterBtn` / `dngCancelBtn` / Escape | yes |
+| `dungeonVictoryOverlay` | Dungeon cleared | `showDungeonVictory()` | `dngVicBtn` → `exitDungeon(true)` | yes |
+| `dungeonFailOverlay` | Dungeon failed / retreat | `showDungeonFail()` | `dngFailBtn` → `exitDungeon(false)` | yes |
+| `merchantOverlay` | Merchant shop | `showMerchantHTML()` (L1715) | buying out the stock / Escape path | yes |
+| `bountyOverlay` | Bounty board | `showBountyBoardHTML()` (L1713) | its own close control | yes |
+| `settingsOverlay` | Settings + rebinding | `showSettingsUI()` (L4287) | `hideSettingsUI()` (L4308) | yes |
+| `lbTop` / `lbBot` | Boss-intro letterbox bars | `playBossIntro()` | same, on a timer | yes |
+| `bossNamecard` | Boss name card | `playBossIntro()` | same | yes |
+| `mbPopup` | Mini-boss banner | `showMiniBossPopup()` | 2.5 s timer | no |
+| `guestPauseOverlay` | "Host paused" notice for guests | guest snapshot `pa` flag | same | — |
+
+Show/hide primitives (L3743–L3744):
+
+```js
+function showOverlayEl(id){var el=document.getElementById(id);if(!el)return;el.style.display='';el.classList.remove('hiding');el.classList.add('showing');}
+function hideOverlayEl(id,cb){var el=document.getElementById(id);if(!el)return;el.classList.remove('showing');el.classList.add('hiding');setTimeout(function(){el.classList.remove('hiding');el.style.display='none';if(cb)cb();},200);}
+```
+
+Hide is a **200 ms** CSS-animated fade before `display:none`; an optional callback fires afterwards.
+
+`hideAllOverlays()` (L4280) clears `showing`/`hiding` and resets `style.display` on the 13 overlays listed there — note it sets `display = ''` (the stylesheet default), not `'none'`, so it relies on each overlay's CSS default being hidden.
+
+**Mutual exclusion:** `toggleSkillTree` / `toggleInventory` / `togglePause` (L4339–L4361) each close the other two plus the quest journal, then set `paused` to their own visibility:
+
+```js
+function toggleSkillTree(){
+  if(gameOver||gameWon||showLvl)return;
+  showSkillTree=!showSkillTree;showInventory=false;showPauseMenu=false;showQuestJournal=false;
+  paused=showSkillTree;
+  if(showSkillTree){showSkillTreeHTML();hideOverlayEl('inventoryOverlay');hideOverlayEl('pauseOverlay');}
+  else hideOverlayEl('skillTreeOverlay');
+}
+```
+
+All three refuse to open during game over, victory, or a pending level-up.
+
+### 16.2 Start screen (`#loading`, L311–L349)
+
+Contents in order: title `⚔️ The Stewart Squad Adventure`; `#verLabel` (`— V27 — GEAR & UI`, click-to-toggle DEV_MODE on 5 taps within 2 s, L9435); tagline `The world has stories to tell.`; a four-card hero showcase (Liam `#4A9ED8` Tank, Noah `#2DB86A` DPS, Collette `#A862C4` Mage, Isabella `#F0C040` AoE); a feature grid; three difficulty buttons (`☀️ Easy` / `⚔️ Normal` selected / `💀 Hard`, `data-diff` 0/1/2); `#titleSaveSlots` (populated by `refreshTitleSaveSlots()`); `#mpSection` (Host / Join / 4-char code input / `#mpStatus` / `#mpServerUrl` defaulting to `ws://localhost:3000`); `#startBtn` (`START ADVENTURE`); `#titleSettingsBtn`; and `#titleTip`, which is filled with a random `TIPS[]` line by `returnToTitle()` (L1362).
+
+### 16.3 HUD (`#hud`, L350–L380)
+
+| Element id | Content | Update source |
+|---|---|---|
+| `hudHeroNm` | `<FullName> Lv<teamLv>` | `updateV5Hud` L3691 |
+| `hudHpBar` / `hudHpText` | width `%` of `hp/maxHp`; colour `--hp-green` > 50%, `--hp-yellow` > 25%, else `--hp-red`; adds `.critical` class below 25%; text `ceil(hp) / maxHp` | L3693–L3696 |
+| `hudXpBar` / `hudXpText` | width `totalXP/xpNext`; text `Lv<N> XP` | L3697 |
+| `hudSibs` | `👥 Siblings: <sibs>/3` | L3697 |
+| `hudWave` | `Wave <waveNum>` | L3697 |
+| `hudDiff` | `DIFF_NAMES[difficulty]` with class `diff-easy` / `diff-normal` / `diff-hard` | L3697 |
+| `hudDayNight` | 🌙 night, 🌅 dusk/dawn, ☀️ day | L3698 |
+| `hudWeather` | weather icon+label, hidden when clear or in a dungeon | L3701 |
+| `hudNightXP` | `XP +50%`, shown only at night | L3699 |
+| `hudGold` | `⬤ <gold>g` | L3703 |
+| `hudNG` | `NG+<n>`, hidden at `ngPlus === 0` | L3704 |
+| `hudDev` | `🔧 DEV`, shown only in DEV_MODE | L3705 |
+| `hudPorts` | the four hero portraits (built by `buildPortraitStrip`) | L3650 |
+| `hudUlt` | `⚡ ULTIMATE READY — SPACE`, shown when *your* hero's `ultTimer <= 0` | L3708 |
+| `hudCombo` | `⚡ <comboName> — Q`, pulsing at `0.7 + 0.3*sin(gt*6)` in the combo's colour | L3710 |
+| `hudSig` | `⚡ <sigName> [E]` when ready, else `<sigName> [E] (Ns)` at 50% opacity | L3713 |
+| `hudMode` | `controlMode.toUpperCase()` | L3719 |
+
+`updateV5Hud()` also hides the whole HUD (`opacity: 0`) while the quest journal or bestiary is open (L3677).
+
+**Portrait strip (`buildPortraitStrip`, L3650):** four `.hud-port` divs at 50 px pitch starting at x = 10, each 42 px wide. Locked heroes render `<div class="port-locked">?</div>`. Unlocked heroes get a HP bar (`#3DCC7A` above 50%, `#D84830` below), a coloured initial circle (`L/N/C/I`, colour from the hero's skin or `HDEFS[i].col`), the full name, an ult-charge bar (`1 - ultTimer/ultMax`), and a revive countdown when downed. Classes: `.active` for `myHeroIdx()`, `.locked`, `.downed`. Clicking a portrait switches heroes (blocked for guests). The strip is rebuilt on hero unlock, save load, guest assignment and dungeon exit; per-frame values are patched in place by `updateV5Hud` (L3721–L3737) rather than rebuilt.
+
+**Biome accent (`updateBiomeAccent`, L3347):** every 1 s (`biomeAccentTimer`, L9235) the active portrait's border/glow and the control-mode label are recoloured to the current biome accent: `{forest:'#E8A838', desert:'#D4944A', cave:'#8B7BCC', swamp:'#6AAF5C', frozen:'#88B8D8', volcanic:'#D86040'}`.
+
+### 16.4 Canvas-drawn HUD layers (render order, L9339–L9414)
+
+`render()` draws, in order: ground → sorted drawables (obstacles, spawners, cages, loot, equips, enemies, mini-bosses, boss, shadow queen, heroes, dungeon entrances, NPCs, Ed, escort, waypoints, merchant, flavor markers, quest items, secrets, bounty board — all sorted by `y`) → projectiles → particles → biplane → weather → world-event effects → portal → fog → day/night tint → crater (drawn *after* fog so it shines through) → `endWorldZoom()` → world vignette → level-up flash → low-HP red pulse → damage vignette → crater vignette → boss bar → cage HP overlay → shadow queen bar, announcement, achievements, joystick, touch buttons, endless HUD, minimap, offscreen ally arrows → mini-boss bars, quest tracker, tutorial bar, equipment tooltip, compass, bestiary, quest journal, quest notifications, dialogue box.
+
+Visibility culling uses `FOG_R = 320 * nightFogMul()`: `vis(e)` is true when the viewing hero is dead or `dst(e, h0) <= FOG_R + 50`.
+
+`drawBossBar(entity,name,barColor,segmentCount,mini)` (L3366): the bar lerps `_displayHp` toward `hp` at `8/60` per frame. Full-size: `w = W*0.6`, `h = 18` at `(W*0.2, 10)`; mini: `w = W*0.24`, `h = 14` at `(W*0.38, 36)`. `segmentCount` white 2 px dividers mark phase thresholds; the label sits below the bar and appends `ceil(hp)/maxHp` in non-mini mode.
+
+`drawFog()` (L3329): a `rgba(10,10,30,0.65)` fill with a circular hole of radius `300 * nightFogMul()` around the viewing hero, plus a radial gradient from transparent at 70% radius to `rgba(10,10,30,0.55)` at the rim. If the viewing hero is dead (and not merely downed) it falls back to the first living hero.
+
+`drawWorldVignette()` (L3355): radial `rgba(0,0,0,0)` at `W*0.35` to `rgba(11,14,26,0.25)` at `W*0.75` — always on.
+`drawVignette()` (L3361): the red damage vignette; `vig.t` decays at `1/60` per call, then `vig.i` bleeds off at `0.03` per call.
+
+### 16.5 Settings overlay (L4286–L4312)
+
+Eight settings, all persisted to `localStorage['ssq_settings']`:
+
+| Key | Type | Options | Default |
+|---|---|---|---|
+| `screenShake` | bool | ON/OFF | `true` |
+| `hitStop` | bool | ON/OFF | `true` |
+| `particleDensity` | tri | `low` / `med` / `high` | `high` |
+| `autoAim` | bool | ON/OFF | `true` |
+| `showTutorial` | bool | ON/OFF | `true` |
+| `showDmgNumbers` | bool | ON/OFF | `true` |
+| `showMinimap` | bool | ON/OFF | `true` |
+| `worldZoom` | tri | `1.0` / `1.15` / `1.30` | `1.30` |
+
+Below them, a `CONTROLS` section lists 12 rebindable actions (`moveUp, moveDown, moveLeft, moveRight, interact, ultimate, signature, comboUlt, hero1..hero4`) plus a `Reset to Defaults` button. `settingsOpenedFrom` (`'direct' | 'pause' | 'title'`) determines where `hideSettingsUI()` returns to; a `direct` close sets `paused = false`.
+
+---
+
+## 17. Input
+
+**Legacy lines:** `// ===== INPUT =====` L921–L1121.
+
+### 17.1 Key bindings (L605–L612)
+
+```js
+var keyBinds={moveUp:['w','arrowup'],moveDown:['s','arrowdown'],moveLeft:['a','arrowleft'],moveRight:['d','arrowright'],hero1:['1'],hero2:['2'],hero3:['3'],hero4:['4'],interact:[' '],ultimate:['r','0'],signature:['e'],bestiary:['b'],questJournal:['j'],compass:['g'],pause:['escape','p'],skillTree:['t'],inventory:['i'],controlMode:['c'],mute:['m'],comboUlt:['q']};
+var DEFAULT_KEYBINDS=JSON.parse(JSON.stringify(keyBinds));
+```
+
+| Action | Default keys |
+|---|---|
+| `moveUp` | `w`, `↑` |
+| `moveDown` | `s`, `↓` |
+| `moveLeft` | `a`, `←` |
+| `moveRight` | `d`, `→` |
+| `hero1`–`hero4` | `1`, `2`, `3`, `4` |
+| `interact` | `Space` |
+| `ultimate` | `r`, `0` |
+| `signature` | `e` |
+| `bestiary` | `b` |
+| `questJournal` | `j` |
+| `compass` | `g` |
+| `pause` | `Escape`, `p` |
+| `skillTree` | `t` |
+| `inventory` | `i` |
+| `controlMode` | `c` |
+| `mute` | `m` |
+| `comboUlt` | `q` |
+
+Persistence and remapping (L609–L612):
+
+```js
+function saveKeyBinds(){try{localStorage.setItem('ssq_keybinds',JSON.stringify(keyBinds));}catch(e){}}
+function loadKeyBinds(){try{var kb=JSON.parse(localStorage.getItem('ssq_keybinds'));if(kb){for(var k in keyBinds)if(kb[k]&&Array.isArray(kb[k]))keyBinds[k]=kb[k];}}catch(e){}}
+function resetKeyBinds(){keyBinds=JSON.parse(JSON.stringify(DEFAULT_KEYBINDS));saveKeyBinds();}
+function keyAction(action,k){return keyBinds[action]&&keyBinds[action].indexOf(k)>=0;}
+```
+
+Rebinding UI (L4305): clicking a `.rebind-btn` swaps its label to `Press key...`, installs a capture-phase `keydown` listener, and on the next key writes `keyBinds[action] = [newKey.toLowerCase()]` — **replacing** the whole array, so a rebind drops the secondary default. `Escape` cancels. `loadSettings(); loadKeyBinds();` run at module load (L615).
+
+**Case sensitivity gotcha:** most checks use `keyAction(action, kl)` with the lowercased key, but `interact`, `ultimate` and the hero-switch checks use the raw `e.key` (L942, L970–L971). Since the defaults for those are `' '`, `'r'`/`'0'` and `'1'`–`'4'`, this only matters if a user rebinds them to a letter and holds Shift.
+
+### 17.2 Non-rebindable / hard-coded keys
+
+| Key | Effect | Line |
+|---|---|---|
+| `Space` / `Enter` | skip cutscene (checked first, before everything) | L933 |
+| `` ` `` | toggle `showNetDebug`; also the DEV_MODE dungeon room-clear cheat | L934, L976 |
+| `F2` | toggle `DEV_MODE` (room-clear cheat on/off) | L955 |
+| `F6` | DEV: drop `rnd(2,5)` parachute crates, or launch a supply flyover | L983 |
+| `F7` | DEV: force a biplane crash approach and spawn Ed | L993 |
+| `F8` | DEV: cycle to the next weather type, `timer = rnd(20,40)` | L1014 |
+| `F9` | dump a diagnostic block to the console (hero, biome, time, biplane state, story flags, enemy count) | L1023 |
+| `F10` | DEV: replay the meteor cutscene | L1020 |
+| `1` / `2` / `3` | pick a level-up card when `showLvl` (host only) | L1033 |
+| `Ctrl+Shift+D` | toggle the dev console | L9891 |
+
+`preventDefault()` is applied to the four arrows and Space (L965) to stop page scrolling.
+
+### 17.3 Mouse
+
+- `mousemove` tracks `mx,my` (L1035).
+- `canvas.click` (L1036) in order: quest-tracker cycling hitbox at `(W-140, 142, 130x42)`; early-return if any HTML overlay is open; guest branch (portrait strip at `y<55`, 50 px pitch, sends a `switchHero` request; hybrid-mode click captured into `pendingClick`); host portrait click (`y<55`, `x` in `[10+i*50, +42]`); click-to-attack in `hybrid`/`manual` mode. World coordinates are computed as:
+
+```js
+var wx,wy;if(inDungeon){var rw9c=DNG_COLS*DNG_TW,rh9c=DNG_ROWS*DNG_TW;var dox9c=Math.floor((W-rw9c)/2),doy9c=Math.floor((H-rh9c)/2);var _uz=unzoomScreenPoint(e.clientX,e.clientY);wx=_uz.x-dox9c;wy=_uz.y-doy9c;}else{var _uz2=unzoomScreenPoint(e.clientX,e.clientY);wx=_uz2.x+cam.x;wy=_uz2.y+cam.y;}
+ah.forceAtkAngle=Math.atan2(wy-ah.y,wx-ah.x);
+ah.forceAtk=true;
+```
+
+- A second `click` listener (L9414) restarts the game when `gameOver`/`gameWon` and no overlay is open.
+
+### 17.4 Control modes
+
+`controlMode` cycles `classic → hybrid → manual → classic` on the `controlMode` bind (L946). Guests cycle only `classic ↔ hybrid` (L940). `hybrid` and `manual` enable click/tap-to-attack; `classic` relies on auto-aim. The mode is shown in `#hudMode`.
+
+### 17.5 Touch
+
+```js
+var touchState={joy:{on:false,id:-1,sx:0,sy:0,dx:0,dy:0,mag:0},atkBtn:{on:false,x:0,y:0,r:30},ultBtn:{on:false,x:0,y:0,r:25},interactBtn:{on:false,x:0,y:0,r:25}};
+function layoutTouchButtons(){var bx=W-65,by=H-85;touchState.atkBtn={on:false,x:bx,y:by,r:30};touchState.ultBtn={on:false,x:bx-70,y:by,r:25};touchState.interactBtn={on:false,x:bx,y:by-70,r:25};}
+function touchInBtn(tx,ty,btn){return Math.hypot(tx-btn.x,ty-btn.y)<=btn.r+10;}
+```
+
+| Control | Position | Radius (+10 px hit padding) |
+|---|---|---|
+| Attack | `(W-65, H-85)` | 30 |
+| Ultimate | `(W-135, H-85)` | 25 |
+| Interact | `(W-65, H-155)` | 25 |
+
+Virtual buttons are only tested when `isMob` is true (`/Android|iPhone|iPad|iPod|webOS/i` on the user agent, L616).
+
+**Virtual joystick** (L1094–L1101): a touch starting in the **left half** (`clientX < W*0.5`) becomes the stick; drag is clamped to a 60 px radius, and `joy.dx/dy` are normalised to `[-1,1]` with `joy.mag` the normalised magnitude. `getInput()` (L1119) overrides keyboard input whenever `joy.on && joy.mag > 0.15`:
+
+```js
+function getInput(){var ix=0,iy=0;if(keyBinds.moveUp.some(function(k){return keys[k];}))iy=-1;if(keyBinds.moveDown.some(function(k){return keys[k];}))iy=1;if(keyBinds.moveLeft.some(function(k){return keys[k];}))ix=-1;if(keyBinds.moveRight.some(function(k){return keys[k];}))ix=1;if(joy.on&&joy.mag>.15){ix=joy.dx;iy=joy.dy;}var m=Math.hypot(ix,iy);if(m>1){ix/=m;iy/=m;}return{x:ix,y:iy};}
+```
+
+A **second** `touchstart` listener (`tapAttack`, L1103) adds legacy v7.1 rectangular buttons that coexist with the circular ones: dungeon interact at `x > W-80, H-165 < y < H-120`; ultimate at `x > W-80, H-215 < y < H-170`; portrait taps at `y < 55`; and tap-to-attack in hybrid/manual mode, skipping the joystick zone (`x < W*0.35 && y > H*0.55`). Note this second handler computes dungeon world coordinates **without** `unzoomScreenPoint`, unlike the mouse path — a latent inconsistency at non-1.0 zoom.
+
+### 17.6 Gamepad
+
+**Not implemented.** There is no `navigator.getGamepads` call, no `gamepadconnected` listener, and no gamepad code anywhere in the file.
+
+---
+
+## 18. Main Loop & Init Ordering
+
+**Legacy lines:** `// ===== MAIN LOOP =====` L9221–L9414; `// ===== START =====` L9415–L9517.
+
+### 18.1 Frame structure (`gameLoop`, L9223–L9244)
+
+```js
+var lastTime=0;
+function gameLoop(time){requestAnimationFrame(gameLoop);var dt=Math.min((time-lastTime)/1000,.05);lastTime=time;
+  var _frameStart=performance.now();
+  if(window._hitStop>0){window._hitStop-=dt;return;}
+  try{
+  if(NET.role==='guest'){guestGameLoop(time);return;}
+  updateV5Hud();
+  if(showVictoryStats){drawVictoryStats();return;}
+  if(gameOver||gameWon){beginWorldZoom();drawGround();drawFog();drawDayNightTint();endWorldZoom();if(boss&&!boss.dead)drawBossBar(boss,"GOBLIN KING","#D84830",4,false);drawAchievements();return;}
+  if(cutscene.active){updateCutscene(dt);if(inDungeon)renderDungeon();else render();drawCutscene();if(DEV_MODE)drawPerfOverlay(performance.now()-_frameStart);return;}
+  if(!paused){gt+=dt;if(!inDungeon)dayTime+=dt;tutorialTimer=Math.max(0,tutorialTimer-dt);biomeAccentTimer-=dt;if(biomeAccentTimer<=0){biomeAccentTimer=1;updateBiomeAccent();}if(inDungeon)updateDungeon(dt);else update(dt);updateBGM9(dt);}
+  if(NET.role==='host')netHostUpdate(dt);
+  if(inDungeon)renderDungeon();else render();
+  if(NET){ /* player badges + net HUD */ }
+  if(DEV_MODE)drawPerfOverlay(performance.now()-_frameStart);
+  }catch(e){console.error('gameLoop error:',e);}}
+```
+
+**Timestep:** entirely **variable**, driven by `requestAnimationFrame`, with `dt` clamped to a maximum of **0.05 s** (20 fps floor). There is no fixed-step accumulator anywhere — physics, timers and AI all consume the raw `dt`. Several systems nevertheless use hard-coded `1/60` constants (`drawVignette`, `drawWeather`'s `flashT`, `TUTORIAL_STEPS[6]`, the Shadow Queen's `update(1/60)` call at L9333, and `drawBossBar`'s HP lerp), so those are frame-rate dependent.
+
+**Early-return ladder** (each stops the frame):
+
+| Order | Condition | Behaviour |
+|---|---|---|
+| 1 | `window._hitStop > 0` | decrement and return — nothing updates or draws |
+| 2 | `NET.role === 'guest'` | hand off to `guestGameLoop(time)` |
+| 3 | `showVictoryStats` | draw the stats screen only |
+| 4 | `gameOver \|\| gameWon` | draw ground + fog + tint + boss bar + achievements only |
+| 5 | `cutscene.active` | `updateCutscene`, full render, `drawCutscene` — no simulation |
+
+**Pause handling:** `paused` gates exactly one block — the `gt`/`dayTime` advance, `tutorialTimer`, the biome-accent timer, `updateDungeon`/`update`, and `updateBGM9`. **Rendering, the net host update and the HUD update still run while paused**, so overlays sit over a live-looking but frozen world. `render()` skips damage-number particles while paused (L9385) so they do not stack up behind an overlay.
+
+`paused` is set by: level-up (`showLvl`), skill tree, inventory, pause menu, quest journal, dungeon entry/victory/fail overlays, merchant, bounty board, settings, boss intro, and `returnToTitle()`.
+
+### 18.2 `update(dt)` order (L9246–L9337)
+
+1. `eqTooltip.active = false`.
+2. `updateTutorial(dt)`.
+3. **Dialogue check** — `if(dialogueActive){dialogueCharIdx+=2;return;}` (freezes everything else).
+4. `getInput()`.
+5. **Wave timer**: `waveTimer -= dt`; on expiry `waveNum++` and
+
+```js
+waveTimer=Math.max(15,45-Math.floor(12*Math.log2(waveNum+1)))*(difficulty===0?1.3:difficulty===2?0.8:1);
+```
+
+   Logarithmic ramp from 45 s down to a 15 s floor, scaled ×1.3 on Easy and ×0.8 on Hard. Each wave also relieves spawner pressure (`s.cnt -= 3`), announces every 5th wave from wave 5, runs the adaptive-difficulty check on even waves, and at wave 4 hints at the crater if it is undiscovered.
+   Adaptive difficulty: `_dr = downs / max(1, waveNum)`; `_dr > 0.5` eases `_adaptDiff.ratio` by `-0.03` (floor 0.8); `_dr < 0.1` with more than 10 kills since the last check tightens it by `+0.02` (ceiling 1.15).
+6. **Heroes** — each `hero.update(dt, inp-or-zero, i)`; caged heroes are pinned above the boss and skipped.
+7. **Camera**: `cam = lerp(cam, hero - screen/2, 5*dt)`, then clamped:
+
+```js
+var _cMinX=W/(2*WORLD_ZOOM)-W/2,_cMinY=H/(2*WORLD_ZOOM)-H/2;var _cMaxX=WW-W+W/2-W/(2*WORLD_ZOOM),_cMaxY=WH-H+H/2-H/(2*WORLD_ZOOM);cam.x=clamp(cam.x,_cMinX,Math.max(_cMinX,_cMaxX));cam.y=clamp(cam.y,_cMinY,Math.max(_cMinY,_cMaxY));
+```
+
+8. **Screen shake** applied to `cam` (§15.5).
+9. `enemies` filter/update → `miniBosses` → `boss`.
+10. **Projectiles** filter + collision (§15.4), then `MAX_PROJS` truncation.
+11. Melee/whirl heroes damage spawners within `rng+30` at `dmg*0.5` when `atkAnim > 0.5`.
+12. `spawners` → `cages` → `parts` (then `MAX_PARTICLES` truncation) → `loots` → `equips`.
+13. `updWeather(dt)`.
+14. `updateArenaEffects(dt)`.
+15. `updateAbilityVFX(dt)`.
+16. **Merchant** — spawns once at `teamLv >= 3` at `rnd(500, WW-500)` with `pickMerchantStock()`; relocates every `rnd(30,60)` s by `rnd(-400,400)` clamped to `[200, WW-200]`.
+17. **Secrets** discovery (§3.5) and the `goldHoarder` achievement at 500 gold.
+18. `updateBiplane(dt)`, `updateQuestItems(dt)`, crater particles/proximity, `updateFlavorMarkers(dt)` — all overworld-only.
+19. `updateWorldEvents(dt)`.
+20. `updateEndless(dt)`.
+21. `updateNPCs9(dt)`.
+22. Dungeon-entrance collision; `dungeonEntryCooldown` decay.
+23. Portal collision → Shadow Realm transition.
+24. Shadow Queen update (called with a hard-coded `1/60`, not `dt`).
+
+### 18.3 Boot sequence (L9415–L9517)
+
+1. Script parses; module-scope initialisers run: `loadSettings(); loadKeyBinds();` (L615), `state = 'title'` (L528).
+2. Button listeners are wired (game-over, victory-stats continue, victory buttons, `startBtn` click + `touchend`, dungeon overlay buttons, pause menu buttons, multiplayer buttons).
+3. `refreshTitleSaveSlots()` populates `#titleSaveSlots`; the saved server URL is restored from `localStorage['ssq_server_url']`.
+4. The dev-console IIFE installs its keyboard hook and monkey-patches `Hero.prototype.takeDmg` for god mode.
+5. Nothing else runs until the user presses **START ADVENTURE** or loads a slot.
+
+`startGame()` (L9469):
+
+```js
+state='playing';
+// guest branch: hide loading, initAudio, reset overlay flags, initSkillTrees, create 4 Hero objects for rendering, showV5Hud, rAF(gameLoop), BGM after 1.5s, return
+el.classList.add('hidden');setTimeout(function(){el.style.display='none';},500);initAudio();initGame();showV5Hud();requestAnimationFrame(gameLoop);
+setTimeout(function(){if(ac)startBGM9('forest');},1000);
+if(NET.role==='host'&&NET.connected){setTimeout(function(){ NET.ws.send(JSON.stringify(buildStaticWorldData())); for(var gpi=1;gpi<NET.playerCount;gpi++)netAssignGuestHero(gpi); },500);}
+```
+
+Order for a host/solo start: `initAudio()` → `initGame()` (§3.4) → `showV5Hud()` → start the rAF loop → BGM at +1 s → world data + hero assignment to guests at +0.5 s.
+
+`loadSlotFromTitle(slot)` (L9464) substitutes `loadGame(slot)` / `loadAutoSave()` for `initGame()` and starts the BGM using the loaded hero's biome.
+
+`returnToTitle()` (L1358): `paused = true`, `hideAllOverlays()`, `stopBGM9()`, `state = 'title'`, and refreshes `#titleTip` with a random `TIPS[]` entry.
+
+---
+## 19. Networking
+
+**Legacy lines:** `// ===== V15: NETWORKING MODULE =====` L1364–L1519; `// ===== V15: NET HOST/GUEST FUNCTIONS =====` L8668–L9220.
+
+Transport is a plain **WebSocket** to a relay server (default `ws://localhost:3000`, persisted in `localStorage['ssq_server_url']`). The model is **authoritative host + thin guests**: the host runs the entire simulation and broadcasts snapshots; guests send input and render an interpolated copy.
+
+### 19.1 `NET` object (L1365–L1371)
+
+```js
+var NET={ws:null,role:null,room:null,playerId:0,playerCount:1,connected:false,
+  serverUrl:localStorage.getItem('ssq_server_url')||'ws://localhost:3000',
+  guestHeroes:{},guestInputs:{},hostState:null,sendTimer:0,SEND_RATE:1/30,
+  worldInited:false,roomCache:{},_roomRequested:{},
+  tick:0,snapBuf:[],interpDelay:50,serverTimeOffset:0,serverTimeInited:false,
+  _camInited:false,_lastClientRoom:null,rtt:0,pingTimer:0,lastPingT:0,
+  entityMaps:{enemies:{},dungeonEnemies:{},projs:{},miniBosses:{},loots:{},equips:{}}};
+```
+
+| Field | Meaning |
+|---|---|
+| `role` | `null` (offline) / `'host'` / `'guest'` |
+| `room` | 4-character room code |
+| `playerId` | 0 for the host, 1..3 for guests |
+| `playerCount` | current player count reported by the server |
+| `SEND_RATE` | `1/30` — both host snapshots and guest input are sent at **30 Hz** |
+| `guestHeroes` | `{playerId: heroIndex}` assignment map (host-authoritative, mirrored to guests) |
+| `guestInputs` | `{playerId: lastInputMessage}` on the host |
+| `hostState` | latest snapshot on the guest |
+| `snapBuf` | ring buffer of the last **4** snapshots for interpolation |
+| `interpDelay` | **50 ms** render delay behind server time |
+| `serverTimeOffset` | `localNow - snap._t` captured from the first snapshot |
+| `rtt` | round-trip time from the ping/pong pair |
+| `entityMaps` | per-category `{nid: {obj}}` maps so guests can persist entity instances across snapshots |
+
+```js
+var PLAYER_COLORS=['#4A9ED8','#2DB86A','#D88030','#e91e63'];
+var _nextNetId=1;function netId(){_nextNetId=(_nextNetId+1)%2000000000;return _nextNetId;}
+```
+
+| Player | Badge colour |
+|---|---|
+| P1 (host) | `#4A9ED8` |
+| P2 | `#2DB86A` |
+| P3 | `#D88030` |
+| P4 | `#e91e63` |
+
+`isGuestControlled(heroIdx)` (L1374) and `myHeroIdx()` (L1375) resolve ownership; `myHeroIdx()` returns `NET.guestHeroes[NET.playerId]` for guests and `activeHero` otherwise.
+
+### 19.2 Connection lifecycle (L1409–L1434)
+
+```js
+function netConnect(role,code){
+  if(NET.ws)NET.ws.close();
+  ...
+  try{NET.ws=new WebSocket(NET.serverUrl);}catch(e){announce('Could not connect to server','#D84830',3); ... return;}
+  NET.ws.onopen=function(){NET.connected=true;
+    if(role==='host'){NET.ws.send(JSON.stringify({type:'host'}));}
+    else{NET.ws.send(JSON.stringify({type:'join',code:code.toUpperCase()}));}};
+  NET.ws.onmessage=function(evt){try{var msg=JSON.parse(evt.data);netHandleMessage(msg);}catch(e){}};
+  NET.ws.onclose=function(){NET.connected=false;
+    if(NET.role==='guest'&&state==='playing'){announce('Disconnected from host','#D84830',3);returnToTitle();}
+    ... NET.role=null;};
+  NET.ws.onerror=function(){announce('Connection error','#D84830',3); ... };
+}
+```
+
+`netDisconnect()` (L1426) closes the socket and resets every `NET` field including `entityMaps` (`clearEntityMaps()`), and hides `guestPauseOverlay`.
+
+### 19.3 Message catalogue
+
+**Client → server**
+
+| `type` | Direction | Shape | Sent when |
+|---|---|---|---|
+| `host` | host → server | `{type:'host'}` | on socket open |
+| `join` | guest → server | `{type:'join', code:'ABCD'}` | on socket open |
+| `input` | guest → host | `{type:'input', keys:{w,s,a,d}, click:{angle}|null, q:bool, ult:bool, interact:bool, sig:bool, heroIdx:number}` | every `1/30` s from `guestSendInput` |
+| `input` (hero switch) | guest → host | `{type:'input', switchHero:index}` | pressing `1`–`4` or clicking a portrait as a guest |
+| `input` (room request) | guest → host | `{type:'input', requestRoom:index}` | guest needs uncached dungeon room geometry |
+| `input` (level-up vote) | guest → host | `{type:'input', lvlVote:index}` | guest clicks a level-up card (L3793) |
+| `state` | host → guests | `{type:'state', snapshot:{...}}` | every `1/30` s from `netHostUpdate` |
+| `event` | host → guests | `{type:'event', data:{...}}` | world init, hero assignment, room change, dungeon-join rejection |
+| `ping` | guest → server | `{type:'ping', t:performance.now()}` | every 2 s |
+
+**Server → client**
+
+| `type` | Shape | Handling (`netHandleMessage`, L1435) |
+|---|---|---|
+| `room` | `{type:'room', code}` | host: sets `role='host'`, `room=code`, `playerId=0`, announces and renders the room code into `#mpStatus` |
+| `joined` | `{type:'joined', playerId, playerCount}` | first receipt on an unassigned client makes it a guest; on the host it announces the join, sends `buildStaticWorldData()`, calls `netAssignGuestHero(playerId)`, and warns if a dungeon is in progress |
+| `left` | `{type:'left', playerId, playerCount}` | deletes that player's `guestHeroes` and `guestInputs` entries |
+| `playerDC` | `{type:'playerDC', playerId}` | announces `P<n> disconnected — 30s to reconnect` |
+| `playerRC` | `{type:'playerRC', playerId, playerCount}` | announces reconnection |
+| `playerCount` | `{type:'playerCount', playerCount}` | guest-only count refresh |
+| `state` | `{type:'state', snapshot}` | guest: establishes `serverTimeOffset` on the first snapshot, stamps `snap._localT`, pushes into `snapBuf` (max 4) |
+| `input` | (relayed guest input) | host: routes `requestRoom`, `switchHero` and `lvlVote`, else stores in `guestInputs[playerId]` |
+| `event` | `{type:'event', data}` | guest: `assign` (hero assignment), `worldInit`, `roomChange`, `dungeonJoin` |
+| `pong` | `{type:'pong', t}` | `NET.rtt = performance.now() - msg.t` |
+| `error` | `{type:'error', msg}` | announced; `'Host disconnected'` returns to title, `'Game is in a dungeon'` writes a hint into `#mpStatus` |
+
+### 19.4 Host responsibilities
+
+`netHostUpdate(dt)` (L8669–L8698) runs every frame after the simulation:
+
+```js
+for(var pid in NET.guestInputs){
+  var gi=NET.guestInputs[pid];var hIdx=NET.guestHeroes[pid];
+  if(hIdx===undefined||hIdx<0)continue;
+  var gh=heroes[hIdx];if(!gh||!gh.unlocked||gh.dead||gh.downed)continue;
+  if(gi.click&&gh.atkT<=0){ var atkAng=gi.click.angle!==undefined?gi.click.angle:Math.atan2(gi.click.wy-gh.y,gi.click.wx-gh.x); gh.face=atkAng;performAttack(gh,atkAng);}
+  if(gi.q&&gh.coopCd<=0&&NET.playerCount>1)activateCoopAbility(gh);
+  if(gi.ult&&!gh.dead&&!gh.downed&&gh.ultTimer<=0){actUlt(gh);}
+  if(gi.sig&&!gh.dead&&!gh.downed&&gh.sigTimer<=0&&!gh.sigActive){activateSignature(gh);}
+  if(gi.interact&&!gh._intProc){gh._intProc=true;
+    if(inDungeon&&!dungeonCinematicActive){heroInteractAs(gh);}
+    else if(!inDungeon){npcQuestInteractAs(gh);}
+  }
+  if(!gi.interact)gh._intProc=false;
+  if(gi.lvlVote!==undefined&&showLvl){if(!NET._guestVotes)NET._guestVotes={};NET._guestVotes[pid]=gi.lvlVote;delete gi.lvlVote;}
+}
+NET.sendTimer+=dt;
+if(NET.sendTimer>=NET.SEND_RATE){NET.sendTimer=0;
+  try{NET.ws.send(JSON.stringify({type:'state',snapshot:buildNetSnapshot()}));}catch(e){}}
+```
+
+**Movement is not handled here** — `Hero.prototype.update()` reads `NET.guestInputs` directly for guest-controlled heroes (L2265), so guest movement is simulated inside the normal hero update. Interact is edge-triggered via a per-hero `_intProc` latch.
+
+`netAssignGuestHero(playerId)` (L1503) assigns the lowest-index hero that is not `activeHero`, not already claimed, unlocked, alive and not downed, then broadcasts `{type:'event', data:{assign, heroName, playerId}}`. If nothing is free it announces `'No hero available for Player N'`.
+
+Guest hero-switch requests are refereed on the host (L1477): the host's own hero cannot be taken (`"P<n> can't take host's hero"`), nor one already claimed by someone else.
+
+### 19.5 Snapshot format (`buildNetSnapshot`, L8699–L8786)
+
+Top-level fields (all keys are abbreviated to keep the payload small):
+
+| Key | Contents |
+|---|---|
+| `_tk`, `_t` | tick counter, `performance.now()` timestamp |
+| `h[]` | per-hero: `x, y, hp, mhp, u(unlocked), d(dead), dw(downed), f(face, 2dp), atkA, fl(flash), ultOn, shld, nm, col, dk, wc, aType, lv, spnA, ba, bt, st(state), deA(deathAlpha), rng, coopCd, coopA, dmgB, rt(reviveTimer), rvBy(reviver idx), rvProg` |
+| `ah`, `gh`, `pc` | `activeHero`, `guestHeroes` map, `playerCount` |
+| `en[]` | enemies: `id(nid), x, y, hp, mhp, t(type), dy(dying), fl, mk(marked)` |
+| `pr[]` | projectiles: `id, x, y, col, sz, fr(friendly)` |
+| `cam` | `{x,y}` rounded |
+| `lv, xp, xpN, wv, sb, dt, diff, ns` | teamLv, totalXP, xpNext, waveNum, sibs, dayTime, difficulty, **noiseSeed** |
+| `boss` | `{x,y,hp,mhp}` or null |
+| `mb[]` | mini-bosses: `id, x, y, hp, mhp, t, nm, col, dk` |
+| `lt[]`, `eq[]` | loot `{id,x,y}`, equips `{id,x,y,nm}` |
+| `sp[]`, `cg[]` | spawners `{x,y}`, cages `{x,y,hi}` |
+| `inD, dngP, go, gw` | inDungeon, pendingDungeonBiome, gameOver, gameWon |
+| `em, ew, es, pa` | endlessMode, wave, score, paused |
+| `sL`, `lc[]` | showLvl flag and the level-up card list `{nm,desc,col,heroNm,type}` |
+| `pO, pX, pY, iSR` | portal open/position, inShadowRealm |
+| `sQ` | shadow queen `{x,y,hp,mhp,phase,dying,deA,fl}` |
+| `dEnt[]` | dungeon entrances `{x,y,b}` |
+| `bM`, `aE` | bloodMoonActive, activeEvent `{t,x,y}` |
+| `eN`, `qW[]` | escort NPC `{x,y,hp,mhp}`, quest waypoints `{x,y,v}` |
+| `ann`, `shk`, `vigI` | announcement `{t,c,d}`, screen shake `{i,t}`, vignette intensity |
+| `sfx[]`, `ach[]`, `qN[]` | queued sound effects, achievement toasts `{nm,ic,t}`, quest notifications `{t,c,d}` |
+| `npcB[]` | per-NPC bubble state `{b,d}` or `0` |
+| `dng` | present only when `inDungeon` — see below |
+
+Dungeon sub-object `snap.dng`:
+
+| Key | Contents |
+|---|---|
+| `room`, `bio` | current room index, `currentDungeon` |
+| `dl`, `dds`, `dki` | doors locked flag, current room's `doorStates`, key count |
+| `de[]` | dungeon enemies `{id,x,y,hp,mhp,t}` |
+| `db` | dungeon boss `{x,y,hp,mhp,phase,nm,col,dk}` |
+| `xpG`, `trans` | dungeon XP gained, transition flag |
+| `cin`, `cinT`, `cinB` | cinematic active/timer/boss `{nm,col}` |
+| `dos[]` | dynamic object states `{t, dd?, op?, ac?, x?, y?}` |
+| `mm[]` | minimap data `{v,t,p}` |
+| `rc[]` | per-room `{cn:connections, ds:doorStates}` |
+
+Room **geometry** (tiles, torches, decor, hazards, full object list) is *not* in the snapshot — it is sent once per room via the `roomChange` event, cached in `NET.roomCache[roomIdx]`, and re-requested on demand with `{type:'input', requestRoom:idx}` (guarded by `NET._roomRequested`).
+
+`buildStaticWorldData()` (L8788) sends the one-time world payload:
+
+```js
+return{type:'event',data:{worldInit:true,
+  obstacles:obstacles.map(function(o){return{x:o.x,y:o.y,r:o.r,type:o.type,biome:o.biome,color:o.color,th:o.th};}),
+  spawners:spawners.map(function(s){return{x:s.x,y:s.y,hp:s.hp,dead:s.dead};}),
+  cages:cages.map(function(c){return{x:c.x,y:c.y,heroIdx:c.heroIdx,opened:c.opened};}),
+  npcs:npcs.map(function(n){return{nm:n.nm,x:n.x,y:n.y,col:n.col,dk:n.dk,icon:n.icon};}),
+  dungeonEntrances:dungeonEntrances.map(function(d){return{x:d.x,y:d.y,biome:d.biome};}),
+  noiseSeed:noiseSeed}};
+```
+
+`netApplyWorldInit(d)` (L1512) assigns `noiseSeed`, clears `biomeCache`, and rebuilds `obstacles`, `spawners`, `cages`, `npcs` and `dungeonEntrances` as real instances — so guests regenerate identical biome colouring from the seed but receive prop positions verbatim. Guest NPCs get an empty `dlg` array (dialogue is host-side only).
+
+### 19.6 Guest responsibilities
+
+`guestSendInput(dt)` (L9153):
+
+```js
+guestInputTimer+=dt;if(guestInputTimer<NET.SEND_RATE)return;guestInputTimer=0;
+var myHero=NET.guestHeroes[NET.playerId];
+var input={type:'input',
+  keys:{w:keys.w||keys.arrowup,s:keys.s||keys.arrowdown,a:keys.a||keys.arrowleft,d:keys.d||keys.arrowright},
+  click:pendingClick||null,q:keys.q?true:false,ult:keys.r||keys['0']?true:false,
+  interact:keys[' ']?true:false,sig:keys.e?true:false,
+  heroIdx:myHero!==undefined?myHero:-1};
+try{NET.ws.send(JSON.stringify(input));}catch(e){}
+pendingClick=null;
+NET.pingTimer+=dt;if(NET.pingTimer>=2){NET.pingTimer=0;NET.lastPingT=performance.now();
+  try{NET.ws.send(JSON.stringify({type:'ping',t:NET.lastPingT}));}catch(e){}}
+```
+
+Note the guest input payload uses **hard-coded key names**, not `keyBinds` — guest rebinding of movement/ult/interact/signature has no effect.
+
+Guests may locally toggle: control mode (`c`), mute (`m`), bestiary (`b`), skill tree (`t`), quest journal (`j`), inventory (`i`), and request a hero switch with `1`–`4`. Every other key is blocked (L936–L946).
+
+**Interpolation** (`getInterpolatedSnapshot`, L8829):
+
+```js
+var renderT=performance.now()-NET.interpDelay;
+... find a,b bracketing renderT by _localT ...
+var t=range>0?clamp((renderT-a._localT)/range,0,1.2):1;
+return{snap:b,t:t,interpA:a,interpB:b};
+```
+
+Rendering runs **50 ms behind** server time; hero and entity positions are lerped between the two bracketing snapshots (extrapolating up to `t = 1.2` when the buffer is starved). Only `x`/`y` are interpolated — everything else is taken from the newer snapshot.
+
+`guestGameLoop(time)` (L8797) computes its own `gdt` (clamped to 0.05), advances `gt`, applies the interpolated snapshot, maintains projectile trails locally (6 samples), updates dungeon atmosphere or overworld weather particles client-side, animates dungeon object timers, and finally calls `guestSendInput(gdt)`.
+
+`drawNetHUD()` (L9168) shows `🌐 <room> · <N>P` top-right with a connection dot: green `< 50 ms`, amber `50–150 ms`, red above.
+
+### 19.7 Co-op abilities (L1378–L1408)
+
+```js
+var COOP_ABILITIES=[
+  {nm:'Rally Cry',cd:30,dur:8,desc:'Allies +30% DMG',col:'#4A9ED8'},
+  {nm:"Hunter's Mark",cd:25,dur:6,desc:'Enemy +50% DMG taken',col:'#3DCC7A'},
+  {nm:'Arcane Link',cd:28,dur:10,desc:'Heal ally 25% of magic DMG',col:'#A862C4'},
+  {nm:'Shadow Step',cd:20,dur:0,desc:'Teleport to ally + invuln',col:'#D88030'}];
+```
+
+| Index | Hero | Name | Cooldown | Duration | Effect (`activateCoopAbility`, L1383) |
+|---|---|---|---|---|---|
+| 0 | Liam | Rally Cry | 30 s | 8 s | every other living hero within **200 px** gets `dmgBuff = 1.3`; `snd('achieve',0.4)`; 12-particle ring at 120 px/s in `#4A9ED8` |
+| 1 | Noah | Hunter's Mark | 25 s | 6 s | nearest living enemy within **300 px** gets `marked = 6`; `snd('arrow',0.3)` |
+| 2 | Collette | Arcane Link | 28 s | 10 s | nearest other living hero within **250 px** becomes `coopTarget`; `snd('magic',0.3)` |
+| 3 | Isabella | Shadow Step | 20 s | 0 | teleports to the nearest living ally (no range limit), granting **both** `shieldOn = 1.5`; 8 smoke particles at each end; `snd('portal',0.4)` |
+
+Gate: `if(NET.playerCount<=1||hero.coopCd>0)return;` — co-op abilities are **multiplayer-only** and are bound to the hero *index*, not to whoever is controlling that hero. Triggered by `q` (which is also the combo-ult key locally; the guest path sends `q` and the host routes it to `activateCoopAbility`).
+
+### 19.8 Guest restrictions summary
+
+| Capability | Host | Guest |
+|---|---|---|
+| Run simulation | ✔ | ✘ (renders snapshots) |
+| Move / attack / ult / signature / interact | ✔ | via `input` messages |
+| Switch hero freely | ✔ | request only, host may refuse |
+| Enter a dungeon | ✔ | ✘ (joining mid-dungeon is refused: `'Game is in a dungeon'`) |
+| Open skill tree / inventory / bestiary / journal | ✔ | ✔ (local UI only) |
+| Pause the game | ✔ | ✘ (sees `guestPauseOverlay` when the host pauses) |
+| Pick a level-up card | ✔ | votes via `lvlVote`; the host decides |
+| Save / load | ✔ | ✘ |
+
+---
+
+## 20. Dev Console & Scenarios
+
+**Legacy lines:** L9518–L9899, wrapped in an IIFE. Opened with **Ctrl+Shift+D**.
+
+```js
+var devOpen=false,devGod=false,devEl=null;
+function devEnsureReady(){
+  if(state!=='playing'){announce('Start a game first!','#D84830',2);return false;}
+  return true;
+}
+```
+
+Every scenario calls `devEnsureReady()` first. The panel is a fixed, centred `rgba(0,0,0,0.95)` box with a 2 px `#E8A838` border, `z-index: 99999`, `max-height: 80vh`, scrollable.
+
+### 20.1 Quick tools
+
+| Button | Function | Effect |
+|---|---|---|
+| `God Mode ON/OFF` | `devToggleGod()` | toggles `devGod`; `Hero.prototype.takeDmg` is monkey-patched at L9896 to return `0` while on |
+| `Heal All` | `devHealAll()` | full HP, clears `dead`/`downed`/`deathA`/`_caged` on all unlocked heroes |
+| `Kill Boss` | `devKillBoss()` | kills `dungeonBoss` in a dungeon, else the overworld `boss` (also sets `bossDefeated`, `bossUp=false`) |
+| `Unlock All` | `devUnlockAll()` | unlocks and revives all 4 heroes, `sibs = 3`, rebuilds the portrait strip |
+| `Lv 5` / `Lv 10` / `Lv 20` | `devSetLv(n)` | `teamLv = n`; per hero `maxHp = HDEFS[i].hp + n*12`, `dmg = HDEFS[i].dmg + n*3`, full heal |
+| `+1000 Gold` | inline | `gold += 1000` |
+| `Boss 75/50/25/10%` | `devSetBossHP(pct)` | sets the active boss to `max(1, floor(maxHp*pct))` |
+
+### 20.2 v26 boss scenarios
+
+| Button | Function | Setup |
+|---|---|---|
+| `P1 Kid Snatch` | `devGoblinKing(1)` | unlock all, Lv 10, exit any dungeon, all 5 dungeons marked cleared, clear arena effects/enemies/projs/parts, `bossUp = true`, `boss = new Boss(WW/2, WH*0.3)`, heroes at `(WW/2 ±80, WH*0.6 ±30)`, camera on the boss, `boss.phase = 1`, full HP |
+| `P2 Weakened` | `devGoblinKing(2)` | as above but `boss.hp = 45% maxHp`, `phase = 1` (transitions on the next tick) |
+| `P3 Berserk` | `devGoblinKing(3)` | `boss.hp = 20% maxHp`, `phase = 2` |
+| `P1 Vines` | `devDungeonBoss('forest',1)` | see below |
+| `P2 Planted` | `devForestPlanted()` | `devDungeonBoss('forest',2)` then, after 500 ms, `hp = 55% maxHp` and `announce('DEV: Treant will plant at 60% — chip down!','#58B888',3)` |
+| `P3 Uprooted` | `devDungeonBoss('forest',3)` | HP set to 25% |
+| `P1 Teleport` | `devDungeonBoss('desert',1)` | — |
+| `P2 Cocoon` | `devDesertCocoon()` | `devDungeonBoss('desert',2)` then `hp = 48% maxHp` with the hint `'DEV: Cocoon will trigger at 50% — chip boss down!'` |
+| `P3 Phantoms` | `devDesertPhantoms()` | `devDungeonBoss('desert',3)` then `hp = 22% maxHp`, `announce('DEV: Phantom Split phase!')` |
+| `Cave Boss` | `devDungeonBoss('cave',1)` | — |
+| `Swamp Boss` | `devDungeonBoss('swamp',1)` | — |
+| `Frozen Boss` | `devDungeonBoss('frozen',1)` | — |
+
+`devDungeonBoss(biome, phase)` (L9566):
+
+```js
+devUnlockAll();devSetLv(8);
+if(inDungeon){ ...clean exit... }
+dungeonEntrySnapshot=serializeOverworldState();
+inDungeon=true;currentDungeon=biome;dungeonXPGained=0;resetHeroStats();
+clearArenaEffects();enemies.length=0;projs.length=0;parts.length=0;boss=null;bossUp=false;
+initDungeon(biome);
+// find the boss room, mark every other room cleared, keys=5, loadDungeonRoom(bossIdx)
+var hpPcts={1:1.0, 2:0.55, 3:0.22};
+if(biome==='forest'){hpPcts={1:1.0, 2:0.55, 3:0.25};}
+if(biome==='desert'){hpPcts={1:1.0, 2:0.45, 3:0.20};}
+dungeonBoss.hp=Math.max(1,Math.floor(dungeonBoss.maxHp*targetPct));
+dungeonBoss.introPhase=null;dungeonBoss.introT=0;dungeonBoss.y=120;dungeonCinematicActive=false;
+```
+
+It sets Lv 8, snapshots the overworld so a normal exit still works, marks every non-boss room cleared, grants 5 keys, warps straight into the boss room, and skips the intro cinematic.
+
+Phase HP thresholds used by the scenarios:
+
+| Biome | Phase 1 | Phase 2 | Phase 3 |
+|---|---|---|---|
+| default (cave/swamp/frozen/volcanic) | 100% | 55% | 22% |
+| forest | 100% | 55% | 25% |
+| desert | 100% | 45% | 20% |
+
+### 20.3 Teleport
+
+| Button | `devTeleport(id)` | Destination |
+|---|---|---|
+| `Spawn` | 0 | `(WW/2, WH/2)` |
+| `Crater` | 1 | `(ALIEN_CRATER.x, ALIEN_CRATER.y - 50)` |
+| `Ed` | 2 | Ed's current position `+50 y`, or `ED_LANDING + 50 y` if he has not spawned |
+| `Portal` | 3 | `(portalX, portalY - 50)` — only when `portalOpen`, else `'Target not available'` |
+| `▶ Meteor` | inline | `devClose(); triggerMeteorCutscene()` |
+
+`devTeleport` force-exits any dungeon first and snaps the camera to the destination.
+
+### 20.4 v27 gear-system tools
+
+| Button | Function | Effect |
+|---|---|---|
+| `Open Inventory` | `toggleInventory(); devClose()` | — |
+| `+5 Random` | `devRandomGear(5)` | 5 random `GEAR_DB` keys at `rollRarity(0)` into the stash |
+| `+20 Fill Stash` | `devRandomGear(20)` | same, 20 items |
+| `Clear Stash` | `devClearStash()` | `stash.length = 0` |
+| `All Rarities` | `devSpawnGear()` | one item per entry in `RARITIES`, cycling `GEAR_DB` keys |
+| `5 Common/Rare/Epic` | `devGearByRarity(rar,5)` | 5 random items forced to that rarity |
+| `All Legendary` | `devSpawnLegendaries()` | `leg_liam`, `leg_noah`, `leg_collette`, `leg_isabella` at `legendary` |
+| `🔥 Flame` … `🗡 Sword` | `devEquipWeapon(key,rar)` | equips the named weapon on the active hero (old weapon to stash), sets `wVis`, `recalcHeroStats`. Keys: `w_flame`(epic), `w_frost`(epic), `w_shadow`(epic), `w_quiver`(rare), `w_staff`(epic), `w_hammer`(rare), `w_sword`(common) |
+| `▶ Full Loadout` | `devFullLoadout()` | every unlocked hero gets an epic weapon (`w_flame/w_quiver/w_staff/w_hammer` by index), rare armor (`a_plate/a_chain/a_shield/a_mage`) and rare accessory (`x_boots/x_fang/x_orb/x_drum`); previous gear to stash |
+| `▶ Stash Overflow` | `devStashOverflow()` | fills the stash to `STASH_MAX` then drops 3 epic items near the hero to exercise overflow handling |
+| `▶ Drop Frenzy` | `devDropFrenzy()` | 15 gear drops at `hero ± rnd(-120,120)` with `rollRarity(2)` |
+| `▶ Save Round-trip` | `devSaveRoundTrip()` | snapshots all four heroes' gear keys and stash length, runs `buildSaveData() → JSON → applyLoadData()`, then diffs; announces PASS or the specific mismatch |
+| `▶ Strip All Gear` | `devStripAllGear()` | moves every equipped item to the stash, resets `wVis`, recalculates stats |
+| `▶ Stat Audit` | `devStatAudit()` | measures `hp/dmg/spd/rng/cd` with and without gear, prints a per-stat delta table to the console and announces the DMG summary |
+
+### 20.5 In-game DEV_MODE hotkeys (separate from the console)
+
+`DEV_MODE` is toggled by **F2** or by tapping `#verLabel` five times within 2 s on the title screen (L9435). While on, the HUD shows `🔧 DEV`, `initGame()` unlocks everything, and:
+
+| Key | Requires | Effect |
+|---|---|---|
+| `` ` `` | in a dungeon, not paused | kills every dungeon enemy (awarding XP + kill stats), kills the boss, solves the puzzle, unlocks all doors, marks the room cleared, `snd('puzzle_solve',0.4)` |
+| `F6` | overworld | if the plane is airborne, drop `rnd(2,5)` crates; else launch a supply flyover from the camera |
+| `F7` | overworld, Ed not yet spawned | force a crash approach: `biplane` set active at `(cam.x-60, cam.y+H*0.4)` with `vx=100`, `alt=150`, `event='crash'` |
+| `F8` | overworld | advance to the next `WEATHER_TYPES` entry, `timer = rnd(20,40)`, storm re-arms `strikeT = rnd(4,8)` |
+| `F10` | overworld, no cutscene | `triggerMeteorCutscene()` |
+| `F9` | always (not DEV-gated) | console diagnostic dump: hero/level/HP, biome at camera centre, `dayTime`, `crashReady`, `crashReadyTimer`, `flyoverCount`, `hasCrashed`, `edMet`, `edQuestPhase`, `betterDrops`, crate count, `biplaneActive`, `DEV_MODE`, enemy count |
+
+`drawPerfOverlay(ms)` is drawn every frame while `DEV_MODE` is on (L9243).
+
+---
+
+## 21. Gaps, Oddities & Dead Code
+
+Things a porter must decide about deliberately, all verified against the source:
+
+| # | Finding | Line(s) |
+|---|---|---|
+| 1 | **`spawnEscortNPC()` never fires.** It searches for an NPC named `'Bog Witch'`, which is not in `NPC_DEFS` (the swamp NPC is `Mistweaver Fern`), so quest `swamp_2` ("Escort the frog familiar to safety") can be accepted but never progressed. | L8351, L626 |
+| 2 | **`spawnQuestWaypoints()` looks for `'Sand Nomad'`**, also absent, but falls back to `(WW*0.78, WH*0.22)` so `desert_2` still works. | L8354 |
+| 3 | **`DIALOGUE.grandpaEd.crater_hint` does not exist** although `edInteract()` opens it. `openDialogue` returns silently, so that branch is a dead end and the player sees nothing. | L8406, L754 |
+| 4 | **`DIALOGUE.grandpaEd.crash_landing` has no call site.** Four canon lines are unreachable. | L783 |
+| 5 | **Most `HERO_REACTIONS` contexts are unreachable**: only `quest_intro`, `space_hint`, `crater` and `ed_crater` are ever requested. `crash_landing`, `dungeon_enter`, `boss_appear`, `sibling`, `swamp_item`, `mid_boss`, `victory`, `snack_reward`, `following_collette` are all orphaned canon. | L799–L802 |
+| 6 | **`METEOR_CUTSCENE_PLAYED` is never read or written.** The cutscene is gated on `storyFlags.meteorSeen` instead. | L725 |
+| 7 | **`storyFlags` reset in `initGame()` omits `meteorSeen`, `craterVisited` and `edCraterDialogue`**, so those persist across a restart within the same page load — a second playthrough will skip the meteor cutscene. | L8272 vs L749 |
+| 8 | **`storyFlags.edSpaceHints` is never incremented.** | L749 |
+| 9 | **`DOOR_CLOSED` (1) is never assigned.** Only OPEN/LOCKED/BARRED are used. | L841 |
+| 10 | **`V7T.puz` is never referenced** and **`V7T.bossv7` is `null`**, so boss rooms always fall back to `ROOM_TEMPLATES.boss`. | L6739–L6744, L7198 |
+| 11 | **`DUNGEON_LAYOUTS` is only used for its first entry's `lore` string.** The 6-room sequences are entirely superseded by the procedural generator. | L6755, L7157 |
+| 12 | **`CITADEL_FLOORS[].rooms`, `.hazard` and `.miniBoss` are never read.** Only `.biome` and `.enemyScale` are consumed; the Stone Sentinel and Phantom Warden mini-bosses never spawn. | L820–L826, L7370 |
+| 13 | **Citadel floors get no biome hazards**, because `loadDungeonRoom` switches on `currentDungeon` (`citadel_f1..3`), which matches none of the hazard branches. The Citadel's own floor hazards (§11.7 step 12) cover floors 1 and 2 only; floor 3 has none. | L7293–L7299, L8165 |
+| 14 | **`FAMILY_NPC_DEFS` is data-only** — `spawnEd()` hard-codes the same values and nothing reads the table. `despawnEd()` is never called. | L633, L8390–L8391 |
+| 15 | **`abilityVFX` has no cap**, unlike `parts` (250), `projs` (150), `weatherP` (80) and `arenaEffects` (8). | L1747 |
+| 16 | **Array truncation keeps the oldest entries.** `parts.length = MAX_PARTICLES` discards the *newest* particles, so under load the visible effects are the stale ones. | L9282, L1639 |
+| 17 | **`Part.fric` and several timers are frame-rate dependent** (`fric` is applied per frame, not `dt`-scaled; `drawVignette`, `weather.flashT`, `TUTORIAL_STEPS[6]` and `drawBossBar` use hard-coded `1/60`; the Shadow Queen is updated with `update(1/60)` instead of `dt`). | L1727, L3361, L1645, L4321, L3369, L9333 |
+| 18 | **The touch `tapAttack` handler does not un-zoom coordinates** the way the mouse handler does, so tap-to-attack aims incorrectly at `WORLD_ZOOM ≠ 1`. | L1103–L1117 vs L1067 |
+| 19 | **Guest input ignores `keyBinds`** — `guestSendInput` reads `keys.w/a/s/d/q/r/0/e/' '` directly, so guests cannot rebind. | L9157 |
+| 20 | **Only three of the five world events count toward `survive_event`.** `caravan` and `treasure` never call `updateQuestProgress`, so quest `desert_1` only advances on bloodmoon/spring/earthquake. | L6295–L6334 |
+| 21 | **NPC greeting rotation is inert.** `npc.dlgIdx` is set to `0` on first visit and never incremented, so every biome NPC only ever shows `dlg[0]`. | L8447, L8353 |
+| 22 | **Portrait `mood` is accepted but effectively ignored** — `drawPortrait` only branches on `happy`/`wink`, and `drawDialogueBox` always passes `'happy'`. Every canon mood tag is currently unused. | L807, L806 |
+| 23 | **Nothing but the biome noise is seeded.** Reloading a save re-rolls obstacle scatter, NPC positions, secrets, bounties and dungeon layouts. | L1521, §1.1 |
+| 24 | **No gamepad support** anywhere in the file. | — |
+| 25 | **`spawnPortal()` is called only from the Goblin King death path** (L3231, 3 s + 2 s after death), so the Shadow Realm is unreachable until the Goblin King is beaten. | L3231, L5714 |
+| 26 | **The `puz` and `treas` structural templates carry east/west doors (`4`/`5`) baked in**, but `injectDoors9` rewrites all eight door tiles anyway, so the baked values never matter. | L6740–L6742, L7138 |
+
+---
+
+*End of Part 2. Heroes, abilities, combo ultimates, XP/leveling, skill trees, enemies, boss phase system, `BOSS_BLOCKS`, each boss, combat formulas, equipment/gear, loot, merchant economy, bounty rewards, `NG_SCALE`, achievements and the save schema are covered in Part 1.*
