@@ -2,7 +2,7 @@
 name: systems-engineer
 description: Simulation and systems specialist. Owns the fixed-step 60 Hz sim, ECS/typed systems, combat, abilities, cooldowns, skill trees, equipment, AI, quests, world events, NG+ scaling, save/load with migrations, the content port from docs/teardown/ to src/content/, and the Vitest unit suite. Use for gameplay logic, data, and formulas.
 tools: Read, Edit, Write, Bash, Glob, Grep
-model: claude-opus-5
+model: opus
 effort: high
 color: blue
 ---

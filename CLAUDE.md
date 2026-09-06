@@ -67,9 +67,19 @@ Node is pinned in `.nvmrc` (24.16.0); `.npmrc` enforces exact versions and engin
 - Commit per completed task; the message names the task from `docs/PROGRESS.md`. `npm run check` green first.
 - Visual-loop screenshots are committed; they are the design record.
 
-## Agents (`.claude/agents/`)
+## Agents (`.claude/agents/`) and the model/effort policy
 
-`archaeologist` (Phase 0) · `art-director` (scores screenshots; never edits code) · `render-engineer` · `world-builder` · `systems-engineer` · `dungeon-designer` · `ui-designer` · `net-engineer` · `qa-inspector` (runs the checklist; blocks the gate). Implementers run on Claude Opus 5; art-director and qa-inspector inherit the orchestrator's model (Fable 5.1). Parallelize agents whose files don't overlap; serialize anything touching `src/style/` or `src/sim/` core.
+`archaeologist` (Phase 0) · `art-director` (scores screenshots; never edits code) · `render-engineer` · `world-builder` · `systems-engineer` · `dungeon-designer` · `ui-designer` · `net-engineer` · `qa-inspector` (runs the checklist; blocks the gate). Parallelize agents whose files don't overlap; serialize anything touching `src/style/` or `src/sim/` core.
+
+Andrew's standing policy (2026-09-06):
+
+1. **Orchestrator:** Fable 5.1 at **high** effort, every session.
+2. **Judgment roles** (`art-director`, `qa-inspector`): `model: fable`, `effort: xhigh`. The `-max` variants (`art-director-max`, `qa-inspector-max`) exist only for Phase 1 excellence-mark scoring and phase-gate reviews.
+3. **Implementers** (render, systems, dungeon, world, ui, net): `model: opus`, `effort: high`.
+4. **Mechanical work** (`archaeologist`, file moves, git, running tests, formatting): `model: opus`, `effort: medium`.
+5. **Escalate to Fable when it matters:** for an unusually judgment-heavy task (Phase 1 shader and lighting work, the curved-world shader, the BOSS_BLOCKS port, the multiplayer spike, anything that has failed twice on Opus) create a separate agent file (e.g. `render-engineer-fable.md`) rather than editing the Opus one — model and effort cannot be set at spawn time. Log every escalation in `docs/DECISIONS.md` with one line of rationale.
+6. **Do not burn tokens.** Never put Fable on mechanical work. Never run a subagent at `max` unless it is scoring or gating. Prefer one strong review pass over repeated weak ones.
+7. `CLAUDE_CODE_EFFORT_LEVEL` must stay **unset** in the environment (verified unset 2026-09-06); if set, it silently overrides every frontmatter `effort` value. Check it at the start of each session.
 
 ## Hard constraints (repeat of docs/BRIEF.md §2, §4.2, §7.2)
 

@@ -12,3 +12,4 @@ Thumbs.db
 .claude/agent-memory-local/
 # headless capture scratch (committed screenshots live in docs/visual-loop/)
 tmp/
+dist-archive/
