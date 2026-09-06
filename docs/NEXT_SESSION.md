@@ -15,7 +15,7 @@ These are Andrew's standing rules. They go at the top of every handoff document,
 6. **Deliverables are files, not chat.** Everything lands in the repo. Andrew never copy-pastes from chat.
 7. **Tests: trim before adding.** Before generating new tests, do a trim pass on the existing suite; target ~100 tests per suite; propose specific trims with rationale before writing new ones.
 
-**Family canon is sacred.** The kids' names, colors, roles, and personality framing never change: **Liam** (blue, tank/leader), **Noah** (ranger/archer), **Collette** (purple, mage/enchanter), **Isabella** (berserker/guardian). Grandpa Ed flies the biplane. Existing dialogue, quest text, in-jokes, cutscene lines, voice lines, achievement names, and loading tips are ported **verbatim** — never paraphrased or "improved". New text may be added. Nothing ships that isn't family-friendly. *(Noah's and Isabella's colors are under an open question to Andrew — see "Needs Andrew" below.)*
+**Family canon is sacred.** The kids' names, core personalities, and canon text never change: **Liam** (oldest, protective, steady — the leader), **Noah** (sharp, quick, independent), **Collette** (creative, imaginative), **Isabella** (youngest, fierce, unstoppable). Grandpa Ed flies the biplane. Each kid's color and role are set in the Design Bible (`docs/design/heroes.md`, Phase 0.5) and may be revised only there, with the rationale logged in `docs/DECISIONS.md`; Brief §1 is the starting point, not the law. Existing dialogue, quest text, in-jokes, cutscene lines, voice lines, achievement names, and loading tips are ported **verbatim** — never paraphrased or "improved". New text may be added. Nothing ships that isn't family-friendly.
 
 ## Model and effort policy (Andrew, 2026-09-06)
 

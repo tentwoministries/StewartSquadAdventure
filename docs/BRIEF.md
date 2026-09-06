@@ -8,6 +8,8 @@
 
 This one document is the source of truth for two jobs: (1) the **teardown** of the v26 game, and (2) the **implementation** of its successor. Read all of it before writing a line of code. Copy it into the repo at `docs/BRIEF.md` and never let it drift from the build.
 
+**Revisions (owner-directed; the brief is never edited to match the build):** 2026-09-06 — Phase 0.5 Design Overhaul added at Andrew's direction: §2 (hero colors and roles revisable in the Design Bible), §4–6 (Design Bible authority pointers), §8 (Phase 0.5 with its Definition of Done). The Design Bible lives in `docs/design/`.
+
 ---
 
 ## 0. Working Rules (apply to every session, every agent, every file)
@@ -53,9 +55,10 @@ Andrew is explicitly granting wide creative latitude. He does not want to be in 
 - Rename dungeons, locations, items, and abilities where the new name is better.
 - Choose libraries, architecture, and tooling within §7.
 - Cut legacy features that don't earn their place, **if** logged with rationale.
+- Revise each hero's color and role, and how each personality is expressed (silhouette, signature props, animation personality, idle and emote character) — **only** in `docs/design/heroes.md`, with the rationale logged in `docs/DECISIONS.md`. *(Phase 0.5 revision, 2026-09-06.)*
 
 **You do not have license to:**
-- Change the kids' names, colors, roles, or personality framing. Ever.
+- Change the kids' names, core personalities, or personality framing. Ever. *(Phase 0.5 revision, 2026-09-06: colors and roles are no longer fixed here. They are decided in the Design Bible, `docs/design/heroes.md`, and may be revised only there, with the rationale logged in `docs/DECISIONS.md`. Names, core personalities, and canon text stay fixed.)*
 - Change a resolved decision in `stewart-squad-gameplay-brainstorm-v2.md` or the story spine without a logged rationale in `docs/DECISIONS.md`.
 - Alter, paraphrase, or "improve" family-canon text (dialogue, quest text, in-jokes, cutscene lines, voice lines). It is ported verbatim. New text may be *added*; existing text is sacred.
 - Add paid assets, paid services, telemetry, ads, accounts, or anything requiring a network at runtime except the optional multiplayer server.
