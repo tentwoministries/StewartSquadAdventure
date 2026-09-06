@@ -14,12 +14,12 @@ That's it. To opt in to multi-agent workflow fan-out for a session (useful for t
 Continue from docs/NEXT_SESSION.md. ultracode
 ```
 
-## Effort level guidance
+## Effort level guidance (Andrew's policy, 2026-09-06)
 
-- **High** for the orchestrator is the recommended default. The orchestrator plans, delegates, reviews, and gates; the heavy reasoning happens inside the agents, whose effort is set in their own files (`.claude/agents/*.md`: art-director runs at `max`, everyone else at `high`).
-- **Medium** is fine for short bookkeeping sessions (merging, tagging, re-running a gate).
-- **Max** for the orchestrator only when a §2(d) interrupt happened (a gate failed after the max iterations) and the session is about deciding, not delegating.
-- Ultracode / workflows are orthogonal to effort: they change how many agents run in parallel, not how hard each thinks.
+- **Orchestrator: Fable 5.1 at High, every session.** No exceptions; the heavy reasoning happens inside the agents.
+- Agent model/effort is fixed in each `.claude/agents/*.md` frontmatter (see `CLAUDE.md`): judgment roles on Fable at xhigh (max only for excellence-mark scoring and phase gates), implementers on Opus at high, mechanical work on Opus at medium.
+- Ultracode / workflows are orthogonal to effort: they change how many agents run in parallel, not how hard each thinks. Add the word **ultracode** to the prompt to opt in for a session.
+- `CLAUDE_CODE_EFFORT_LEVEL` must stay unset; the orchestrator checks it at session start.
 
 ## Phase → session map
 

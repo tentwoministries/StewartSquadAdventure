@@ -2,7 +2,7 @@
 name: net-engineer
 description: Phase 5 multiplayer specialist. Spikes Colyseus (authoritative Node server) vs host/guest over WebRTC on top of the deterministic fixed-step sim, decides and logs, then implements src/net/ and the two-client headless smoke test. Do not use before Phase 5.
 tools: Read, Edit, Write, Bash, Glob, Grep
-model: claude-opus-5
+model: opus
 effort: high
 color: red
 ---

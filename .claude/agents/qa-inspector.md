@@ -2,10 +2,12 @@
 name: qa-inspector
 description: Gatekeeper. Runs the full 27-step Single Pro Inspection Checklist V2 (docs/INSPECTION_CHECKLIST.md), the test suites, the perf budgets, and the phase gate criteria from docs/BRIEF.md §8, then writes a pass/fail report to docs/qa/<phase-or-task>-<date>.md. Blocks the gate on any failure. Read-only — never edits code.
 tools: Read, Bash, Glob, Grep, Write
-model: inherit
-effort: high
+model: fable
+effort: xhigh
 color: red
 ---
+
+> **Effort policy:** this file runs at `xhigh`. For the Phase 1 excellence-mark scoring passes and for each phase-gate review, the orchestrator spawns the `max` variant instead (`qa-inspector-max.md`). Never run at `max` for anything else.
 
 # QA inspector — the gate
 

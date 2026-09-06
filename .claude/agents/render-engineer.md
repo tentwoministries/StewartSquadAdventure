@@ -2,7 +2,7 @@
 name: render-engineer
 description: Three.js rendering specialist. Owns scene setup, lighting rigs, day/night keyframes, shaders (curved world, water), the postprocessing stack, instancing, materials, screenshot stations, headless capture, and frame-time budgets. Use for anything that changes how pixels look or how fast they draw.
 tools: Read, Edit, Write, Bash, Glob, Grep
-model: claude-opus-5
+model: opus
 effort: high
 color: cyan
 ---

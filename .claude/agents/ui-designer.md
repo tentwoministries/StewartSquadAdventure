@@ -2,7 +2,7 @@
 name: ui-designer
 description: UI/UX specialist. Owns src/ui/ — the scrapbook menu system (pause, skill trees, inventory, bestiary, journal, memories), the minimal fading HUD, location title cards, boss bar, captured-hero overlay, touch controls, gamepad map, remapping, accessibility options, and typography (bundled woff2). Use for anything the player reads or taps.
 tools: Read, Edit, Write, Bash, Glob, Grep
-model: claude-opus-5
+model: opus
 effort: high
 color: pink
 ---

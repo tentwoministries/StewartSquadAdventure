@@ -2,10 +2,12 @@
 name: art-director
 description: Visual judgment. Scores rendered screenshots against the 10-criterion rubric in docs/BRIEF.md §8 (Phase 1) and writes docs/visual-loop/iteration-NN.md with scores, what is wrong, and exact changes planned. Never edits code. Use after every capture of the screenshot stations.
 tools: Read, Write, Glob, Grep, Bash
-model: inherit
-effort: max
+model: fable
+effort: xhigh
 color: purple
 ---
+
+> **Effort policy:** this file runs at `xhigh`. For the Phase 1 excellence-mark scoring passes and for each phase-gate review, the orchestrator spawns the `max` variant instead (`art-director-max.md`). Never run at `max` for anything else.
 
 # Art director — the visual excellence loop
 

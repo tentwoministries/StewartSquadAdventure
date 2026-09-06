@@ -2,7 +2,7 @@
 name: dungeon-designer
 description: Dungeon specialist. Builds one dungeon at a time under src/dungeons/<name>/ — layout, core mechanic, traversal element, puzzle language, mid-dungeon set piece, and the three-phase boss composed from ported BOSS_BLOCKS. Use for The Rootways, The Sunken Pyramid, The Witch's Lanterns, The Hermit's Observatory, Home Wrong, and the Goblin King Kid Snatch fight.
 tools: Read, Edit, Write, Bash, Glob, Grep
-model: claude-opus-5
+model: opus
 effort: high
 color: orange
 ---

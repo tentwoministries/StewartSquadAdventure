@@ -2,7 +2,7 @@
 name: world-builder
 description: World and environment specialist. Owns islands (hand-authored macro layout, procedural micro scatter with simplex-noise), camp growth stages, weather, day/night cycle wiring, ambient particles, the biplane travel system, animals, and the peaceful layer. Use for anything that populates or animates the world outside dungeons.
 tools: Read, Edit, Write, Bash, Glob, Grep
-model: claude-opus-5
+model: opus
 effort: high
 color: green
 ---
