@@ -11,7 +11,7 @@
 | File | System | Depends on | Status |
 |---|---|---|---|
 | `heroes.md` | The four kids: color, role, silhouette, props, animation personality, kit as data, pilot Liam spec | — | not started |
-| `enemies.md` | All 17 v27 enemy types + elites + overworld mini-bosses, each readable at gameplay distance | heroes (colors) | not started |
+| `enemies.md` | All 17 v27 enemy types + elites + overworld mini-bosses, each readable at gameplay distance | heroes (colors) | reviewed 2026-09-06 (heroes reconciliation pending) |
 | `story-beats.md` | The *Lights in the Dark* spine, quest graph, world map across the islands, where every canon line is delivered | — | not started |
 | `world-events-weather.md` | Day/night keyframes, weather, aurora, ambient layers, world events, the peaceful layer | — | not started |
 | `bosses.md` | Goblin King (Kid Snatch), Ancient Treant, Pharaoh Wraith, the Bog and Frozen bosses, Citadel Warden, Shadow Queen, the shadow squad; `BOSS_BLOCKS` in 3D | heroes, enemies, story-beats | not started |
