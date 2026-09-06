@@ -29,6 +29,7 @@ Sessions are long by design. Each session runs until its phase gate or until the
 |---|---|---|---|
 | 0 (done) | Setup | Repo, tree, tooling, CLAUDE.md, agents, docs, brief copied | `p0-setup` |
 | 1 | Phase 0 — Teardown | `docs/teardown/` (7 docs), orchestrator spot-check of ten systems | `p0-teardown` |
+| 1.5 | Phase 0.5 — Design Overhaul | `docs/design/` Design Bible (11 files), brief §2/§4–6/§8 revised, `CLAUDE.md` pointer, Phase 1 handoff builds the redesigned Liam and camp | `p0.5-design-bible` |
 | 2–3 | Phase 1 — Pilot & visual loop | `pilot/` Forest scene, capture stations, up to 12 iterations, tokens promoted to `src/style/` | `p1-style-locked` |
 | 4–6 | Phase 2 — Forest vertical slice | Full Forest island, all four heroes, Rootways, Treant, Goblin King, menus, save | `p2-vertical-slice` |
 | 7–8 | Phase 3 — The world | Desert, Bog, Frozen Peaks, biplane travel, NG+ | `p3-world` |

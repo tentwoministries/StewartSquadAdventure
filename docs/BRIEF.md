@@ -100,6 +100,8 @@ Read the complete-state doc first, then the brainstorm doc, then the HTML. Do no
 
 This is the highest-priority section in the brief. Read it twice.
 
+*(Phase 0.5 revision, 2026-09-06: the **Design Bible** in `docs/design/` is the authority for how this section is realized system by system — `heroes.md` for §4.6 including each hero's color, role, silhouette, props, and animation set; `enemies.md` for the enemy roster; `world-events-weather.md` for §4.3–4.4 keyframes, weather, and layers; `camp.md` and `story-beats.md` for the world of §4.1. Where the bible is more specific, the bible wins; where they conflict, this section wins and the conflict is logged in `docs/DECISIONS.md` and fixed in the bible.)*
+
 ### 4.1 The reference, in words
 
 A small, self-contained low-poly world seen from an elevated angle, like a hand-built diorama on a tabletop. Every object — pines, boulders, cabin, tent, fence, deer, fox — is made of clean, visible facets with flat shading. The palette is **deep and rich, not pastel**: saturated emerald and moss greens, warm honey-wood browns, a teal-slate roof, a turquoise stream cutting through the meadow, a navy night sky behind pale gray-white mountains. One warm key light casts soft shadows. Chunky white clouds drift *below* eye level between the trees. The ground is dense with small things: flowers, pebbles, mushrooms, a lantern, a stone campfire ring, a fruit basket, a log. Nothing is empty. A little character with a red cap stands in a soft selection ring. A quiet title card in the corner: a location name in a serif, one line of description beneath it. It reads as a *toy set you could reach into* — cozy, precise, alive.
@@ -143,7 +145,7 @@ Elevated third-person orbit, pitch fixed around 45–55°, yaw rotatable by the 
 
 ### 4.6 Characters
 
-Chunky, readable low-poly heroes with strong silhouettes and their canon colors. Signature props: Liam's shield, Noah's bow, Collette's staff, Isabella's oversized weapon. Animation set per hero: idle (breathing), walk, run, dodge, attack combo, signature, ultimate, hit, knockdown, victory, emote. Simple expressive faces with blink. Sources, in order of preference: custom Blender models exported as GLB → Kenney Mini Characters (CC0) adapted with vertex colors → procedural blocky rigs built in code. Enemies get the same treatment; sixteen types must each be recognizable at a glance from the gameplay camera.
+Chunky, readable low-poly heroes with strong silhouettes and their canon colors. Signature props: Liam's shield, Noah's bow, Collette's staff, Isabella's oversized weapon. Animation set per hero: idle (breathing), walk, run, dodge, attack combo, signature, ultimate, hit, knockdown, victory, emote. Simple expressive faces with blink. Sources, in order of preference: custom Blender models exported as GLB → Kenney Mini Characters (CC0) adapted with vertex colors → procedural blocky rigs built in code. Enemies get the same treatment; sixteen types must each be recognizable at a glance from the gameplay camera. *Phase 0.5: silhouettes, props, colors, roles, and the animation set per hero are specified in `docs/design/heroes.md`; the enemy roster (seventeen types in v27) in `docs/design/enemies.md`.*
 
 ### 4.7 Materials & geometry
 
@@ -152,6 +154,8 @@ Chunky, readable low-poly heroes with strong silhouettes and their canon colors.
 ---
 
 ## 5. World & Game Design Direction
+
+*(Phase 0.5 revision, 2026-09-06: the Design Bible is the authority for this section — `story-beats.md` (world map, story spine, quest graph), `camp.md` (§5.2), `dungeons.md` (expands §5.3), `bosses.md` (§5.3 bosses and Kid Snatch), `npcs.md` (Grandpa Ed and the biplane travel system of §5.1), `world-events-weather.md`, and `heroes.md` / `enemies.md` (§5.4 combat data). The direction below stands; the bible says what was decided.)*
 
 ### 5.1 World structure — floating islands, not a globe
 
@@ -189,6 +193,8 @@ Skill trees (3 branches, 2 tiers, capstone forks, team-level allocation), equipm
 ---
 
 ## 6. UI/UX Overhaul
+
+*(Phase 0.5 revision, 2026-09-06: `docs/design/ui-ux.md` is the authority for this section and `docs/design/audio.md` for sound; `docs/design/cutscenes.md` for the cinematic camera and every shot table.)*
 
 The old UI was HTML overlays on a canvas. The new UI is designed, not defaulted.
 
@@ -270,8 +276,13 @@ Every phase ends the same way: inspection checklist (all 27 steps) → tests gre
 ### Phase 0 — Teardown
 Deliver `docs/teardown/` per §3. Gate: orchestrator spot-check of ten systems.
 
+### Phase 0.5 — Design Overhaul (the Design Bible)
+*Added 2026-09-06 at Andrew's direction.* Documents only; no code. With the teardown complete, redesign every system for the 3D world rather than porting it as-is, keeping the magic that `docs/teardown/ATMOSPHERE_RECIPES.md` records. Output: `docs/design/`, one file per system — heroes, enemies, bosses, cutscenes, camp, npcs, world-events-weather, dungeons, ui-ux, audio, story-beats — each structured *What v27 does → What it becomes → What preserves the magic*, written by the `design-lead` agent (Fable, xhigh) and reviewed by the orchestrator. Names, core personalities, and canon text do not change; everything else, including each hero's color and role, is open with a logged rationale (§2).
+
+**Definition of Done:** every system above has a design file with the three mandatory sections; the orchestrator has reviewed each one and recorded the review under `docs/qa/`; every significant departure from v27 is logged in `docs/DECISIONS.md`; §2 and §4–6 of this brief and `CLAUDE.md` point to `docs/design/` as the authority alongside the brief; `docs/NEXT_SESSION.md` hands Phase 1 the redesigned Liam and camp. Gate tag: `p0.5-design-bible`.
+
 ### Phase 1 — Pilot: the Visual Excellence Loop
-Build `pilot/`: one Forest island in the Fernwood spirit, Liam walking and idling, camp props, stream, trees, deer, full day/night cycle, weather toggle, curved-world shader, complete post stack, HUD stub, location title card, and the dev console with **fixed screenshot stations** (four camera positions × three times of day, seeded).
+Build `pilot/`: one Forest island in the Fernwood spirit, Liam walking and idling, camp props, stream, trees, deer, full day/night cycle, weather toggle, curved-world shader, complete post stack, HUD stub, location title card, and the dev console with **fixed screenshot stations** (four camera positions × three times of day, seeded). *Phase 0.5 revision: the pilot builds the redesigned Liam (`docs/design/heroes.md`, pilot spec), the stage-one camp (`docs/design/camp.md`), and the Forest keyframes and weather (`docs/design/world-events-weather.md`) — not the legacy ones.*
 
 Then loop:
 1. Render → capture all twelve station screenshots headless (software GL flags verified per Working Rule 2; Claude Code can view PNGs)

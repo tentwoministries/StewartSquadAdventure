@@ -1,6 +1,6 @@
 # Stewart Squad Adventure — Lights in the Dark
 
-A family time capsule you can play: Andrew Stewart's four kids are the heroes. This repo rebuilds the v27 single-file Canvas game as a Three.js + TypeScript low-poly 3D action RPG. **The full brief is `docs/BRIEF.md`. Read it in full before writing a line of code.** This file is short on purpose; it points, it does not duplicate.
+A family time capsule you can play: Andrew Stewart's four kids are the heroes. This repo rebuilds the v27 single-file Canvas game as a Three.js + TypeScript low-poly 3D action RPG. **The full brief is `docs/BRIEF.md`. Read it in full before writing a line of code.** **The Design Bible is `docs/design/` (Phase 0.5): the authority for what each system *is*, alongside the brief — read the file for your system before building it.** This file is short on purpose; it points, it does not duplicate.
 
 ## Working Rules (apply to every session, every agent, every file)
 
@@ -42,6 +42,7 @@ Interrupt Andrew only for the four conditions in `docs/BRIEF.md` §2. Everything
 | `docs/INSPECTION_CHECKLIST.md` | The 27-step checklist (Working Rule 4), expanded. |
 | `docs/legacy/` | v27 HTML + legacy docs. Read-only inputs. |
 | `docs/reference/` | `fernwood.jpeg` visual north star (+ §4.1 written description). |
+| `docs/design/` | **The Design Bible** (Phase 0.5). One file per system, each *What v27 does → What it becomes → What preserves the magic*. Authoritative alongside the brief; `heroes.md` decides colors and roles. Revise only via the `design-lead` agent plus a `DECISIONS.md` line; never edit a design file to match code. Index and status: `docs/design/README.md`. |
 | `docs/teardown/` | Phase 0 outputs. `docs/visual-loop/` — Phase 1 iteration logs + screenshots. |
 | `src/` | `engine/ render/ style/ sim/ world/ dungeons/ content/ ui/ net/ dev/` per §7.3. `src/style/` is the law after Phase 1. |
 | `pilot/` | Phase 1 scene. Deleted after style lock. |
@@ -69,12 +70,12 @@ Node is pinned in `.nvmrc` (24.16.0); `.npmrc` enforces exact versions and engin
 
 ## Agents (`.claude/agents/`) and the model/effort policy
 
-`archaeologist` (Phase 0) · `art-director` (scores screenshots; never edits code) · `render-engineer` · `world-builder` · `systems-engineer` · `dungeon-designer` · `ui-designer` · `net-engineer` · `qa-inspector` (runs the checklist; blocks the gate). Parallelize agents whose files don't overlap; serialize anything touching `src/style/` or `src/sim/` core.
+`archaeologist` (Phase 0) · `design-lead` (Phase 0.5 Design Bible files; documents only) · `art-director` (scores screenshots; never edits code) · `render-engineer` · `world-builder` · `systems-engineer` · `dungeon-designer` · `ui-designer` · `net-engineer` · `qa-inspector` (runs the checklist; blocks the gate). Parallelize agents whose files don't overlap; serialize anything touching `src/style/` or `src/sim/` core.
 
 Andrew's standing policy (2026-09-06):
 
 1. **Orchestrator:** Fable 5.1 at **high** effort, every session.
-2. **Judgment roles** (`art-director`, `qa-inspector`): `model: fable`, `effort: xhigh`. The `-max` variants (`art-director-max`, `qa-inspector-max`) exist only for Phase 1 excellence-mark scoring and phase-gate reviews.
+2. **Judgment roles** (`art-director`, `qa-inspector`, `design-lead`): `model: fable`, `effort: xhigh`. The `-max` variants (`art-director-max`, `qa-inspector-max`) exist only for Phase 1 excellence-mark scoring and phase-gate reviews.
 3. **Implementers** (render, systems, dungeon, world, ui, net): `model: opus`, `effort: high`.
 4. **Mechanical work** (`archaeologist`, file moves, git, running tests, formatting): `model: opus`, `effort: medium`.
 5. **Escalate to Fable when it matters:** for an unusually judgment-heavy task (Phase 1 shader and lighting work, the curved-world shader, the BOSS_BLOCKS port, the multiplayer spike, anything that has failed twice on Opus) create a separate agent file (e.g. `render-engineer-fable.md`) rather than editing the Opus one — model and effort cannot be set at spawn time. Log every escalation in `docs/DECISIONS.md` with one line of rationale.
