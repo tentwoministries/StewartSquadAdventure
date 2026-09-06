@@ -48,3 +48,20 @@ Reviewer: orchestrator (Fable 5.1, high). One entry per design file, written whe
 | 10 | Empty. |
 
 **Orchestrator notes.** The dodge collision is resolved well (universal "Dodge" vs Noah's signature "Dodge Roll" with the `snapShot` window). The companion fall-through bug becomes a tuned middle with two family rules that make canon lines true in the sim (Isabella's slot adjacent to Collette's; companion-Liam guards Isabella under 40 % HP) — accepted. The shadow squad is specified as the Shadow-skin palette swap with rift-cyan eyes; `bosses.md` must build on that. Kid Snatch's cage entity is `bosses.md`'s; the three starting rescue cages are `enemies.md` §2.8's — both files already say so.
+
+## world-events-weather.md — 941 lines — PASS (scale reconciliation in progress)
+
+| # | Result |
+|---|---|
+| 1 | Pass. Forest keyframe table and the weather × island matrix open §2 as required. |
+| 2 | Pass. Spot-checked `💰 GOBLIN CARAVAN! Kill them for loot!`, `🔴 BLOOD MOON! 2x enemy speed, 3x XP!`, `💚 Healing Spring appeared!`, `🌋 EARTHQUAKE! Enemies stunned!`, `The weather clears.`, tip 2 `Grandpa Ed says this kind of rain is 'character-building weather.'` — verbatim with emoji. New text (three events, two weather types, fishing lines, constellation names, `Gone Fishin'`) marked. Gran's status is unknown in canon; the file avoided any Gran-named feature and flagged it for the brainstorm doc — the right call for a §2(b)-adjacent question. |
+| 3 | Pass. §3.1 disposes of every ATMOSPHERE section; the torch oscillator (§19 recipe 1) is ported exactly; the layer count per island is tabulated (7–8 at clear golden hour, minimum 5 met). |
+| 4 | Pass. Every event, animal, and sky element carries a "reads at distance" note. |
+| 5 | Pass. Explicit anti-palette check on the keyframe table: no neutral fog (sage `#8FA898` is the neutrality floor), no black shadow color, cream noon key, night exposure ≥ 0.80. |
+| 6 | Pass. Light pool fixed at 8 with a priority order; ≈ 40 draw calls; GPU particle budgets per preset; tilt-shift drops first. |
+| 7 | Pass. Build-ready Forest table for the pilot; the pilot's three times of day (golden hour 0.54, noon 0.35, night 0.78) and the weather toggle scope are specified. |
+| 8 | **Conflict with `heroes.md`:** the file assumed 25 px = 1 m and a 128 m world; heroes fixed 40 px = 1 m and an 80 m island. Being reconciled by a design-lead pass: px-derived values (lightning placement and rings, spring radius, treasure/caravan speeds, crate drift, dungeon light ranges) recomputed; `vis.radius` 12 m kept as a design value and its interaction with enemies' 14 m perception stated (cap = 15 m by day, so 14 m stands; night, sand, fog, blizzard reduce it); fog far distances re-checked against an 80 m island; spell-light colors set to the hero glow tokens and Collette's light numbers taken from heroes.md. "Ranged enemies lose 30 % range in sand" is marked as a proposal (enemies.md does not include it). |
+| 9 | 24 lines merged into `DECISIONS.md` (the reconciliation adds one). |
+| 10 | Empty. |
+
+**Orchestrator actions.** (a) **heroes.md addendum list** (applied once at the end of Phase 0.5, one design-lead pass, one DECISIONS line): one hand socket per rig for a carried lantern or held fish; `fish_cast`, `fish_reel`, and a `watch` idle (Phase 4); confirm `light.spell.<hero>` uses the glow tokens. (b) **Teardown erratum:** `SYSTEMS_INVENTORY.md` Part 1 (L2493, L2835) says the `weather` bounty can never complete; the HTML calls `updateBountyProgress('weather', …)` at L1611 and the bounty's type is `'weather'` (L688), so *Storm Chaser* works. Add to the Phase 0 part B reconciliation list with the §9.3 death-rate erratum. (c) Endless mode: this file designs only the event-driven hook; `story-beats.md` decides its fate. (d) The Crystal Caves: retired as an island here and in `enemies.md` (Crystal Golem at a Forest grotto); `story-beats.md` places any remaining cave content.
