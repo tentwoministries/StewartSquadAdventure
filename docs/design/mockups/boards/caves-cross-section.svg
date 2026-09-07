@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" width="1200" height="640" font-family="Georgia, serif">
+  <title>The Crystal Caves: the tiered descent (Phase 0.75 board, T-01..T-04)</title>
+  <rect width="1200" height="640" fill="#0B0E1A"/>
+  <text x="40" y="44" fill="#FFF5E6" font-size="26" font-weight="600">The Crystal Caves · the tiered descent to the heart</text>
+  <text x="40" y="70" fill="#D4C4A8" font-size="14" font-style="italic">A layout board (composition and proportion only; the sandbox scene sandbox/caves-descent/ is the truth about light). Cross-section looking east; north (the mouth) at left.</text>
+  <!-- the cavern shell -->
+  <path d="M120 150 Q 600 40 1080 150 L 1100 560 Q 600 610 100 560 Z" fill="#1A1630" stroke="#3E3660" stroke-width="3"/>
+  <!-- roots as the ceiling -->
+  <g stroke="#6B4A2A" stroke-width="6" fill="none" stroke-linecap="round">
+    <path d="M300 120 q 10 60 -6 120"/><path d="M330 118 q -8 80 12 130"/><path d="M720 96 q 12 70 0 150 q -6 60 4 110"/><path d="M745 98 q -10 90 6 160"/><path d="M980 138 q 6 50 -4 90"/>
+  </g>
+  <text x="640" y="80" fill="#8A6A4A" font-size="12">the Forest's roots hang from the ceiling (some reach the floor)</text>
+  <!-- the crack and the waterfall -->
+  <rect x="595" y="102" width="26" height="8" fill="#8FD3F4"/>
+  <path d="M602 110 L 598 520 M 614 110 L 618 520" stroke="#BFEAF8" stroke-width="5" stroke-opacity="0.8"/>
+  <text x="630" y="300" fill="#8FD3F4" font-size="12">the waterfall: the Forest's stream leaking through the crack, 38 m down into the pool</text>
+  <!-- tier 0: Lamplight Landing -->
+  <rect x="120" y="180" width="300" height="34" fill="#4A4270" stroke="#6B8EC8"/>
+  <text x="130" y="172" fill="#FFF5E6" font-size="14" font-weight="600">Tier 0 · Lamplight Landing · y 0</text>
+  <text x="130" y="228" fill="#D4C4A8" font-size="11">the stair down from the south cliff · Quartz's post · the four kids' line-up · the void ahead</text>
+  <!-- the stair to tier 1 -->
+  <path d="M420 214 L 470 260 L 520 310" stroke="#A29BFE" stroke-width="4" fill="none" stroke-dasharray="6 4"/>
+  <text x="470" y="250" fill="#A29BFE" font-size="11">stair 1 (west wall)</text>
+  <!-- tier 1: the gallery ledge -->
+  <rect x="150" y="310" width="240" height="30" fill="#4A4270" stroke="#6B8EC8"/>
+  <text x="160" y="302" fill="#FFF5E6" font-size="14" font-weight="600">Tier 1 · the gallery ledge · y −11</text>
+  <text x="160" y="356" fill="#D4C4A8" font-size="11">the Golem's Gallery (a hall of facets) · the crystal beetle · hook-lamps on the wall</text>
+  <!-- the stair to the depths -->
+  <path d="M390 340 L 430 400 L 470 460" stroke="#A29BFE" stroke-width="4" fill="none" stroke-dasharray="6 4"/>
+  <text x="440" y="405" fill="#A29BFE" font-size="11">stair 2</text>
+  <!-- tier 2: the depths -->
+  <path d="M130 520 Q 600 560 1070 520 L 1080 560 Q 600 600 120 560 Z" fill="#2A2440" stroke="#6B8EC8"/>
+  <text x="140" y="508" fill="#FFF5E6" font-size="14" font-weight="600">Tier 2 · the Depths · y −26</text>
+  <!-- the pool and the heart -->
+  <ellipse cx="640" cy="535" rx="120" ry="18" fill="#1A4A6A"/>
+  <path d="M640 535 L 622 470 L 640 440 L 658 470 Z M 610 535 L 600 490 L 612 480 L 622 500 Z M 672 535 L 684 488 L 672 478 L 662 502 Z" fill="#00D2FF" stroke="#BFF6FF"/>
+  <circle cx="640" cy="490" r="60" fill="#00D2FF" fill-opacity="0.12"/>
+  <text x="700" y="470" fill="#00D2FF" font-size="12">the crystal heart: one oscillator (period 8 s) drives its pulse, its light, every rim crystal, the salamanders' spots</text>
+  <text x="700" y="490" fill="#8FD3F4" font-size="12">blind cave fish under it · the spark plug on its plinth at the back (ground_ed_3)</text>
+  <!-- the void -->
+  <text x="520" y="200" fill="#6B8EC8" font-size="16" font-style="italic">the void: from the landing you look 26 m down across it to the heart</text>
+  <!-- lamps -->
+  <g fill="#FFB347">
+    <circle cx="150" cy="196" r="4"/><circle cx="250" cy="196" r="4"/><circle cx="380" cy="196" r="4"/><circle cx="455" cy="262" r="4"/><circle cx="175" cy="326" r="4"/><circle cx="300" cy="326" r="4"/><circle cx="430" cy="402" r="4"/><circle cx="520" cy="522" r="4"/><circle cx="880" cy="522" r="4"/>
+  </g>
+  <text x="900" y="180" fill="#FFB347" font-size="12">● Quartz's hook-lamps: lit one by one (stand by a dark lamp 1.5 s); the caves brighten the longer the family is there (T-02)</text>
+  <text x="900" y="200" fill="#A29BFE" font-size="12">rim crystals brighten ×2 within 6 m of any kid; a lit lamp sends the bats up across the void toward the heart</text>
+  <!-- sizes -->
+  <line x1="60" y1="180" x2="60" y2="560" stroke="#D4C4A8" stroke-width="1"/>
+  <text x="18" y="375" fill="#D4C4A8" font-size="11" transform="rotate(-90 18 375)">26 m from the landing to the Depths</text>
+  <line x1="120" y1="600" x2="1080" y2="600" stroke="#D4C4A8" stroke-width="1"/>
+  <text x="560" y="620" fill="#D4C4A8" font-size="11">the demo cavern is about 124 × 108 m (T-04 asks for 260 × 200 in the game; the demo keeps the proportions)</text>
+</svg>

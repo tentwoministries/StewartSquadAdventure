@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stewart Squad Adventure: the demo scenes</title>
+  <style>
+    html, body { margin: 0; background: #0B0E1A; color: #FFF5E6; font-family: Lora, Georgia, 'Times New Roman', serif; }
+    main { max-width: 1100px; margin: 0 auto; padding: 48px 28px 60px; }
+    h1 { font-size: 40px; font-weight: 600; margin: 0 0 6px; }
+    .sub { color: #D4C4A8; font-style: italic; font-size: 18px; margin: 0 0 34px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+    a.card { display: block; text-decoration: none; color: inherit; background: rgba(255,245,230,0.05); border-radius: 12px; padding: 20px 22px 18px; border: 1px solid rgba(255,245,230,0.08); transition: border-color 0.2s, transform 0.2s; }
+    a.card:hover { border-color: #E8A838; transform: translateY(-2px); }
+    .eyebrow { font: 600 10px/1.2 Nunito, 'Segoe UI', system-ui, sans-serif; letter-spacing: 0.18em; text-transform: uppercase; color: #D4C4A8; margin-bottom: 8px; }
+    .eyebrow b { color: #E8A838; font-weight: 800; }
+    .name { font-size: 26px; font-weight: 600; line-height: 1.15; }
+    .rule { width: 42px; height: 2px; background: #E8A838; margin: 9px 0 8px; opacity: 0.85; }
+    .line { font-size: 15px; font-style: italic; color: #D4C4A8; }
+    .who { margin-top: 12px; display: flex; gap: 8px; align-items: center; font: 700 12px Nunito, 'Segoe UI', system-ui, sans-serif; color: #D4C4A8; }
+    .who i { display: inline-block; width: 14px; height: 14px; border-radius: 50%; }
+    .keys { margin-top: 40px; color: #D4C4A8; font: 13px/1.7 Nunito, 'Segoe UI', system-ui, sans-serif; }
+    .keys kbd { font: 800 11px/1 Nunito, 'Segoe UI', system-ui, sans-serif; color: #2B2118; background: #FFF5E6; border-radius: 5px; padding: 3px 5px; margin: 0 2px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Stewart Squad Adventure</h1>
+    <p class="sub">The demo scenes: one per biome, one kid each, the caves with all four. Walk, orbit, tweak, screenshot. <kbd>,</kbd> and <kbd>.</kbd> step between scenes from inside any of them; <kbd>H</kbd> comes back here.</p>
+    <div class="grid">
+      <a class="card" href="./forest-dusk/?shot=L1&t=dusk&v=B"><div class="eyebrow">Forest · <b>Home</b></div><div class="name">Stewart Camp</div><div class="rule"></div><div class="line">Tent, fire, one bedroll. For now.</div><div class="who"><i style="background:#2A62CF"></i> Liam · the deer · dusk (B)</div></a>
+      <a class="card" href="./desert-noon/?shot=S1&t=noon"><div class="eyebrow">Scorching Sands · <b>The Oasis</b></div><div class="name">The Oasis</div><div class="rule"></div><div class="line">Sand, not sugar. Water is further than it looks.</div><div class="who"><i style="background:#EE7F24"></i> Noah · lizards, the camel, vultures · noon</div></a>
+      <a class="card" href="./bog-night/?shot=S1&t=night"><div class="eyebrow">Murky Swamp · <b>The Long Causeway</b></div><div class="name">The Long Causeway</div><div class="rule"></div><div class="line">Lanterns first. Then everything else.</div><div class="who"><i style="background:#9D4FD8"></i> Collette · frogs, herons, wisps · night</div></a>
+      <a class="card" href="./frozen-night/?shot=L1&t=night"><div class="eyebrow">Frozen Peaks · <b>The Hearth</b></div><div class="name">The Hearth</div><div class="rule"></div><div class="line">Where the propeller went. Don't look down.</div><div class="who"><i style="background:#D6294E"></i> Isabella · the elk herd, penguins · the aurora</div></a>
+      <a class="card" href="./caves-descent/?shot=S1&t=half"><div class="eyebrow">Crystal Caves · <b>Lamplight Landing</b></div><div class="name">The Crystal Depths</div><div class="rule"></div><div class="line">The island's roots. Quartz keeps the lamps lit.</div><div class="who"><i style="background:#2A62CF"></i><i style="background:#EE7F24"></i><i style="background:#9D4FD8"></i><i style="background:#D6294E"></i> all four · the heart, the waterfall, the lamps</div></a>
+    </div>
+    <p class="keys">Every scene: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk, <kbd>⇧</kbd> run · drag orbits, wheel zooms, <kbd>R</kbd> back to the station · <kbd>B</kbd> tilt-shift on/off · <kbd>X</kbd> the kid's flourish · <kbd>Tab</kbd> swaps the walked kid (caves) · <kbd>0</kbd> <kbd>[</kbd> <kbd>]</kbd> the scene's own keys (the deer, the camel, the lanterns, the herd, the lamps; wind, fog, aurora, pulse) · <kbd>1</kbd>–<kbd>4</kbd> the stations, <kbd>5</kbd>–<kbd>9</kbd> the study framings · <kbd>T</kbd> time of day · <kbd>K</kbd> curve · <kbd>P</kbd> post · <kbd>F</kbd> freeze · <kbd>U</kbd> card · <kbd>O</kbd> the numbers · <kbd>Enter</kbd> saves a frame to docs/design/mockups/.<br/>URL: <code>?shot=&amp;t=&amp;curve=&amp;freeze=1&amp;ui=0</code>. The plan and the treasures: <code>docs/design/mockups/STUDY_NOTES.md</code> §3 and §7.</p>
+  </main>
+</body>
+</html>

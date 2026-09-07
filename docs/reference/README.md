@@ -14,3 +14,7 @@ Filed by Andrew on 2026-09-07: 21 frames from a small-globe low-poly game, each 
 `fernwood.jpeg` in Brief §4 is now this set (`Fernwood1.jpg` is the frame Brief §4.1 describes); the brief's pointer is updated at the Phase 0.75 application step, never edited to match the build.
 
 Add any other mood references here with a one-line note on what they contribute. No paid or non-redistributable images.
+
+## The kids (`Kids/`, 2026-09-07)
+
+Seven photos Andrew added for the character work: `Liam1.png`, `Noah1.jpg`, `Noah2.jpg`, `Collette and Daddy1.jpg`, `Collette2.png`, `Bella1.jpg`, `Bella2.jpg`. Private family photos: they stay in this repo and are never used in a build, a release or a page. What they contribute (hair, faces, the feel of each kid) is read in `docs/design/PHASE_0.75_HEROES_NOTES.md` and carried by the demo rigs (`sandbox/_shared/kid-*.ts`), row T-15.

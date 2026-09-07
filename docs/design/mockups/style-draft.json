@@ -4,92 +4,1048 @@
   "updated": "2026-09-07",
   "study": "forest-dusk",
   "frames": {
-    "candidates": ["forest-dusk-s1-a-03.png", "forest-dusk-s1-b-01.png", "forest-dusk-s1-c-01.png", "forest-dusk-l1-b-01.png", "forest-dusk-w1-b-01.png", "forest-dusk-cu-b-01.png"],
-    "context": ["forest-golden-l1-a-01.png", "forest-night-l1-a-01.png"],
+    "candidates": [
+      "forest-dusk-s1-a-03.png",
+      "forest-dusk-s1-b-01.png",
+      "forest-dusk-s1-c-01.png",
+      "forest-dusk-l1-b-01.png",
+      "forest-dusk-w1-b-01.png",
+      "forest-dusk-cu-b-01.png",
+      "desert-noon-s1-01.png",
+      "desert-noon-l1-01.png",
+      "desert-noon-s3-01.png",
+      "desert-noon-cu-01.png",
+      "desert-golden-w1-01.png",
+      "desert-golden-ar-01.png",
+      "desert-golden-py-01.png",
+      "desert-dusk-s4-01.png",
+      "bog-night-s1-01.png",
+      "bog-night-s2-01.png",
+      "bog-night-s3-01.png",
+      "bog-night-s4-01.png",
+      "bog-night-cu-01.png",
+      "bog-night-sn-01.png",
+      "bog-golden-l1-01.png",
+      "bog-dusk-w1-01.png",
+      "bog-dusk-ts-01.png",
+      "frozen-night-s1-01.png",
+      "frozen-night-s2-01.png",
+      "frozen-night-l1-01.png",
+      "frozen-morning-s3-01.png",
+      "frozen-morning-cu-01.png",
+      "frozen-morning-pg-01.png",
+      "frozen-golden-s4-01.png",
+      "frozen-golden-w1-01.png",
+      "frozen-dusk-ob-01.png",
+      "caves-half-s1-01.png",
+      "caves-half-s2-01.png",
+      "caves-half-s3-01.png",
+      "caves-lit-s4-01.png",
+      "caves-half-l1-01.png",
+      "caves-half-w1-01.png",
+      "caves-half-cu-01.png",
+      "caves-half-wf-01.png",
+      "caves-half-ht-01.png"
+    ],
+    "context": [
+      "forest-golden-l1-a-01.png",
+      "forest-night-l1-a-01.png"
+    ],
     "approved": []
   },
   "units": {
     "note": "world-events-weather.md §2.1.3 intensities × these factors give three r185 physical values (T-07). Point lights are candela.",
-    "keyMultiplier": 3.0,
-    "hemiMultiplier": 9.0
+    "keyMultiplier": 3,
+    "hemiMultiplier": 9
   },
   "camera": {
     "fovDeg": 35,
     "stations": {
-      "S1": { "target": [0, 0.6, 0], "yaw": 315, "pitch": 48, "d": 19, "source": "camp.md §2.11.5" },
-      "L1": { "target": [0, 0.9, 0], "yaw": 315, "pitch": 40, "d": 22, "source": "study; proposed S1 revision (T-08)" },
-      "W1": { "target": [0, 0.6, 0], "yaw": 315, "pitch": 44, "d": 30, "source": "study" },
-      "CU": { "target": [-2.4, 0.95, 1.0], "yaw": 320, "pitch": 14, "d": 4.6, "source": "study" }
+      "S1": {
+        "target": [
+          0,
+          0.6,
+          0
+        ],
+        "yaw": 315,
+        "pitch": 48,
+        "d": 19,
+        "source": "camp.md §2.11.5"
+      },
+      "L1": {
+        "target": [
+          0,
+          0.9,
+          0
+        ],
+        "yaw": 315,
+        "pitch": 40,
+        "d": 22,
+        "source": "study; proposed S1 revision (T-08)"
+      },
+      "W1": {
+        "target": [
+          0,
+          0.6,
+          0
+        ],
+        "yaw": 315,
+        "pitch": 44,
+        "d": 30,
+        "source": "study"
+      },
+      "CU": {
+        "target": [
+          -2.4,
+          0.95,
+          1
+        ],
+        "yaw": 320,
+        "pitch": 14,
+        "d": 4.6,
+        "source": "study"
+      }
     }
   },
   "keyframes": {
     "dusk-A": {
       "source": "world-events-weather.md §2.1.3 dusk, as written",
-      "key": { "color": "#FF8C5A", "intensity": 1.2, "elevDeg": 4, "azimDeg": 270 },
-      "hemi": { "sky": "#4A4E8E", "ground": "#2A4A30", "intensity": 0.5 },
-      "fog": { "color": "#7B5A8C", "near": 23, "far": 62, "max": 0.85, "heightFalloff": 12 },
-      "sky": { "zenith": "#22305E", "horizon": "#E86A4A", "ground": "#3A2C5A", "keyLobe": 0.6 },
-      "cloud": "#C97A6A", "stars": 0.4, "moon": { "elevDeg": 8, "azimDeg": 95 }, "exposure": 0.95
+      "key": {
+        "color": "#FF8C5A",
+        "intensity": 1.2,
+        "elevDeg": 4,
+        "azimDeg": 270
+      },
+      "hemi": {
+        "sky": "#4A4E8E",
+        "ground": "#2A4A30",
+        "intensity": 0.5
+      },
+      "fog": {
+        "color": "#7B5A8C",
+        "near": 23,
+        "far": 62,
+        "max": 0.85,
+        "heightFalloff": 12
+      },
+      "sky": {
+        "zenith": "#22305E",
+        "horizon": "#E86A4A",
+        "ground": "#3A2C5A",
+        "keyLobe": 0.6
+      },
+      "cloud": "#C97A6A",
+      "stars": 0.4,
+      "moon": {
+        "elevDeg": 8,
+        "azimDeg": 95
+      },
+      "exposure": 0.95
     },
     "dusk-B": {
       "source": "study variant: ember dusk (the orchestrator's pick)",
-      "key": { "color": "#FF9A55", "intensity": 1.7, "elevDeg": 6, "azimDeg": 250 },
-      "hemi": { "sky": "#6A5EA8", "ground": "#3A6A3A", "intensity": 0.8 },
-      "fog": { "color": "#8A5A7C", "near": 24, "far": 70, "max": 0.75, "heightFalloff": 12 },
-      "sky": { "zenith": "#1B2B66", "horizon": "#FF8A50", "ground": "#4A2C5A", "keyLobe": 0.8 },
-      "cloud": "#E89A7A", "stars": 0.5, "moon": { "elevDeg": 8, "azimDeg": 95 }, "exposure": 1.0, "fireMultiplier": 1.3
+      "key": {
+        "color": "#FF9A55",
+        "intensity": 1.7,
+        "elevDeg": 6,
+        "azimDeg": 250
+      },
+      "hemi": {
+        "sky": "#6A5EA8",
+        "ground": "#3A6A3A",
+        "intensity": 0.8
+      },
+      "fog": {
+        "color": "#8A5A7C",
+        "near": 24,
+        "far": 70,
+        "max": 0.75,
+        "heightFalloff": 12
+      },
+      "sky": {
+        "zenith": "#1B2B66",
+        "horizon": "#FF8A50",
+        "ground": "#4A2C5A",
+        "keyLobe": 0.8
+      },
+      "cloud": "#E89A7A",
+      "stars": 0.5,
+      "moon": {
+        "elevDeg": 8,
+        "azimDeg": 95
+      },
+      "exposure": 1,
+      "fireMultiplier": 1.3
     },
     "dusk-C": {
       "source": "study variant: blue hour",
-      "key": { "color": "#C08AA0", "intensity": 0.7, "elevDeg": 2, "azimDeg": 272 },
-      "hemi": { "sky": "#3A4A9E", "ground": "#20402A", "intensity": 0.6 },
-      "fog": { "color": "#5A4E8C", "near": 22, "far": 60, "max": 0.85, "heightFalloff": 12 },
-      "sky": { "zenith": "#101C4A", "horizon": "#D8705A", "ground": "#2E2A58", "keyLobe": 0.5 },
-      "cloud": "#8A6A8A", "stars": 0.7, "moon": { "elevDeg": 12, "azimDeg": 95 }, "exposure": 0.9, "fireMultiplier": 1.15, "fireflies": 0.85
+      "key": {
+        "color": "#C08AA0",
+        "intensity": 0.7,
+        "elevDeg": 2,
+        "azimDeg": 272
+      },
+      "hemi": {
+        "sky": "#3A4A9E",
+        "ground": "#20402A",
+        "intensity": 0.6
+      },
+      "fog": {
+        "color": "#5A4E8C",
+        "near": 22,
+        "far": 60,
+        "max": 0.85,
+        "heightFalloff": 12
+      },
+      "sky": {
+        "zenith": "#101C4A",
+        "horizon": "#D8705A",
+        "ground": "#2E2A58",
+        "keyLobe": 0.5
+      },
+      "cloud": "#8A6A8A",
+      "stars": 0.7,
+      "moon": {
+        "elevDeg": 12,
+        "azimDeg": 95
+      },
+      "exposure": 0.9,
+      "fireMultiplier": 1.15,
+      "fireflies": 0.85
     },
-    "golden": { "source": "bible row through the same units; context frame only", "exposure": 1.05 },
-    "night": { "source": "bible row through the same units; context frame only", "exposure": 0.85 }
+    "golden": {
+      "source": "bible row through the same units; context frame only",
+      "exposure": 1.05
+    },
+    "night": {
+      "source": "bible row through the same units; context frame only",
+      "exposure": 0.85
+    }
   },
   "lights": {
-    "campfire": { "color": "#FF9A3C", "candela": 90, "range": 9, "decay": 2, "flicker": "0.8 + 0.15·sin(t·f), f = 8.8–10 Hz, shared with the flame mesh", "bibleIntensity": 2.5 },
-    "lantern": { "color": "#FFB347", "candela": 14, "range": 6, "decay": 2, "bibleIntensity": 1.2, "swing": "0.6 rad/s ±3°" },
-    "ring": { "color": "#4A9ED8", "candela": 3, "range": 3, "decay": 2, "onWhen": "stars > 0" }
+    "campfire": {
+      "color": "#FF9A3C",
+      "candela": 90,
+      "range": 9,
+      "decay": 2,
+      "flicker": "0.8 + 0.15·sin(t·f), f = 8.8–10 Hz, shared with the flame mesh",
+      "bibleIntensity": 2.5
+    },
+    "lantern": {
+      "color": "#FFB347",
+      "candela": 14,
+      "range": 6,
+      "decay": 2,
+      "bibleIntensity": 1.2,
+      "swing": "0.6 rad/s ±3°"
+    },
+    "ring": {
+      "color": "#4A9ED8",
+      "candela": 3,
+      "range": 3,
+      "decay": 2,
+      "onWhen": "stars > 0"
+    }
   },
   "emissive": {
-    "tentCanvas": { "color": "#FFD08A", "gain": 0.5, "falloff": "0.9 at the ridge → 0 at the hem, exponent 1.2", "bibleGain": 1.6, "note": "T-10" },
-    "lanternGlass": { "color": "#FFB347", "gain": 3.0 },
-    "glowCap": { "color": "#6CE87A", "gain": 0.8 },
-    "flames": { "outer": "#E85D04", "core": "#FFD166", "hdrMultiplier": 1.9 },
+    "tentCanvas": {
+      "color": "#FFD08A",
+      "gain": 0.5,
+      "falloff": "0.9 at the ridge → 0 at the hem, exponent 1.2",
+      "bibleGain": 1.6,
+      "note": "T-10"
+    },
+    "lanternGlass": {
+      "color": "#FFB347",
+      "gain": 3
+    },
+    "glowCap": {
+      "color": "#6CE87A",
+      "gain": 0.8
+    },
+    "flames": {
+      "outer": "#E85D04",
+      "core": "#FFD166",
+      "hdrMultiplier": 1.9
+    },
     "schedule": "all × the keyframe lantern value (0 by day, 0.3 golden hour, 1 dusk and night)"
   },
   "post": {
-    "order": ["selective bloom (layer 11)", "tilt-shift", "exposure", "vignette", "ACES filmic", "SMAA high"],
-    "bloom": { "luminanceThreshold": 0.8, "luminanceSmoothing": 0.3, "intensity": 1.0, "radius": 0.7, "levels": 6, "blend": "ADD", "ignoreBackground": true },
-    "tiltShift": { "offset": 0.0, "focusArea": 0.5, "feather": 0.55, "kernelSize": "SMALL", "resolutionScale": 0.75 },
-    "vignette": { "offset": 0.4, "darkness": 0.35 },
+    "order": [
+      "selective bloom (layer 11)",
+      "tilt-shift",
+      "exposure",
+      "vignette",
+      "ACES filmic",
+      "SMAA high"
+    ],
+    "bloom": {
+      "luminanceThreshold": 0.8,
+      "luminanceSmoothing": 0.3,
+      "intensity": 1,
+      "radius": 0.7,
+      "levels": 6,
+      "blend": "ADD",
+      "ignoreBackground": true
+    },
+    "tiltShift": {
+      "offset": 0,
+      "focusArea": 0.5,
+      "feather": 0.55,
+      "kernelSize": "SMALL",
+      "resolutionScale": 0.75
+    },
+    "vignette": {
+      "offset": 0.4,
+      "darkness": 0.35
+    },
     "frameBufferType": "HalfFloat"
   },
   "world": {
-    "curvedWorld": { "drop": "y -= k·d², d from the station target", "k": 0.0006, "options": [0, 0.0006, 0.0012, 0.0022] },
+    "curvedWorld": {
+      "drop": "y -= k·d², d from the station target",
+      "k": 0.0006,
+      "options": [
+        0,
+        0.0006,
+        0.0012,
+        0.0022
+      ]
+    },
     "terrainGrid": 0.5,
     "faceValueJitter": 0.04,
-    "shadow": { "mapSize": 2048, "type": "PCFSoft", "orthoHalf": 24, "radius": "3 day / 4 low sun / 5 night", "bias": -0.0004, "normalBias": 0.03 }
+    "shadow": {
+      "mapSize": 2048,
+      "type": "PCFSoft",
+      "orthoHalf": 24,
+      "radius": "3 day / 4 low sun / 5 night",
+      "bias": -0.0004,
+      "normalBias": 0.03
+    }
   },
   "scatter": {
     "note": "per m²: core (<22 m), meadow, under canopy, bank; bible values in camp.md §2.4 were 4.0/1.0/1.5 for grass/flowers/pebbles (T-09)",
-    "grass": [1.2, 0.8, 0.5, 1.6], "grassClusterRule": "×0.7 outside bonus cells; +5 in the 15 % bonus cells",
-    "flower": [0.06, 0.03, 0.02, 0.1], "flowerDrifts": "six seeded discs r 1.5–2.5 m at +2.5/m², off the paths",
-    "pebble": [0.3, 0.15, 0.2, 2.0], "mushroom": [0.08, 0.04, 0.5, 0.4], "leaf": [0.3, 0.2, 1.5, 0.3], "clover": [0.6, 0.3, 0.2, 0.4], "twig": [0.2, 0.1, 0.6, 0.3],
-    "grassBlade": { "width": 0.11, "height": "0.24–0.32", "colours": "grass.a ×1.05, grass.b ×1.10, tip ×1.12" },
-    "sway": { "grass": 0.14, "trees": 0.012, "formula": "two sines 1.3 and 2.9 rad/s × height" }
+    "grass": [
+      1.2,
+      0.8,
+      0.5,
+      1.6
+    ],
+    "grassClusterRule": "×0.7 outside bonus cells; +5 in the 15 % bonus cells",
+    "flower": [
+      0.06,
+      0.03,
+      0.02,
+      0.1
+    ],
+    "flowerDrifts": "six seeded discs r 1.5–2.5 m at +2.5/m², off the paths",
+    "pebble": [
+      0.3,
+      0.15,
+      0.2,
+      2
+    ],
+    "mushroom": [
+      0.08,
+      0.04,
+      0.5,
+      0.4
+    ],
+    "leaf": [
+      0.3,
+      0.2,
+      1.5,
+      0.3
+    ],
+    "clover": [
+      0.6,
+      0.3,
+      0.2,
+      0.4
+    ],
+    "twig": [
+      0.2,
+      0.1,
+      0.6,
+      0.3
+    ],
+    "grassBlade": {
+      "width": 0.11,
+      "height": "0.24–0.32",
+      "colours": "grass.a ×1.05, grass.b ×1.10, tip ×1.12"
+    },
+    "sway": {
+      "grass": 0.14,
+      "trees": 0.012,
+      "formula": "two sines 1.3 and 2.9 rad/s × height"
+    }
   },
   "hero": {
-    "liam": { "base": "#2A62CF", "dark": "#173A86", "accent": "#D3DDE6", "glow": "#4A9ED8", "hair": "#8B6914", "skin": "#F2CBA7", "height": 1.52, "ring": { "outer": 1.6, "softAlpha": 0.35, "rimAlpha": 0.7, "breath": "±6 % at 1.2 s" }, "facing": "rotation.y = 180° − bearing (eyes on +z)" }
+    "liam": {
+      "base": "#2A62CF",
+      "dark": "#173A86",
+      "accent": "#D3DDE6",
+      "glow": "#4A9ED8",
+      "hair": "#8B6914",
+      "skin": "#F2CBA7",
+      "height": 1.52,
+      "ring": {
+        "outer": 1.6,
+        "softAlpha": 0.35,
+        "rimAlpha": 0.7,
+        "breath": "±6 % at 1.2 s"
+      },
+      "facing": "rotation.y = 180° − bearing (eyes on +z)"
+    }
   },
   "particles": {
-    "embers": { "rate": 1.2, "life": 3, "rise": 0.7, "bibleRate": 0.3, "note": "T-12" },
-    "smoke": { "sprites": 6, "rise": 0.8, "column": 4, "alpha": "0.35 → 0", "tint": "#B4B4B4 × (hemiSky × 1.5 + 0.35)" },
-    "fireflies": { "count": 140, "blink": "smoothstep(sin(t·1.5–3 + φ), 0.2, 0.9)", "wander": "±1.2 m" },
-    "pollen": { "count": 220 }
+    "embers": {
+      "rate": 1.2,
+      "life": 3,
+      "rise": 0.7,
+      "bibleRate": 0.3,
+      "note": "T-12"
+    },
+    "smoke": {
+      "sprites": 6,
+      "rise": 0.8,
+      "column": 4,
+      "alpha": "0.35 → 0",
+      "tint": "#B4B4B4 × (hemiSky × 1.5 + 0.35)"
+    },
+    "fireflies": {
+      "count": 140,
+      "blink": "smoothstep(sin(t·1.5–3 + φ), 0.2, 0.9)",
+      "wander": "±1.2 m"
+    },
+    "pollen": {
+      "count": 220
+    }
+  },
+  "demoScenes": {
+    "$comment": "Session 2 (2026-09-07): the four new scenes as rendered. Keyframes are the bible rows (world-events-weather.md §2.1.4) through the T-07 conversion (key ×3, hemi ×9 at render) and then tuned by eye; the source of truth for these numbers is sandbox/_shared/biomes.ts until a frame is approved. Fog near/far in metres; light intensities pre-conversion.",
+    "desert": {
+      "hero": "Noah",
+      "heroHour": "noon",
+      "stationsSource": "sandbox/desert-noon/main.ts",
+      "keyframes": {
+        "noon": {
+          "key": [
+            "#FFFBEE",
+            1.3,
+            68,
+            190
+          ],
+          "hemi": [
+            "#78B0E8",
+            "#A06A38",
+            0.36
+          ],
+          "fog": [
+            "#E8D8BC",
+            50,
+            100,
+            0.4,
+            14
+          ],
+          "sky": [
+            "#2C6AC0",
+            "#D8E4EC",
+            "#5A7CB0",
+            0.3
+          ],
+          "exposure": 1
+        },
+        "golden": {
+          "key": [
+            "#FFB86A",
+            1.4,
+            14,
+            250
+          ],
+          "hemi": [
+            "#7A6AB0",
+            "#8A4A28",
+            0.4
+          ],
+          "fog": [
+            "#D8955A",
+            35,
+            100,
+            0.5,
+            14
+          ],
+          "sky": [
+            "#4A3C8A",
+            "#FF9E5A",
+            "#6B4A6A",
+            0.6
+          ],
+          "exposure": 1.05
+        },
+        "dusk": {
+          "key": [
+            "#FF8A62",
+            1.35,
+            5,
+            255
+          ],
+          "hemi": [
+            "#6E52A8",
+            "#5A3424",
+            0.85
+          ],
+          "fog": [
+            "#6A4A80",
+            29,
+            92,
+            0.7,
+            14
+          ],
+          "sky": [
+            "#2A1C50",
+            "#E0604A",
+            "#4A2C6B",
+            0.8
+          ],
+          "exposure": 1,
+          "note": "T-19"
+        },
+        "night": {
+          "key": [
+            "#9AB0E8",
+            0.6,
+            40,
+            130
+          ],
+          "hemi": [
+            "#1E2A5A",
+            "#3A2418",
+            0.6
+          ],
+          "fog": [
+            "#242A58",
+            26,
+            80,
+            0.8,
+            14
+          ],
+          "sky": [
+            "#080C2A",
+            "#2A3068",
+            "#141C40",
+            0.5
+          ],
+          "exposure": 0.85
+        }
+      },
+      "lights": {
+        "shadeLantern": {
+          "candela": 14,
+          "range": 6
+        },
+        "cookFire": {
+          "candela": 40,
+          "range": 7
+        }
+      },
+      "particles": {
+        "sand": {
+          "count": 400,
+          "speed": "2.8 m/s east",
+          "height": "0.05–0.9 m"
+        },
+        "dustDevil": {
+          "points": 80,
+          "wander": "1.5 m/s",
+          "spiral": "0.6–1.2 m rising 1 m/s over 9 s"
+        }
+      }
+    },
+    "bog": {
+      "hero": "Collette",
+      "heroHour": "night",
+      "stationsSource": "sandbox/bog-night/main.ts",
+      "keyframes": {
+        "golden": {
+          "key": [
+            "#F0B870",
+            1.3,
+            14,
+            245
+          ],
+          "hemi": [
+            "#6A5A98",
+            "#4A5A2A",
+            0.4
+          ],
+          "fog": [
+            "#B08A6A",
+            26,
+            70,
+            0.6,
+            8
+          ],
+          "sky": [
+            "#3A4A98",
+            "#E89A6A",
+            "#5A4A6A",
+            0.6
+          ],
+          "exposure": 1
+        },
+        "dusk": {
+          "key": [
+            "#D8705A",
+            1.3,
+            5,
+            255
+          ],
+          "hemi": [
+            "#5A4A88",
+            "#243A24",
+            0.8
+          ],
+          "fog": [
+            "#5A3E78",
+            22,
+            60,
+            0.7,
+            8
+          ],
+          "sky": [
+            "#1A1C48",
+            "#C05A4A",
+            "#3A2C5A",
+            0.7
+          ],
+          "exposure": 0.95,
+          "note": "T-16"
+        },
+        "night": {
+          "key": [
+            "#7A90D0",
+            0.75,
+            35,
+            130
+          ],
+          "hemi": [
+            "#2A36A0",
+            "#10301E",
+            0.8
+          ],
+          "fog": [
+            "#2A2448",
+            20,
+            54,
+            0.75,
+            6
+          ],
+          "sky": [
+            "#06081E",
+            "#1E2050",
+            "#101430",
+            0.5
+          ],
+          "exposure": 1,
+          "note": "T-16"
+        },
+        "deep": {
+          "key": [
+            "#6C82C8",
+            0.5,
+            45,
+            150
+          ],
+          "hemi": [
+            "#1A2060",
+            "#0B2B2E",
+            0.7
+          ],
+          "fog": [
+            "#221C40",
+            17,
+            46,
+            0.8,
+            6
+          ],
+          "sky": [
+            "#030512",
+            "#181A44",
+            "#0C0E28",
+            0.4
+          ],
+          "exposure": 0.85
+        }
+      },
+      "lights": {
+        "witchLanternPost": {
+          "candela": 12,
+          "range": 6
+        },
+        "fernHook": {
+          "candela": 14,
+          "range": 7
+        },
+        "hutWindow": {
+          "colour": "#7DFF7D",
+          "candela": 7,
+          "range": 7
+        },
+        "colletteOrb": {
+          "colour": "#E08CF0",
+          "candela": 9,
+          "range": 7,
+          "schedule": "0.15 + 0.85 × the emissive schedule"
+        }
+      },
+      "mechanic": {
+        "lanternPost": {
+          "radius": 2.2,
+          "holdSeconds": 1.5,
+          "decalOpacity": 0.16
+        },
+        "glowCaps": {
+          "count": "about 400",
+          "proximityRadius": 6,
+          "gain": "1 → 2.6"
+        }
+      },
+      "particles": {
+        "spores": 150,
+        "moths": 36,
+        "mistBillboards": 30
+      }
+    },
+    "frozen": {
+      "hero": "Isabella",
+      "heroHour": "night",
+      "stationsSource": "sandbox/frozen-night/main.ts",
+      "keyframes": {
+        "morning": {
+          "key": [
+            "#FFF4E4",
+            1.2,
+            28,
+            130
+          ],
+          "hemi": [
+            "#9CC8F0",
+            "#A8C0DC",
+            0.3
+          ],
+          "fog": [
+            "#CFE0F2",
+            35,
+            100,
+            0.45,
+            14
+          ],
+          "sky": [
+            "#3A80D0",
+            "#D8ECF8",
+            "#6A9CC8",
+            0.35
+          ],
+          "exposure": 0.95,
+          "aurora": 0
+        },
+        "golden": {
+          "key": [
+            "#FFC898",
+            1.4,
+            12,
+            245
+          ],
+          "hemi": [
+            "#7A7AC0",
+            "#B098A8",
+            0.38
+          ],
+          "fog": [
+            "#D0B0B8",
+            29,
+            92,
+            0.55,
+            14
+          ],
+          "sky": [
+            "#3C4AA0",
+            "#FFB090",
+            "#7A6A9A",
+            0.6
+          ],
+          "exposure": 1.05,
+          "aurora": 0
+        },
+        "dusk": {
+          "key": [
+            "#E87A80",
+            1.4,
+            5,
+            255
+          ],
+          "hemi": [
+            "#4E4CA0",
+            "#5A6898",
+            0.8
+          ],
+          "fog": [
+            "#5A5A98",
+            23,
+            74,
+            0.7,
+            14
+          ],
+          "sky": [
+            "#181C50",
+            "#C86078",
+            "#3A2C5A",
+            0.7
+          ],
+          "exposure": 0.95,
+          "aurora": 0.45
+        },
+        "night": {
+          "key": [
+            "#9AB4F0",
+            0.7,
+            35,
+            130
+          ],
+          "hemi": [
+            "#1B2A5A",
+            "#3A4A78",
+            0.7
+          ],
+          "fog": [
+            "#22305E",
+            21,
+            65,
+            0.75,
+            14
+          ],
+          "sky": [
+            "#080C2C",
+            "#1E2A60",
+            "#141C40",
+            0.5
+          ],
+          "exposure": 0.9,
+          "aurora": 1
+        }
+      },
+      "aurora": {
+        "curtains": 4,
+        "size": "220 × 60 m, 48 × 8 segments",
+        "altitude": "55–85 m (the bible: 160–200 m; T-17)",
+        "distance": "175–217 m north",
+        "alphaBase": "0.12 + 0.05·sin(t·0.5 + i), ×2.4 for the demo",
+        "snowWash": 0.3,
+        "station": "L1 at pitch 5°"
+      },
+      "lights": {
+        "hutWindow": {
+          "candela": 16,
+          "range": 8
+        },
+        "hearthPot": {
+          "candela": 20,
+          "range": 5
+        },
+        "propeller": {
+          "colour": "#FFD700",
+          "candela": 6,
+          "range": 6
+        },
+        "stripLantern": {
+          "candela": 14,
+          "range": 6
+        }
+      },
+      "particles": {
+        "snow": 300,
+        "glitter": 260,
+        "breathPuffEvery": "3.2 s"
+      }
+    },
+    "caves": {
+      "hero": "all four",
+      "heroHour": "half lit",
+      "stationsSource": "sandbox/caves-descent/main.ts",
+      "keyframes": {
+        "dark": {
+          "key": [
+            "#8FD3F4",
+            0.12,
+            82,
+            20
+          ],
+          "hemi": [
+            "#2A2860",
+            "#0C0A18",
+            0.28
+          ],
+          "fog": [
+            "#100E24",
+            14,
+            64,
+            0.8,
+            40
+          ],
+          "exposure": 0.95,
+          "lamps": 0.2
+        },
+        "half": {
+          "key": [
+            "#8FD3F4",
+            0.14,
+            82,
+            20
+          ],
+          "hemi": [
+            "#34309A",
+            "#100E20",
+            0.4
+          ],
+          "fog": [
+            "#141230",
+            16,
+            70,
+            0.78,
+            40
+          ],
+          "exposure": 0.95,
+          "lamps": 0.55
+        },
+        "lit": {
+          "key": [
+            "#8FD3F4",
+            0.16,
+            82,
+            20
+          ],
+          "hemi": [
+            "#4038B8",
+            "#161228",
+            0.42
+          ],
+          "fog": [
+            "#181640",
+            18,
+            76,
+            0.74,
+            40
+          ],
+          "exposure": 1,
+          "lamps": 1
+        }
+      },
+      "layout": {
+        "tiers": [
+          0,
+          -11,
+          -26
+        ],
+        "void": "central",
+        "shell": "one faceted ellipsoid 132 × 84 × 116 m, back-face",
+        "pool": {
+          "x": 10,
+          "z": 20,
+          "r": 11
+        },
+        "waterfall": {
+          "from": [
+            -2,
+            13,
+            9
+          ],
+          "drop": 39
+        }
+      },
+      "heart": {
+        "colour": "#00D2FF",
+        "candela": 80,
+        "range": 34,
+        "periodSeconds": 8,
+        "pulse": "0.55 + 0.45·(0.5 + 0.5·sin)^2.2",
+        "drives": [
+          "its emissive",
+          "its light",
+          "its halo",
+          "every rim crystal",
+          "the salamanders' spots",
+          "the fish"
+        ]
+      },
+      "lamps": {
+        "count": 14,
+        "hookLamp": {
+          "colour": "#FFB347",
+          "candela": 9,
+          "range": 8,
+          "glassGain": 3.2
+        },
+        "mechanic": {
+          "radius": 2.4,
+          "holdSeconds": 1.5
+        },
+        "quartzPole": {
+          "candela": 14,
+          "range": 9
+        }
+      },
+      "rimCrystals": {
+        "count": "about 400",
+        "proximity": "×2 within 6 m of any kid, eased at 4/s"
+      }
+    },
+    "hero": {
+      "rig": "sandbox/_shared/rig.ts (one body; the face system; legs/torso/shoulder/headR per kid)",
+      "liam": {
+        "legs": 0.78,
+        "torso": 0.54,
+        "shoulder": 0.24,
+        "headR": 0.2,
+        "stance": 0.42,
+        "hair": "#4A3220 (T-15a)"
+      },
+      "noah": {
+        "legs": 0.7,
+        "torso": 0.48,
+        "shoulder": 0.19,
+        "headR": 0.19,
+        "stance": 0.28,
+        "hair": "#A8865A (T-15c)",
+        "pupils": "#3A6EA8"
+      },
+      "collette": {
+        "legs": 0.62,
+        "torso": 0.48,
+        "shoulder": 0.19,
+        "headR": 0.19,
+        "stance": 0.22,
+        "hair": "#3E2A1E (T-15e)",
+        "orb": {
+          "colour": "#E8A838",
+          "light": "#E08CF0 9 cd"
+        }
+      },
+      "isabella": {
+        "legs": 0.46,
+        "torso": 0.44,
+        "shoulder": 0.18,
+        "headR": 0.19,
+        "stance": 0.36,
+        "hair": "#E2C070 (T-15g)",
+        "hammerShaft": 0.92
+      },
+      "flourishSeconds": {
+        "liam": 2.2,
+        "noah": 2.4,
+        "collette": 2.6,
+        "isabella": 2.4
+      }
+    }
   }
 }
