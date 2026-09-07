@@ -36,3 +36,7 @@ Status values: `not started` → `draft` (agent delivered) → `reviewed` (orche
 ## Phase 0.5 Definition of Done (Brief §8)
 
 Every system above has a design file with the three mandatory sections; the orchestrator has reviewed each one and recorded it; every departure from v27 is logged in `docs/DECISIONS.md`; `docs/BRIEF.md` §2, §4–6, §8 point here; `CLAUDE.md` points here; `docs/NEXT_SESSION.md` hands off a Phase 1 that builds the redesigned Liam and camp.
+
+## Phase 0.75 — Design Dialog
+
+The interactive pass over this bible: process, effort levels and prompts in `PHASE_0.75_BRIEF.md`; every agreed change in `PHASE_0.75_TWEAKS.md`; concept boards under `mockups/`. During dialog sessions nothing edits a design file; the application session applies the list with `design-lead` and tags `p0.75-design-locked`.

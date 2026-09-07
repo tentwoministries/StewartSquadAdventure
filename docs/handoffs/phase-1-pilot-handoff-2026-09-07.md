@@ -27,13 +27,7 @@ These are Andrew's standing rules. They go at the top of every handoff document,
 
 ---
 
-# Next session — handoff written 2026-09-07 (end of session 1: Phase 0.5, the Design Bible; Phase 0.75 inserted before Phase 1)
-
-## Read this first: Phase 0.75 comes before Phase 1
-
-Andrew inserted **Phase 0.75 — Design Dialog** (2026-09-07) between the Design Bible and the pilot: an interactive pass over `docs/design/` where he and the orchestrator talk through each system, collect every agreed change in `docs/design/PHASE_0.75_TWEAKS.md`, and only then apply the list to the design files systematically. The process, the session plan, the effort levels per session type and the prompts to paste are in `docs/design/PHASE_0.75_BRIEF.md`. The first topic is the Crystal Caves (five ideas already logged as T-01 to T-05 in the tweaks file, with the dialog verbatim).
-
-Rules for the dialog sessions: answer from the files, log every decision as a row, commit the tweaks file every few rows, edit no design file, write no game code. The Phase 1 plan below still stands and is also saved as `docs/handoffs/phase-1-pilot-handoff-2026-09-07.md`; the 0.75 application session restores it, updates it for the tweaks, and tags `p0.75-design-locked`.
+# Next session — handoff written 2026-09-07 (end of session 1: Phase 0.5, the Design Bible)
 
 ## Fresh machine setup (Andrew's laptop, first session there)
 
@@ -77,7 +71,6 @@ npm run check
 
 ## What to do next session (in order)
 
-0. **Phase 0.75 first** (`docs/design/PHASE_0.75_BRIEF.md`): dialog sessions by cluster, then the application session and the `p0.75-design-locked` tag. Steps 1–5 below are the Phase 1 plan that follows it.
 1. Read this file, `CLAUDE.md`, `docs/PROGRESS.md`, then `docs/design/README.md` (the reading order), `heroes.md` §2 summary card, `camp.md` §2.2 and §2.11, `world-events-weather.md` §2.1.3 and §2.2.6. Confirm `CLAUDE_CODE_EFFORT_LEVEL` is unset. Note the plan in `docs/PROGRESS.md`.
 2. **If the legacy inputs are present:** one `archaeologist` each for `KEEP_CHANGE_DROP.md` and `PORT_MAP.md` (inputs: the five teardown docs, the brainstorm doc, Brief §5 and §7.3, and the bible's per-file cut lists in `ui-ux.md` §2.5.2, `audio.md` §2.10, `enemies.md` §5, `world-events-weather.md` §5, `dungeons.md` §2.8); one `design-lead` reconciliation pass over the eleven §7 sections; `qa-inspector-max` runs the Phase 0 gate; tag `p0-teardown`; update `docs/COMPLETE_STATE.md`. **If they are still missing:** say so in the summary (Rule 1) and go straight to step 3.
 3. **Phase 1 — the pilot, built from the bible, not from v27.** Branch `phase-1-pilot`. Spikes first, each a Rule 2 gate with the verified shape written to `docs/visual-loop/spikes.md` and the decision in `DECISIONS.md`: Rapier vs a custom capsule/heightfield; bitecs vs plain typed systems; Puppeteer vs Playwright headless capture with software GL (it must produce a non-black PNG). Then, in parallel where files do not overlap:

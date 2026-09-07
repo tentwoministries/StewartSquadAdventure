@@ -42,7 +42,7 @@ Interrupt Andrew only for the four conditions in `docs/BRIEF.md` §2. Everything
 | `docs/INSPECTION_CHECKLIST.md` | The 27-step checklist (Working Rule 4), expanded. |
 | `docs/legacy/` | v27 HTML + legacy docs. Read-only inputs. |
 | `docs/reference/` | `fernwood.jpeg` visual north star (+ §4.1 written description). |
-| `docs/design/` | **The Design Bible** (Phase 0.5). One file per system, each *What v27 does → What it becomes → What preserves the magic*. Authoritative alongside the brief; `heroes.md` decides colors and roles. Revise only via the `design-lead` agent plus a `DECISIONS.md` line; never edit a design file to match code. Index and status: `docs/design/README.md`. |
+| `docs/design/` | **The Design Bible** (Phase 0.5). One file per system, each *What v27 does → What it becomes → What preserves the magic*. Authoritative alongside the brief; `heroes.md` decides colors and roles. Revise only via the `design-lead` agent plus a `DECISIONS.md` line; never edit a design file to match code. Index and status: `docs/design/README.md`. Phase 0.75 (the interactive design dialog) lives in `docs/design/PHASE_0.75_BRIEF.md` and its running list `docs/design/PHASE_0.75_TWEAKS.md`; during dialog sessions nothing edits a design file. |
 | `docs/teardown/` | Phase 0 outputs. `docs/visual-loop/` — Phase 1 iteration logs + screenshots. |
 | `src/` | `engine/ render/ style/ sim/ world/ dungeons/ content/ ui/ net/ dev/` per §7.3. `src/style/` is the law after Phase 1. |
 | `pilot/` | Phase 1 scene. Deleted after style lock. |

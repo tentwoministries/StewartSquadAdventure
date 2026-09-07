@@ -281,6 +281,11 @@ Deliver `docs/teardown/` per §3. Gate: orchestrator spot-check of ten systems.
 
 **Definition of Done:** every system above has a design file with the three mandatory sections; the orchestrator has reviewed each one and recorded the review under `docs/qa/`; every significant departure from v27 is logged in `docs/DECISIONS.md`; §2 and §4–6 of this brief and `CLAUDE.md` point to `docs/design/` as the authority alongside the brief; `docs/NEXT_SESSION.md` hands Phase 1 the redesigned Liam and camp. Gate tag: `p0.5-design-bible`.
 
+### Phase 0.75 — Design Dialog (the interactive pass over the Design Bible)
+*Added 2026-09-07 at Andrew's direction.* Documents only; no code. Andrew and the orchestrator talk through the Design Bible cluster by cluster (world and exploration, visual identity, heroes and combat, story and NPCs, menus and sound), Andrew supplies reference screenshots, the orchestrator draws concept boards, and every agreed change is logged in `docs/design/PHASE_0.75_TWEAKS.md` without touching a design file. One application session then applies the list with the `design-lead` agent, logs each change in `docs/DECISIONS.md`, and re-issues the Phase 1 handoff. Process, session plan, effort levels and prompts: `docs/design/PHASE_0.75_BRIEF.md`.
+
+**Definition of Done:** every cluster discussed or explicitly skipped by Andrew; every agreed row applied and logged; parked rows recorded with a reason; mockups in the repo and cited; `docs/NEXT_SESSION.md` hands Phase 1 the tweaked designs. Gate tag: `p0.75-design-locked`.
+
 ### Phase 1 — Pilot: the Visual Excellence Loop
 Build `pilot/`: one Forest island in the Fernwood spirit, Liam walking and idling, camp props, stream, trees, deer, full day/night cycle, weather toggle, curved-world shader, complete post stack, HUD stub, location title card, and the dev console with **fixed screenshot stations** (four camera positions × three times of day, seeded). *Phase 0.5 revision: the pilot builds the redesigned Liam (`docs/design/heroes.md`, pilot spec), the stage-one camp (`docs/design/camp.md`), and the Forest keyframes and weather (`docs/design/world-events-weather.md`) — not the legacy ones.*
 
