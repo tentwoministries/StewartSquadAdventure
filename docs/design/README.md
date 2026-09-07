@@ -15,7 +15,7 @@
 | `story-beats.md` | The *Lights in the Dark* spine, quest graph, world map across the islands, where every canon line is delivered | — | reviewed 2026-09-06 |
 | `world-events-weather.md` | Day/night keyframes, weather, aurora, ambient layers, world events, the peaceful layer | — | reviewed 2026-09-06; reconciled to 40 px = 1 m |
 | `bosses.md` | Goblin King (Kid Snatch), Ancient Treant, Pharaoh Wraith, the Bog and Frozen bosses, Citadel Warden, Shadow Queen, the shadow squad; `BOSS_BLOCKS` in 3D | heroes, enemies, story-beats | reviewed 2026-09-06 |
-| `npcs.md` | Grandpa Ed (character, biplane as travel system, repair chain, supply drops), Gran, biome guides, merchant, Bog Witch, Sand Nomad | heroes, story-beats | not started |
+| `npcs.md` | Grandpa Ed (character, biplane as travel system, repair chain, supply drops), Gran, biome guides, merchant, Bog Witch, Sand Nomad | heroes, story-beats | reviewed 2026-09-06 |
 | `camp.md` | The Fernwood-style camp and its growth stages | story-beats, world-events-weather | reviewed 2026-09-06 |
 | `dungeons.md` | The five dungeons, expanded from Brief §5.3: core mechanic, traversal, puzzle language, set piece, boss arena | bosses, enemies, story-beats, world-events-weather | not started |
 | `cutscenes.md` | Every shot table reshot for the 3D cinematic camera: meteor, crash landing, boss intros, biplane travel, ending | heroes, story-beats, npcs, bosses, camp | not started |
