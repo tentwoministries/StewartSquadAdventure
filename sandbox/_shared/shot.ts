@@ -15,6 +15,8 @@ export const STATIONS: Record<string, Station> = {
   L1: { name: 'Hearth, lower', target: [0, 0.9, 0], yaw: 315, pitch: 40, d: 22, note: 'study: S1 at the reference pitch so the pines enter the frame' },
   D1: { name: 'Diorama', target: [-6, 0, 2], yaw: 320, pitch: 40, d: 62, note: 'study: whole camp quadrant, rim and below-rim clouds' },
   CU: { name: 'Liam close-up', target: [-2.4, 0.95, 1.0], yaw: 320, pitch: 14, d: 4.6, note: 'study: the character at portrait distance (he faces bearing 150; camera looks along 320 so the face and the shield both read)' },
+  DR: { name: 'Deer at the camp', target: [-2.7, 0.7, 3.7], yaw: 250, pitch: 16, d: 5.5, note: 'study: the eating pose at the first pass end' },
+  DW: { name: 'Deer at the water', target: [-3.2, 0.3, 10.4], yaw: 215, pitch: 20, d: 6, note: 'study: the drink at the pool bank' },
   CF: { name: 'Fireside', target: [-1.0, 0.7, 0.4], yaw: 250, pitch: 22, d: 7.5, note: 'study: low fireside angle, tent behind' },
 };
 

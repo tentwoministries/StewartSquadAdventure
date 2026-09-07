@@ -68,6 +68,9 @@ const station = STATIONS[params.shot] ?? STATIONS['S1']!;
 placeCamera(camera, station);
 const orbit = makeOrbit(camera, canvas, station, () => refreshHud());
 const walking = params.shot === 'S2' || params.walk;
+// deer study stations start with the deer parked at the pose being judged
+if (params.shot === 'DR') deer.park(-2.7, 3.7, 40);
+if (params.shot === 'DW') deer.park(-3.2, 10.0, 180);
 // Liam faces local +z (his eyes), so a compass bearing b becomes rotation.y = 180° − b (the deer faces +x: 90° − b)
 if (walking) { liam.root.position.set(-2.5, groundY(-2.5, 7.5), 7.5); liam.root.rotation.y = deg(180 - 205); liam.lookAt.set(-5.5, 0.5, 12.4); }
 else { liam.root.position.set(-2.4, groundY(-2.4, 1.0), 1.0); liam.root.rotation.y = deg(180 - 150); liam.lookAt.set(0, 0.5, 0); }

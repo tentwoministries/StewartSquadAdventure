@@ -75,53 +75,68 @@ export function makeDeer(patch: Patch, seed = 5): Deer {
   const speed = { value: 0.55 }; // m/s: slower than the bible's 1.0 for the demo (Andrew); [ and ] nudge it
   let state: 'graze' | 'walk' | 'look' = 'graze';
   let stateT = 6 + r() * 5;
-  let heading = 0, wantHeading = 0;
-  const target = new THREE.Vector2();
+  let heading = 0;
+  const route: THREE.Vector2[] = []; // waypoints of the current walk; the last is the destination
+  let routeIdx = 0;
+  let scripted = 0; // how many scripted passes have run (key 0 steps through them, then wanders)
   let walkPhase = 0, graze = 1, stride = 0; // graze: 0 head up → 1 head down (eased)
   let earT = 0, nextEar = 2.5 + r() * 2.5;
-  const pickTarget = () => {
+  const setRoute = (pts: [number, number][]) => { route.length = 0; for (const [x, z] of pts) route.push(new THREE.Vector2(x, z)); routeIdx = 0; state = 'walk'; stateT = 60; };
+  const pickWander = () => {
     for (let i = 0; i < 20; i++) {
-      const a = r() * Math.PI * 2, d = 2 + r() * (patch.r - 2);
-      const x = patch.x + Math.cos(a) * d, z = patch.z + Math.sin(a) * d;
+      const a = r() * Math.PI * 2, dd = 2 + r() * (patch.r - 2);
+      const x = patch.x + Math.cos(a) * dd, z = patch.z + Math.sin(a) * dd;
       if (patch.avoid.some((c) => Math.hypot(c.x - x, c.z - z) < c.r)) continue;
-      target.set(x, z);
-      return;
+      setRoute([[x, z]]); return;
     }
-    target.set(patch.x, patch.z);
+    setRoute([[patch.x, patch.z]]);
   };
   const update = (t: number, dt: number, groundY: (x: number, z: number) => number) => {
     stateT -= dt;
-    if (state === 'graze' && stateT <= 0) { state = r() < 0.3 ? 'look' : 'walk'; stateT = state === 'look' ? 2 + r() * 2 : 30; if (state === 'walk') pickTarget(); }
-    else if (state === 'look' && stateT <= 0) { state = 'walk'; stateT = 30; pickTarget(); }
-    const px = root.position.x, pz = root.position.z;
+    if (state === 'graze' && stateT <= 0) { if (r() < 0.3) { state = 'look'; stateT = 2 + r() * 2; } else pickWander(); }
+    else if (state === 'look' && stateT <= 0) pickWander();
     if (state === 'walk') {
-      const dx = target.x - px, dz = target.y - pz, dist = Math.hypot(dx, dz);
-      wantHeading = Math.atan2(-dz, dx);
-      if (dist < 0.4 || stateT <= 0) { state = 'graze'; stateT = 6 + r() * 6; }
+      const wp = route[routeIdx];
+      if (!wp || stateT <= 0) { state = 'graze'; stateT = 8 + r() * 6; }
       else {
-        const turnRate = 1.6;
-        let diff = ((wantHeading - heading + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-        diff = Math.max(-turnRate * dt, Math.min(turnRate * dt, diff));
-        heading += diff;
-        const sp = speed.value * Math.min(1, dist / 1.2);
-        root.position.x += Math.cos(heading) * sp * dt;
-        root.position.z -= Math.sin(heading) * sp * dt;
-        stride = Math.min(1, stride + dt * 2);
+        const dx = wp.x - root.position.x, dz = wp.y - root.position.z, dist = Math.hypot(dx, dz);
+        const last = routeIdx === route.length - 1;
+        if (dist < (last ? 0.35 : 0.9)) { routeIdx++; if (routeIdx >= route.length) { state = 'graze'; stateT = 10 + r() * 6; } }
+        else {
+          const want = Math.atan2(-dz, dx);
+          const turnRate = 1.3; // rad/s: a smooth arc, never a pivot
+          let diff = ((want - heading + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+          diff = Math.max(-turnRate * dt, Math.min(turnRate * dt, diff));
+          heading += diff;
+          const sp = speed.value * (last ? Math.min(1, dist / 1.2) : 1);
+          root.position.x += Math.cos(heading) * sp * dt;
+          root.position.z -= Math.sin(heading) * sp * dt;
+          stride = Math.min(1, stride + dt * 2);
+        }
       }
     }
     if (state !== 'walk') stride = Math.max(0, stride - dt * 2);
     root.rotation.y = heading;
     root.position.y = groundY(root.position.x, root.position.z);
-    // legs and body: a slow diagonal walk, faded in and out; a still stance while grazing
+    // walk cycle: a slow diagonal walk, faded in and out; the cycle rate follows the speed
     walkPhase += dt * 6.283 * (0.95 * speed.value / 0.55) * stride;
-    legs.forEach((l, i) => { const ph = i === 0 || i === 3 ? 0 : Math.PI; l.rotation.z = Math.sin(walkPhase + ph) * 0.32 * stride; });
-    body.position.y = 0.95 + Math.abs(Math.sin(walkPhase)) * 0.02 * stride + 0.006 * Math.sin(t * 1.2);
-    // head: down to graze, up to walk or look; eased; small bob while walking
+    // eating pose (graze → 1): the body drops, the front legs reach forward with bent knees, the
+    // rear legs crouch a little, the neck swings down and the muzzle points at the grass with a nibble
     const wantGraze = state === 'graze' ? 1 : 0;
-    graze += (wantGraze - graze) * Math.min(1, dt * 1.8);
-    // grazing: the neck swings down about 60° and the muzzle reaches the grass, with a nibble
-    neck.rotation.z = -0.7 - 1.05 * graze + 0.05 * Math.sin(walkPhase * 2) * stride + (state === 'graze' ? 0.05 * Math.sin(t * 2.6) : 0);
-    head.rotation.z = 0.6 + 0.55 * graze;
+    graze += (wantGraze - graze) * Math.min(1, dt * 1.6);
+    legs.forEach((l, i) => {
+      const ph = i === 0 || i === 3 ? 0 : Math.PI;
+      const front = i < 2;
+      const walk = Math.sin(walkPhase + ph) * 0.32 * stride;
+      l.rotation.z = walk + (front ? 0.42 : -0.12) * graze;
+      const knee = l.children[1] as THREE.Object3D;
+      knee.rotation.z = (front ? -0.55 : 0.18) * graze;
+    });
+    body.position.y = 0.95 - 0.16 * graze + Math.abs(Math.sin(walkPhase)) * 0.02 * stride + 0.006 * Math.sin(t * 1.2);
+    body.rotation.z = -0.08 * graze;
+    const nibble = state === 'graze' ? 0.06 * Math.sin(t * 2.6) + 0.02 * Math.sin(t * 7.1) : 0;
+    neck.rotation.z = -0.7 - 1.75 * graze + 0.05 * Math.sin(walkPhase * 2) * stride + nibble;
+    head.rotation.z = 0.6 + 0.8 * graze; // muzzle about 60° below horizontal, forward, at the grass (nose height ≈ 0.25 m)
     head.rotation.y = state === 'look' ? 0.5 * Math.sin(t * 0.9) : 0;
     // ears: a flick every few seconds (Andrew liked the timing); the near ear leads
     if (t - earT > nextEar) { earT = t; nextEar = 2.5 + r() * 3; }
@@ -130,9 +145,16 @@ export function makeDeer(patch: Patch, seed = 5): Deer {
   };
   const park = (x: number, z: number, bearing: number) => {
     root.position.set(x, 0, z);
-    heading = ((90 - bearing) * Math.PI) / 180; wantHeading = heading;
-    state = 'graze'; stateT = 9; graze = 1; stride = 0;
+    heading = ((90 - bearing) * Math.PI) / 180;
+    state = 'graze'; stateT = 9; graze = 1; stride = 0; scripted = 0;
   };
-  const walkNow = () => { state = 'walk'; stateT = 30; pickTarget(); };
+  // The demo's two scripted passes (Andrew, 2026-09-07): first an arc from beside the tent up to the
+  // camp, ending between the chopping block (−4.2, 2.3) and the bucket (−1.2, 4.6), left of Liam;
+  // then down the stream path to the pool's bank for a drink (the same lowered pose at the water).
+  const PASSES: [number, number][][] = [
+    [[-9.6, 1.6], [-8.2, 4.4], [-5.6, 5.2], [-3.2, 4.4], [-2.7, 3.7]],
+    [[-2.4, 6.0], [-2.9, 8.2], [-3.2, 10.0]], // ends on the pool bank, nose to the water (edge ≈ z 10.7 at x −3)
+  ];
+  const walkNow = () => { if (scripted < PASSES.length) setRoute(PASSES[scripted++]!); else pickWander(); };
   return { root, update, park, walkNow, speed };
 }
