@@ -79,7 +79,7 @@ export function makeDeer(patch: Patch, seed = 5): Deer {
   const route: THREE.Vector2[] = []; // waypoints of the current walk; the last is the destination
   let routeIdx = 0;
   let scripted = 0; // how many scripted passes have run (key 0 steps through them, then wanders)
-  let walkPhase = 0, graze = 1, stride = 0; // graze: 0 head up → 1 head down (eased)
+  let walkPhase = 0, graze = 1, stride = 0, strideRate = 1; // graze: 0 head up → 1 head down (eased)
   let earT = 0, nextEar = 2.5 + r() * 2.5;
   const setRoute = (pts: [number, number][]) => { route.length = 0; for (const [x, z] of pts) route.push(new THREE.Vector2(x, z)); routeIdx = 0; state = 'walk'; stateT = 60; };
   const pickWander = () => {
@@ -103,15 +103,24 @@ export function makeDeer(patch: Patch, seed = 5): Deer {
         const last = routeIdx === route.length - 1;
         if (dist < (last ? 0.35 : 0.9)) { routeIdx++; if (routeIdx >= route.length) { state = 'graze'; stateT = 10 + r() * 6; } }
         else {
+          // remaining path length drives the pace: quick when far, easing to a stroll over the last metres
+          let remaining = dist;
+          for (let k = routeIdx; k + 1 < route.length; k++) remaining += route[k]!.distanceTo(route[k + 1]!);
+          const pace = 0.6 + 0.9 * THREE.MathUtils.smoothstep(remaining, 1.2, 5.0);
+          // always the short way round: wrap the difference into [−π, π] (the old code could take the long way)
           const want = Math.atan2(-dz, dx);
-          const turnRate = 1.3; // rad/s: a smooth arc, never a pivot
-          let diff = ((want - heading + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-          diff = Math.max(-turnRate * dt, Math.min(turnRate * dt, diff));
-          heading += diff;
-          const sp = speed.value * (last ? Math.min(1, dist / 1.2) : 1);
+          let diff = want - heading;
+          diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+          const turnRate = 2.2; // rad/s: a tighter arc than before, still never a pivot
+          const step = Math.max(-turnRate * dt, Math.min(turnRate * dt, diff));
+          heading = Math.atan2(Math.sin(heading + step), Math.cos(heading + step));
+          // slow into a tight turn so the arc stays tight instead of ballooning
+          const align = 0.3 + 0.7 * (1 - THREE.MathUtils.smoothstep(Math.abs(diff), 0.35, 1.3));
+          const sp = speed.value * pace * align * (last ? Math.min(1, dist / 0.9) : 1);
           root.position.x += Math.cos(heading) * sp * dt;
           root.position.z -= Math.sin(heading) * sp * dt;
           stride = Math.min(1, stride + dt * 2);
+          strideRate = sp / 0.55;
         }
       }
     }
@@ -119,7 +128,7 @@ export function makeDeer(patch: Patch, seed = 5): Deer {
     root.rotation.y = heading;
     root.position.y = groundY(root.position.x, root.position.z);
     // walk cycle: a slow diagonal walk, faded in and out; the cycle rate follows the speed
-    walkPhase += dt * 6.283 * (0.95 * speed.value / 0.55) * stride;
+    walkPhase += dt * 6.283 * 0.95 * strideRate * stride;
     // eating pose (graze → 1): the body drops, the front legs reach forward with bent knees, the
     // rear legs crouch a little, the neck swings down and the muzzle points at the grass with a nibble
     const wantGraze = state === 'graze' ? 1 : 0;
@@ -145,14 +154,14 @@ export function makeDeer(patch: Patch, seed = 5): Deer {
   };
   const park = (x: number, z: number, bearing: number) => {
     root.position.set(x, 0, z);
-    heading = ((90 - bearing) * Math.PI) / 180;
+    heading = Math.atan2(Math.sin(((90 - bearing) * Math.PI) / 180), Math.cos(((90 - bearing) * Math.PI) / 180));
     state = 'graze'; stateT = 9; graze = 1; stride = 0; scripted = 0;
   };
   // The demo's two scripted passes (Andrew, 2026-09-07): first an arc from beside the tent up to the
   // camp, ending between the chopping block (−4.2, 2.3) and the bucket (−1.2, 4.6), left of Liam;
   // then down the stream path to the pool's bank for a drink (the same lowered pose at the water).
   const PASSES: [number, number][][] = [
-    [[-9.6, 1.6], [-8.2, 4.4], [-5.6, 5.2], [-3.2, 4.4], [-2.7, 3.7]],
+    [[-8.3, 0.9], [-6.4, 2.6], [-4.4, 3.5], [-2.7, 3.7]], // a shallow arc that straightens out toward Liam
     [[-2.4, 6.0], [-2.9, 8.2], [-3.2, 10.0]], // ends on the pool bank, nose to the water (edge ≈ z 10.7 at x −3)
   ];
   const walkNow = () => { if (scripted < PASSES.length) setRoute(PASSES[scripted++]!); else pickWander(); };

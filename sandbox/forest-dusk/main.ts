@@ -55,7 +55,7 @@ scene.add(liam.root);
 // the camp-meadow deer (camp.md §2.9: habitat x −20..−8, z −14..−6), avoiding the tent, the fire and the boulders
 // demo patch on the camp side of the tent so it stays in the S1/L1 frame; avoids the tent, the fire, Liam, the woodpile and the boulders
 const deer = makeDeer({ x: -8, z: 4, r: 5.5, avoid: [{ x: -6, z: -3, r: 4 }, { x: 0, z: 0, r: 5 }, { x: -2.4, z: 1, r: 2.2 }, { x: -3.6, z: 2, r: 1.8 }, { x: -9, z: 3.5, r: 2.4 }, { x: -1.2, z: 4.6, r: 1 }] });
-deer.park(-9, -1, 160);
+deer.park(-9, -1, 135); // parked facing south-east, roughly toward the camp, so the first pass starts without a wheel-round
 scene.add(deer.root);
 const sky = makeSky();
 scene.add(sky.group);
