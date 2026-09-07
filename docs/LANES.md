@@ -6,10 +6,10 @@ Written 2026-09-07. This file routes a new session. Andrew opens Claude Code in 
 
 | Lane | What happens there | Branch | Worktree (checkout) | Handoff | Status |
 |---|---|---|---|---|---|
-| **0.75 visual studies** (default) | The demo scenes, one per biome, in `sandbox/`: visual design with Andrew and the kids, motion and camera feel, and any quick **gameplay-mechanic demo** the family wants to try before the full build. Tweak rows in `docs/design/PHASE_0.75_TWEAKS.md`; frames in `docs/design/mockups/`. | `phase-0.75-visual-studies` | the primary checkout, `StewartSquad Adventure/` | `docs/NEXT_SESSION.md` there | open; Forest scene built, other biomes next |
-| 0.75 biomes | The other biomes' demo scenes built in parallel with the Forest work (Desert first). May be in use by another session at the same time. | `phase-0.75-biomes` | `StewartSquad-biomes/` | `docs/NEXT_SESSION.md` there | open, live |
+| **0.75 visual studies** (default) | The demo scenes, one per biome, in `sandbox/`: visual design with Andrew and the kids, motion and camera feel, and any quick **gameplay-mechanic demo** the family wants to try before the full build. Tweak rows in `docs/design/PHASE_0.75_TWEAKS.md`; frames in `docs/design/mockups/`. | `phase-0.75-visual-studies` | the primary checkout, `StewartSquad Adventure/` | `docs/NEXT_SESSION.md` there | open; the whole reel built (five scenes, `sandbox/index.html`), awaiting Andrew's pass |
+| 0.75 biomes | The other biomes' demo scenes, built in their own worktree while the Forest demo was live. | `phase-0.75-biomes` | (removed) | — | **merged into 0.75 visual studies 2026-09-07 (tag `p0.75-demo-reel-1`); closed**. New demo scenes follow the same recipe: a short-lived branch and worktree off the demo lane's tip, merged back when it reads |
 | 0.75 demo | A checkout of a tag that nothing edits, so a demo for the kids survives a working session. `npx vite --port 5180` from inside it. | detached at a demo tag (`p0.75-demo-forest-1`) | `StewartSquad-demo/` | `docs/design/mockups/README.md` | open |
-| 0.75 scratch | Throwaway experiments, re-cut from the studies tip when wanted; fast-forwarded in only if all of it is a keeper. | `phase-0.75-scratch` | none (checked out in place when used) | — | idle |
+| 0.75 scratch | Throwaway experiments, re-cut from the demo lane's tip when wanted; fast-forwarded in only if all of it is a keeper, otherwise deleted and re-cut. `npx vite --port 5181` from inside it. | `phase-0.75-scratch` | `StewartSquad-scratch/` | the demo lane's | open, idle |
 | **0.85 story and play** | The read-through walkthrough of the whole game (`docs/story/WALKTHROUGH.md`), the kids' suggestions list, the storyboard. Story, flow, gameplay mechanics, progression. Docs only, no code. | `phase-0.85-story` | `StewartSquad-story/` | `docs/NEXT_SESSION.md` there | open |
 | main | The integration branch. Holds the Design Bible gate `p0.5-design-bible`. Receives 0.75 and 0.85 at their application steps, then the build phases start from it. | `main` | never checked out in a lane worktree | `docs/NEXT_SESSION.md` | untouched by the lanes |
 
@@ -20,8 +20,10 @@ All worktree paths are siblings of the primary checkout under `C:/Documents TEMP
 | Andrew says (any of) | Lane | First action |
 |---|---|---|
 | "Continue from docs/NEXT_SESSION.md." with nothing else | the **default** lane above (0.75 visual studies) | read the primary checkout's handoff; say in the first message which lane was taken |
-| "visuals", "demo scene", "study", "0.75", "sandbox", "biome demo", "screenshot", "the deer", "camera", "mechanic demo", "try X in the sandbox" | 0.75 visual studies (or 0.75 biomes if the named biome is that lane's; check both handoffs) | `git status` in the primary checkout, confirm branch `phase-0.75-visual-studies`, read its handoff |
+| "visuals", "demo scene", "study", "0.75", "sandbox", "biome demo", "screenshot", "the deer", "camera", "mechanic demo", "try X in the sandbox", "the reel" | 0.75 visual studies | `git status` in the primary checkout, confirm branch `phase-0.75-visual-studies`, read its handoff |
 | "demo for the kids", "show the kids", "open the demo" | 0.75 demo | run the demo worktree on port 5180 (`docs/design/mockups/README.md`); do not edit anything there |
+| "scratch", "try something throwaway", "quick experiment" | 0.75 scratch | move to `StewartSquad-scratch/`; re-cut the branch from the demo lane's tip first if it is stale |
+| "build the demo", "here.now", "a link for Dad", "static build" | 0.75 visual studies | `npm run build:demo` in the primary checkout, verify `dist-demo/` locally, zip it (`docs/design/mockups/README.md` "Sharing the reel") |
 | "story", "walkthrough", "0.85", "the acts", "gameplay mechanics pass", "the kids' suggestions", "storyboard", "Liam's ideas" | 0.85 story and play | move to `StewartSquad-story/`, confirm branch `phase-0.85-story`, read its handoff |
 | "apply the tweaks", "application session", "lock the design" | 0.75 application step | on `phase-0.75-visual-studies`; `PHASE_0.75_BRIEF.md` §4; ends with a merge to `main` and `p0.75-design-locked` |
 | "apply the suggestions", "update the bible from the story", "surgical update" | 0.85 application step | on `phase-0.85-story`; `docs/story/PHASE_0.85_BRIEF.md` §4; ends with a merge to `main` and `p0.85-story-locked` |
@@ -70,5 +72,5 @@ Paste this at the top of `docs/NEXT_SESSION.md`, under the Working Rules, in eve
 
 ```
 ## Routing (2026-09-07): read docs/LANES.md first
-This checkout is lane <name> on branch <branch>. If Andrew's first line names another lane, move to that lane's worktree before reading further. Open lanes: 0.75 visual studies (primary checkout), 0.75 biomes (StewartSquad-biomes), 0.75 demo (StewartSquad-demo, a tag), 0.85 story and play (StewartSquad-story). Default when unnamed: 0.75 visual studies.
+This checkout is lane <name> on branch <branch>. If Andrew's first line names another lane, move to that lane's worktree before reading further. Open lanes: 0.75 visual studies (primary checkout), 0.75 demo (StewartSquad-demo, a tag), 0.75 scratch (StewartSquad-scratch), 0.85 story and play (StewartSquad-story). Default when unnamed: 0.75 visual studies.
 ```

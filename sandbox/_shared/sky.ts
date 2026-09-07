@@ -18,7 +18,8 @@ export interface Sky {
   cloudMat: THREE.MeshStandardMaterial;
 }
 
-export function makeSky(): Sky {
+export type CloudSpec = [number, number, number, number];
+export function makeSky(cloudSpecs?: CloudSpec[]): Sky {
   const group = new THREE.Group();
   const uniforms = {
     uZenith: { value: new THREE.Color('#22305E') },
@@ -111,7 +112,7 @@ export function makeSky(): Sky {
   const cloudMat = makeWorldMaterial({ roughness: 1 });
   const cr = rng(11);
   const clouds: Sky['clouds'] = [];
-  const specs: [number, number, number, number][] = [
+  const specs: CloudSpec[] = cloudSpecs ?? [
     [-70, -12, -44, 10], [-78, -14, -52, 12], // the two below the rim, off the west rim by the pond (S4)
     [30, 28, -70, 12], [-20, 34, -90, 14], [70, 30, 20, 10], [-60, 26, 60, 11], [10, 38, 90, 13],
   ];

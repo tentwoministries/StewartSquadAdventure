@@ -136,7 +136,7 @@ function refreshHud(): void {
     `fog ${kf.fog.color} ${kf.fog.near}/${kf.fog.far} m max ${kf.fog.max} · sky ${kf.sky.zenith} ${kf.sky.horizon} ${kf.sky.ground}`,
     `exposure ${kf.exposure} · bloom thr ${POST_DRAFT.bloom.threshold} int ${POST_DRAFT.bloom.intensity} · tilt ${blur ? `${POST_DRAFT.tilt.focusArea}/${POST_DRAFT.tilt.feather}` : 'off'} · vignette ${POST_DRAFT.vignette.darkness}`,
     `deer ${deer.speed.value.toFixed(2)} m/s · fire ${LIGHT.campfire.intensity * kf.fire} cd ${LIGHT.campfire.range} m · lantern ${LIGHT.lantern.intensity * kf.lantern} cd · curve ${WORLD_U.uCurve.value} · post ${usePost ? 'on' : 'off'}${freeze ? ' · FROZEN' : ''}`,
-    `WASD walk · shift run · drag orbit · wheel zoom · R reset · B blur · 0 deer walks · [ ] deer speed · 1-4 stations 5-9 W1/D1/CU/CF/L1 · T time · V variant · K curve · P post · F freeze · U card · O this · Enter save`,
+    `WASD walk · shift run · drag orbit · wheel zoom · R reset · B blur · 0 deer walks · [ ] deer speed · 1-4 stations 5-9 W1/D1/CU/CF/L1 · T time · V variant · K curve · P post · F freeze · U card · O this · , . scenes · H hub · Enter save`,
   ].join('\n');
 }
 function say(msg: string): void { toast.textContent = msg; toast.style.opacity = '1'; setTimeout(() => (toast.style.opacity = '0'), 2200); }
@@ -159,6 +159,9 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'Enter') { void save(); }
   else if (e.key === 'b' || e.key === 'B') { blur = !blur; post.tilt.blendMode.opacity.value = blur ? 1 : 0; say(`tilt-shift ${blur ? 'on' : 'off'}`); refreshHud(); }
   else if (e.key === '0') { deer.walkNow(); say('deer: walking'); }
+  else if (e.key === ',') { location.href = '../caves-descent/?shot=S1&t=half'; }
+  else if (e.key === '.') { location.href = '../desert-noon/?shot=S1&t=noon'; }
+  else if (e.key === 'h' || e.key === 'H') { location.href = '../'; }
   else if (e.key === '[' || e.key === ']') { deer.speed.value = Math.round(Math.max(0.2, Math.min(1.6, deer.speed.value + (e.key === ']' ? 0.05 : -0.05))) * 100) / 100; say(`deer speed ${deer.speed.value.toFixed(2)} m/s`); refreshHud(); }
 });
 // A save renders a frame itself: right after load the synchronous world build delays the first frame,

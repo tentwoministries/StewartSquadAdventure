@@ -14,6 +14,7 @@ export const WORLD_U = {
   uCurveCenter: { value: new THREE.Vector2(0, 0) },
   uTime: { value: 0 },
   uEmissiveGain: { value: 1 },
+  uAurora: { value: 0 },
 };
 
 export interface WorldMatOpts {
@@ -23,6 +24,7 @@ export interface WorldMatOpts {
   side?: THREE.Side;
   transparent?: boolean;
   opacity?: number;
+  aurora?: boolean; // Frozen: the snow takes the aurora's wash (uAurora)
 }
 
 export function makeWorldMaterial(opts: WorldMatOpts = {}): THREE.MeshStandardMaterial {
@@ -37,12 +39,14 @@ export function makeWorldMaterial(opts: WorldMatOpts = {}): THREE.MeshStandardMa
   });
   const sway = opts.sway ?? 0;
   const emissive = opts.emissive ?? false;
-  mat.customProgramCacheKey = () => `ss-world-${sway}-${emissive ? 'e' : 'o'}`;
+  const aurora = opts.aurora ?? false;
+  mat.customProgramCacheKey = () => `ss-world-${sway}-${emissive ? 'e' : 'o'}-${aurora ? 'a' : 'n'}`;
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, WORLD_U, { uSway: { value: sway } });
     const defines: Record<string, string> = {};
     if (sway > 0) defines['SS_SWAY'] = '';
     if (emissive) defines['SS_EMISSIVE'] = '';
+    if (aurora) defines['SS_AURORA'] = '';
     shader.defines = { ...(shader.defines ?? {}), ...defines };
     shader.vertexShader = shader.vertexShader
       .replace(
@@ -74,6 +78,9 @@ export function makeWorldMaterial(opts: WorldMatOpts = {}): THREE.MeshStandardMa
         gl_Position = projectionMatrix * mvPosition;
         #ifdef SS_EMISSIVE
         vSsEmissive = aEmissive; vSsGlow = aGlow;
+        #ifdef USE_INSTANCING_COLOR
+        vSsGlow *= instanceColor.g; // per-instance glow (the Bog's mushrooms brighten near Collette): setColorAt(i, (g, g, g))
+        #endif
         #endif`,
       );
     shader.fragmentShader = shader.fragmentShader
@@ -81,7 +88,7 @@ export function makeWorldMaterial(opts: WorldMatOpts = {}): THREE.MeshStandardMa
         '#include <common>',
         `#include <common>
         uniform vec3 uFogColor; uniform float uFogNear; uniform float uFogFar; uniform float uFogMax;
-        uniform float uFogHeight; uniform float uFogBase; uniform float uEmissiveGain;
+        uniform float uFogHeight; uniform float uFogBase; uniform float uEmissiveGain; uniform float uAurora; uniform float uTime;
         varying vec3 vSsWorld;
         #ifdef SS_EMISSIVE
         varying vec3 vSsEmissive; varying float vSsGlow;
@@ -92,6 +99,14 @@ export function makeWorldMaterial(opts: WorldMatOpts = {}): THREE.MeshStandardMa
         `#include <emissivemap_fragment>
         #ifdef SS_EMISSIVE
         totalEmissiveRadiance = vSsEmissive * uEmissiveGain * vSsGlow;
+        #endif
+        #ifdef SS_AURORA
+        {
+          float ssUp = smoothstep(0.6, 0.85, normal.y);
+          float ssN = 0.5 + 0.5 * sin(vSsWorld.x * 0.02 + uTime * 0.05) * sin(vSsWorld.z * 0.017 - uTime * 0.03);
+          vec3 ssTint = mix(vec3(0.373, 1.0, 0.686), vec3(0.898, 0.42, 1.0), ssN);
+          totalEmissiveRadiance += ssTint * 0.3 * uAurora * ssUp * (0.7 + 0.3 * sin(uTime * 0.4 + vSsWorld.z * 0.05));
+        }
         #endif`,
       )
       .replace(

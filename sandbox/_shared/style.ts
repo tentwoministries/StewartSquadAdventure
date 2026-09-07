@@ -42,6 +42,8 @@ export interface Keyframe {
   fireflies: number; // 0..1
   pollen: number; // 0..1
   fire: number; // multiplier on the campfire light (embers only by day)
+  aurora?: number; // Frozen only: curtain intensity 0..1
+  lamps?: number; // Crystal Caves only: fraction of Quartz's lamps lit (T-02)
 }
 
 // world-events-weather.md §2.1.3; variant A = the bible as written.
