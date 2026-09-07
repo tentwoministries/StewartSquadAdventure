@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { WORLD_U } from '../_shared/material';
 import { makePost, POST_DRAFT } from '../_shared/post';
+import { makeOrbit } from '../_shared/orbit';
 import { placeCamera, readParams, saveShot, STATIONS } from '../_shared/shot';
 import { dirFrom, makeSky } from '../_shared/sky';
 import { KEYFRAMES, LIGHT, UNITS, VARIANT_NOTES, variant, type Keyframe, type VariantId } from '../_shared/style';
@@ -51,9 +52,9 @@ const scatter = makeScatter(props.footprints, trees.trunks);
 scene.add(scatter.group);
 const liam = makeLiam();
 scene.add(liam.root);
-const deer = makeDeer();
-deer.root.position.set(-9, groundY(-9, -1), -1);
-deer.root.rotation.y = deg(90 - 180);
+// the camp-meadow deer (camp.md §2.9: habitat x −20..−8, z −14..−6), avoiding the tent, the fire and the boulders
+const deer = makeDeer({ x: -14, z: -9, r: 6.5, avoid: [{ x: -6, z: -3, r: 4 }, { x: 0, z: 0, r: 6.5 }, { x: -9, z: 3.5, r: 2.2 }] });
+deer.park(-9, -1, 180);
 scene.add(deer.root);
 const sky = makeSky();
 scene.add(sky.group);
@@ -64,6 +65,7 @@ scene.add(fx.group);
 // station and pose
 const station = STATIONS[params.shot] ?? STATIONS['S1']!;
 placeCamera(camera, station);
+const orbit = makeOrbit(camera, canvas, station, () => refreshHud());
 const walking = params.shot === 'S2' || params.walk;
 // Liam faces local +z (his eyes), so a compass bearing b becomes rotation.y = 180° − b (the deer faces +x: 90° − b)
 if (walking) { liam.root.position.set(-2.5, groundY(-2.5, 7.5), 7.5); liam.root.rotation.y = deg(180 - 205); liam.lookAt.set(-5.5, 0.5, 12.4); }
@@ -121,13 +123,13 @@ function refreshHud(): void {
   card.classList.toggle('hidden', !showCard); keysEl.classList.toggle('hidden', !showCard); party.classList.toggle('hidden', !showCard);
   const s = station;
   hud.textContent = [
-    `study forest-dusk · ${s.name} (${params.shot}) yaw ${s.yaw} pitch ${s.pitch} d ${s.d} fov 35`,
+    `study forest-dusk · ${s.name} (${params.shot}) yaw ${orbit.current.yaw.toFixed(0)} pitch ${orbit.current.pitch.toFixed(0)} d ${orbit.current.d.toFixed(1)} fov 35${orbit.current.pitch !== s.pitch || orbit.current.yaw !== s.yaw || orbit.current.d !== s.d ? ' (orbited; R resets)' : ''}`,
     `time ${kf.name} (p ${kf.p}) · variant ${variantId}: ${VARIANT_NOTES[variantId]}`,
     `key ${kf.key.color} ×${kf.key.intensity} (×${UNITS.key} phys) elev ${kf.key.elev}° az ${kf.key.azim}° · hemi ${kf.hemi.sky}/${kf.hemi.ground} ×${kf.hemi.intensity} (×${UNITS.hemi} phys)`,
     `fog ${kf.fog.color} ${kf.fog.near}/${kf.fog.far} m max ${kf.fog.max} · sky ${kf.sky.zenith} ${kf.sky.horizon} ${kf.sky.ground}`,
     `exposure ${kf.exposure} · bloom thr ${POST_DRAFT.bloom.threshold} int ${POST_DRAFT.bloom.intensity} · tilt ${POST_DRAFT.tilt.focusArea}/${POST_DRAFT.tilt.feather} · vignette ${POST_DRAFT.vignette.darkness}`,
     `fire ${LIGHT.campfire.intensity * kf.fire} cd ${LIGHT.campfire.range} m · lantern ${LIGHT.lantern.intensity * kf.lantern} cd · curve ${WORLD_U.uCurve.value} · post ${usePost ? 'on' : 'off'}${freeze ? ' · FROZEN' : ''}`,
-    `keys 1-4 stations 5-9 W1/D1/CU/CF/L1 · T time · V variant · K curve · P post · F freeze · U card · O this · S save`,
+    `drag orbit · wheel zoom · R reset · keys 1-4 stations 5-9 W1/D1/CU/CF/L1 · T time · V variant · K curve · P post · F freeze · U card · O this · S save`,
   ].join('\n');
 }
 function say(msg: string): void { toast.textContent = msg; toast.style.opacity = '1'; setTimeout(() => (toast.style.opacity = '0'), 2200); }
@@ -209,7 +211,7 @@ function renderOnce(dt: number): void {
   props.lanterns.forEach((l, i) => { l.rotation.z = Math.sin(t * 0.6 + i * 2.1) * 0.05; l.rotation.x = Math.sin(t * 0.45 + i) * 0.03; });
   props.lanternLights.forEach((l, i) => { l.intensity = LIGHT.lantern.intensity * kf.lantern * (0.85 + 0.15 * Math.sin(t * (8.8 + i * 0.4) + i)); });
   liam.update(t, dt, walking);
-  deer.update(t, dt, true);
+  if (!freeze) deer.update(t, dt, groundY);
   sky.clouds.forEach((c) => { c.mesh.position.set(c.base.x + t * 0.4 * (c.base.y > 0 ? 1 : 0.5), c.base.y + Math.sin(t * 0.25 + c.phase) * 0.4, c.base.z); });
   sky.group.position.set(camera.position.x, 0, camera.position.z);
   sky.moon.position.copy(dirFrom(kf.moon.elev, kf.moon.azim)).multiplyScalar(500).add(sky.group.position.clone().negate()).add(sky.group.position);
