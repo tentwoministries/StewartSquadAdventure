@@ -158,3 +158,20 @@ Reconciled to 40 px = 1 m and the final heroes: 124 replacements; hero facts rep
 | 10 | Empty. |
 
 **Consistency-pass additions from cutscenes.md:** heroes.md addendum — a `wave` clip per kid (0.8 s; Isabella both arms), a standalone `rise` segment, a first-person head-layer mask; enemies.md addendum — the goblin cart prop (1.8 × 1.0 m, rust timber) as the way cages travel; story-beats.md — CS-11 at 44 s, CS-03's `onEnd` sets the clock to night, the shard's three lights off from CS-10 on (a post-game sky rule), the two announces now fire on skip; world-events-weather.md — `cs.meteorSky` and `cs.void` sky sets, the crater's `warm` state after the ending, the shared meteor shader; camp.md — CS-10's last frame is S5 with four kids seated and Ed's stump empty.
+
+## dungeons.md — 915 lines — PASS
+
+| # | Result |
+|---|---|
+| 1 | Pass. Roster table opens §2; each dungeon has a map table plus an ASCII sketch. |
+| 2 | Pass. Spot-checked the five card names and descriptions, the Rootmouth plaque, the canon `citadel` description, the Floor 2 banner, Isabella's ability-room hint and success line, and the fail card — verbatim. New text limited to the `Rusted Lantern` item and its line, three prompt strings, and room/mechanism names as build ids and quiet name cards; no kid says anything new. §2(b) handled: no weight, fear, skill or preference asserted about a real child (per-kid pad weights were explicitly rejected). |
+| 3 | Pass. The dungeon light compositor and torch oscillator become the Sunken Temple's whole rule; `DNG_ATMO` counts, directions and the Citadel escalation kept verbatim; the entrance dioramas kept as hero props; the shake ladder kept with four dungeon sites and no hit-stop added. |
+| 4 | Pass. Room sizes derived from what one gameplay frame shows (16 × 12 m standard, 20 × 16 m boss halls); the dollhouse rule (no ceilings, camera-side walls fade); the far light at −37° so it is in frame at the gameplay pitch; every mechanism has a read-at-distance note and a "how a kid learns it without a line" column. |
+| 5 | Pass. Tokens named (`grove.glowMoss`, `temple.wispAmber` / `wispGreen`, `shadow.deadMoss`); the Temple's amber-versus-green is colorblind-safe by motion as well as hue; the shard's descent is the canon violet → violet → red. |
+| 6 | Pass. ≤ 300 k tris per dungeon loaded with per-room visibility sets; ≈ 60–70 draw calls in the worst rooms; the 8-light pool respected (the far light is a second directional, verified at Phase 4's profile with a fallback named). |
+| 7 | Pass. Maps with centres, sizes, tiers, depths, doors and locks; mechanic rules with numbers; the run kernel; checkpoints and the `dungeonRun` save block; an exhaustive Vitest list with a no-soft-lock scripted test. |
+| 8 | Eleven items surfaced. Consistency-pass edits: `bosses.md` §2.16 "north window" → "behind the throne" (the hearth interior yaws 180°); `enemies.md` §2.8 "nests are overworld only" → one exception for the shard's ember zones (already the orchestrator's decision); the ui-ux dungeon map (room strip in the HUD; a paper view only on the map page) resolved when ui-ux.md lands. Rulings accepted: the Pharaoh's sunbeams are player-routable (centre mark gates the door; the fight unchanged); the Temple at `dark 0.85` throughout; `Poison immunity` negates the mist's sting but not its smothering. The prompt's "60 px tiles" was the orchestrator's error; the file correctly follows the teardown's `DNG_TW=40`. |
+| 9 | 40 lines merged into `DECISIONS.md`. |
+| 10 | Empty. |
+
+**Consistency-pass additions from dungeons.md:** heroes.md addendum — `ride`, `slide`, `ropeHold` poses; camp.md addendum — the rest prompt is offered at dungeon hearths, the Hermit's stove as a variant prop; bosses.md — the "north window" wording; enemies.md — the nests exception and a note that dungeon pool keys map one-to-one from district names to canon dungeon names. Process: the design agents share one scratchpad and clobbered a sibling's chunk files — a warning is now in `design-lead.md`.

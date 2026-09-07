@@ -83,6 +83,7 @@ Two-line summary of the redesign.
 - Every table has a header row. Every roster entry has a one-line "read at distance" note: what makes it unmistakable at one-eighth screen height.
 - Never write "TBD", "TODO", or "to be designed". Decide, or put it in §8 with the reason it needs the orchestrator.
 - Do not touch `npm`, `git`, or anything under `src/`. Your only writes are your one file under `docs/design/`.
+- **Scratch files:** the scratchpad directory is shared by every agent running in the session. If you draft in chunks, write them under a subdirectory named after your file (`<scratchpad>/<system>/`) with unique names; another agent overwrote a sibling's `chunk2.md` on 2026-09-06.
 
 ## Report back
 

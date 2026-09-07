@@ -17,7 +17,7 @@
 | `bosses.md` | Goblin King (Kid Snatch), Ancient Treant, Pharaoh Wraith, the Bog and Frozen bosses, Citadel Warden, Shadow Queen, the shadow squad; `BOSS_BLOCKS` in 3D | heroes, enemies, story-beats | reviewed 2026-09-06 |
 | `npcs.md` | Grandpa Ed (character, biplane as travel system, repair chain, supply drops), Gran, biome guides, merchant, Bog Witch, Sand Nomad | heroes, story-beats | reviewed 2026-09-06 |
 | `camp.md` | The Fernwood-style camp and its growth stages | story-beats, world-events-weather | reviewed 2026-09-06 |
-| `dungeons.md` | The five dungeons, expanded from Brief §5.3: core mechanic, traversal, puzzle language, set piece, boss arena | bosses, enemies, story-beats, world-events-weather | not started |
+| `dungeons.md` | The five dungeons, expanded from Brief §5.3: core mechanic, traversal, puzzle language, set piece, boss arena | bosses, enemies, story-beats, world-events-weather | reviewed 2026-09-06 |
 | `cutscenes.md` | Every shot table reshot for the 3D cinematic camera: meteor, crash landing, boss intros, biplane travel, ending | heroes, story-beats, npcs, bosses, camp | reviewed 2026-09-06 |
 | `ui-ux.md` | Scrapbook menus, HUD, title cards, boss bar, captured-hero overlay, input, accessibility, onboarding | heroes, camp, bosses, enemies, story-beats | not started |
 | `audio.md` | The procedural `snd()` port, music, ambient loops, per-system cue map | everything above | not started |
