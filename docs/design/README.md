@@ -13,7 +13,7 @@
 | `heroes.md` | The four kids: color, role, silhouette, props, animation personality, kit as data, pilot Liam spec | — | reviewed 2026-09-06 |
 | `enemies.md` | All 17 v27 enemy types + elites + overworld mini-bosses, each readable at gameplay distance | heroes (colors) | reviewed 2026-09-06 (heroes reconciliation pending) |
 | `story-beats.md` | The *Lights in the Dark* spine, quest graph, world map across the islands, where every canon line is delivered | — | reviewed 2026-09-06 |
-| `world-events-weather.md` | Day/night keyframes, weather, aurora, ambient layers, world events, the peaceful layer | — | reviewed 2026-09-06 (scale reconciliation in progress) |
+| `world-events-weather.md` | Day/night keyframes, weather, aurora, ambient layers, world events, the peaceful layer | — | reviewed 2026-09-06; reconciled to 40 px = 1 m |
 | `bosses.md` | Goblin King (Kid Snatch), Ancient Treant, Pharaoh Wraith, the Bog and Frozen bosses, Citadel Warden, Shadow Queen, the shadow squad; `BOSS_BLOCKS` in 3D | heroes, enemies, story-beats | not started |
 | `npcs.md` | Grandpa Ed (character, biplane as travel system, repair chain, supply drops), Gran, biome guides, merchant, Bog Witch, Sand Nomad | heroes, story-beats | not started |
 | `camp.md` | The Fernwood-style camp and its growth stages | story-beats, world-events-weather | not started |
