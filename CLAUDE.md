@@ -23,7 +23,7 @@ These are Andrew's standing rules. They go at the top of every handoff document,
 
 ## Session rhythm (docs/BRIEF.md §9.3)
 
-1. Read `docs/NEXT_SESSION.md` (handoff, rules at top). It is the source of truth for where we are.
+1. Read `docs/LANES.md` first: it says which lane (branch + worktree) Andrew's opening line means, and routes the session there. Then read that worktree's `docs/NEXT_SESSION.md` (handoff, rules at top). It is the source of truth for where that lane is.
 2. Confirm the session plan in `docs/PROGRESS.md`.
 3. Delegate to the agents in `.claude/agents/` (orchestrator plans, reviews diffs, runs gates; it does not write large implementations itself).
 4. Review → gate if reached → commit + tag → rewrite `docs/NEXT_SESSION.md` → one summary message to Andrew.
@@ -43,6 +43,8 @@ Interrupt Andrew only for the four conditions in `docs/BRIEF.md` §2. Everything
 | `docs/legacy/` | v27 HTML + legacy docs. Read-only inputs. |
 | `docs/reference/` | `fernwood.jpeg` visual north star (+ §4.1 written description). |
 | `docs/design/` | **The Design Bible** (Phase 0.5). One file per system, each *What v27 does → What it becomes → What preserves the magic*. Authoritative alongside the brief; `heroes.md` decides colors and roles. Revise only via the `design-lead` agent plus a `DECISIONS.md` line; never edit a design file to match code. Index and status: `docs/design/README.md`. Phase 0.75 (the interactive design dialog) lives in `docs/design/PHASE_0.75_BRIEF.md` and its running list `docs/design/PHASE_0.75_TWEAKS.md`; during dialog sessions nothing edits a design file. |
+| `docs/LANES.md` | **Routing.** The open lanes (0.75 visual studies and demo scenes in the primary checkout; 0.75 biomes; 0.75 demo; 0.85 story and play), which branch and worktree each lives in, what Andrew's opening phrases map to, how to open or close a lane, and when the build phases start. Read before the handoff. |
+| `docs/story/` | **Phase 0.85, the story and play pass** (branch `phase-0.85-story`, worktree `StewartSquad-story/`). `WALKTHROUGH.md` is the whole game as a quick read for the family (story, Acts, islands and animals, dungeons, bosses, monsters, progression, systems), each section with its decisions and its questions for the kids; `SUGGESTIONS.md` is the running list of the family's ideas (rows S-nn); `boards/` the storyboard; `PHASE_0.85_BRIEF.md` the rules, sessions and prompts; `README.md` the one-page map. Docs only; the bible is edited only at the lane's application step. |
 | `docs/teardown/` | Phase 0 outputs. `docs/visual-loop/` — Phase 1 iteration logs + screenshots. |
 | `src/` | `engine/ render/ style/ sim/ world/ dungeons/ content/ ui/ net/ dev/` per §7.3. `src/style/` is the law after Phase 1. |
 | `pilot/` | Phase 1 scene. Deleted after style lock. |

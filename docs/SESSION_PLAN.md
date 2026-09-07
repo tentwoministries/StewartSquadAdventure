@@ -14,6 +14,18 @@ That's it. To opt in to multi-agent workflow fan-out for a session (useful for t
 Continue from docs/NEXT_SESSION.md. ultracode
 ```
 
+## Lanes (2026-09-07): naming the lane in the first line
+
+Several lanes are open at once, each in its own branch and worktree (`docs/LANES.md`). The plain prompt above lands in the default lane (0.75 visual studies, the primary checkout). To go elsewhere, add the lane to the line; the session reads `docs/LANES.md` and moves to that worktree first:
+
+```
+Continue from docs/NEXT_SESSION.md. Visuals lane (0.75): <the scene or study>.
+Continue from docs/NEXT_SESSION.md. Story lane (0.85): reading session with the kids on <section or Act>.
+Continue from docs/NEXT_SESSION.md. Ready to launch: start Phase 1.
+```
+
+The last one only works once both lanes are locked (`p0.75-design-locked`, `p0.85-story-locked`); otherwise the session lists what is still open and asks which to finish.
+
 ## Effort level guidance (Andrew's policy, 2026-09-06)
 
 - **Orchestrator: Fable 5.1 at High, every session.** No exceptions; the heavy reasoning happens inside the agents.
@@ -31,6 +43,7 @@ Sessions are long by design. Each session runs until its phase gate or until the
 | 1 (part A done) | Phase 0 — Teardown | `docs/teardown/` (7 docs; five delivered, `KEEP_CHANGE_DROP` and `PORT_MAP` wait on the brainstorm doc), orchestrator spot-check of twelve systems | `p0-teardown` |
 | 1.5 (done 2026-09-07) | Phase 0.5 — Design Overhaul | `docs/design/` Design Bible (11 files, reviewed and consistency-passed), brief §2/§4–6/§8 revised, `CLAUDE.md` pointer, Phase 1 handoff builds the redesigned Liam and camp | `p0.5-design-bible` |
 | 1.75 (several chats) | Phase 0.75 — Design Dialog | Andrew and the orchestrator talk through the bible by cluster (`docs/design/PHASE_0.75_BRIEF.md`); every agreed change logged in `docs/design/PHASE_0.75_TWEAKS.md`; mockups and reference screenshots filed; then one application session applies the list with `design-lead` and re-issues the Phase 1 handoff | `p0.75-design-locked` |
+| 1.85 (opened 2026-09-07, several chats) | Phase 0.85 — Story and play pass | `docs/story/WALKTHROUGH.md` (the whole game as a quick read for the family), the kids' suggestions as rows in `docs/story/SUGGESTIONS.md`, the storyboard skeleton, `docs/LANES.md` routing; runs beside 1.75 in its own worktree; one application session applies the agreed rows to the bible | `p0.85-story-locked` |
 | 2–3 | Phase 1 — Pilot & visual loop | `pilot/` Forest scene built from the Design Bible (`heroes.md` §2.7 Liam; `camp.md` §2.2 and §2.11 camp and stations; `world-events-weather.md` §2.1.3 and §2.2.6 keyframes and weather), capture stations, up to 12 iterations, tokens promoted to `src/style/` | `p1-style-locked` |
 | 4–6 | Phase 2 — Forest vertical slice | Full Forest island, all four heroes, Rootways, Treant, Goblin King, menus, save | `p2-vertical-slice` |
 | 7–8 | Phase 3 — The world | Desert, Bog, Frozen Peaks, biplane travel, NG+ | `p3-world` |
