@@ -28,3 +28,26 @@ Branch `phase-0-teardown`. Six archaeologist agents (Opus) ran in parallel on th
 - [ ] Phase 0 gate + `p0-teardown` tag — after the two above
 - Policy: model/effort policy applied to all agents (`CLAUDE.md`); `-max` variants added for art-director and qa-inspector
 - Size: teardown total 10,432 lines; legacy HTML 9,901 lines
+
+## Session 1 — Phase 0.5 Design Overhaul, the Design Bible (2026-09-06 → 2026-09-07)
+
+Branch `phase-0.5-design`, merged to `main` at the gate. Documents only. Eleven `design-lead` files (Fable, xhigh) written in three dependency waves; the orchestrator reviewed each against a ten-item checklist (`docs/qa/phase-0.5-design-review-2026-09-06.md`, all PASS) and merged every file's §6 into `docs/DECISIONS.md`; an end-of-phase consistency pass (2026-09-07) reconciled the files against each other.
+
+- [x] `docs/design/heroes.md` — 765 lines; colors and roles decided (Liam sapphire Tank, Noah fox-orange Ranger, Collette amethyst Mage, Isabella ruby Whirlwind), 40 px = 1 m, the kit as data, the pilot Liam spec (§2.7), the rig addendum (§2.4.7)
+- [x] `docs/design/enemies.md` — 472 lines; 17 types on five rigs, the telegraph language, hordes, cages at camps A–C
+- [x] `docs/design/story-beats.md` — 624 lines; the *Lights in the Dark* spine, island footprints, the quest graph, the cutscene roster
+- [x] `docs/design/world-events-weather.md` — 963 lines; keyframes, weather, aurora, events, the peaceful layer; the Forest keyframe table is build-ready (§2.1.3)
+- [x] `docs/design/bosses.md` — 755 lines; `BOSS_BLOCKS` in 3D, twelve fights, Kid Snatch, the lairs, the intro grammar
+- [x] `docs/design/npcs.md` — 944 lines; Grandpa Ed, The Green Meanie as the travel system, guides, merchant, Bog Witch, Sand Nomad, the escort
+- [x] `docs/design/camp.md` — 670 lines; Stewart Camp C0–C7, the pilot C1 prop list (§2.2), the four screenshot stations (§2.11.5)
+- [x] `docs/design/dungeons.md` — 914 lines; five authored dungeons, the run kernel, Home, Wrong composed
+- [x] `docs/design/cutscenes.md` — 604 lines; one cinematic rig, nine shot tables, the meteor reshot one for one, photo mode
+- [x] `docs/design/ui-ux.md` — 954 lines; scrapbook menus, HUD, input, accessibility, onboarding, saves, the crest, the dev console
+- [x] `docs/design/audio.md` — 1,142 lines; 29 recipes as data, 17 families, ambient beds, the music engine, spatial rules, the cue map
+- [x] `docs/design/README.md` — index, contract, statuses, reading order
+- [x] Orchestrator review of all eleven (PASS); consistency pass 2026-09-07 (0.025 m/px everywhere, island footprints, the fire family's home, cages at camps A–C, endless cut, cue names, the apron mark); `DECISIONS.md` at 389 dated lines
+- [x] `docs/BRIEF.md` §2 (colors and roles revisable with logged rationale), §4–6 (Design Bible pointers), §8 (Phase 0.5 with its Definition of Done); `CLAUDE.md` canon paragraph and `docs/design/` pointer; `.claude/agents/design-lead.md`
+- [x] Gate `p0.5-design-bible` (2026-09-07), merged to `main`
+- Process: the two Fable consistency agents died on the session limit and the pass re-ran on Opus with Edit (logged); `audio.md` slipped into the ui-ux commit unreviewed and was reviewed the next day (logged)
+- Size: Design Bible 8,845 lines / 12 files; teardown 10,432 lines; legacy HTML 9,901 lines
+- Still blocked (Rule 1): Phase 0 part B (`KEEP_CHANGE_DROP.md`, `PORT_MAP.md`, the `p0-teardown` tag) on the brainstorm doc; each design file's §7 lists what to reconcile when it lands

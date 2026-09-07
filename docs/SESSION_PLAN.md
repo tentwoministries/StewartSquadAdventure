@@ -28,8 +28,9 @@ Sessions are long by design. Each session runs until its phase gate or until the
 | Session | Phase | What lands | Gate / tag |
 |---|---|---|---|
 | 0 (done) | Setup | Repo, tree, tooling, CLAUDE.md, agents, docs, brief copied | `p0-setup` |
-| 1 | Phase 0 — Teardown | `docs/teardown/` (7 docs), orchestrator spot-check of ten systems | `p0-teardown` |
-| 2–3 | Phase 1 — Pilot & visual loop | `pilot/` Forest scene, capture stations, up to 12 iterations, tokens promoted to `src/style/` | `p1-style-locked` |
+| 1 (part A done) | Phase 0 — Teardown | `docs/teardown/` (7 docs; five delivered, `KEEP_CHANGE_DROP` and `PORT_MAP` wait on the brainstorm doc), orchestrator spot-check of twelve systems | `p0-teardown` |
+| 1.5 (done 2026-09-07) | Phase 0.5 — Design Overhaul | `docs/design/` Design Bible (11 files, reviewed and consistency-passed), brief §2/§4–6/§8 revised, `CLAUDE.md` pointer, Phase 1 handoff builds the redesigned Liam and camp | `p0.5-design-bible` |
+| 2–3 | Phase 1 — Pilot & visual loop | `pilot/` Forest scene built from the Design Bible (`heroes.md` §2.7 Liam; `camp.md` §2.2 and §2.11 camp and stations; `world-events-weather.md` §2.1.3 and §2.2.6 keyframes and weather), capture stations, up to 12 iterations, tokens promoted to `src/style/` | `p1-style-locked` |
 | 4–6 | Phase 2 — Forest vertical slice | Full Forest island, all four heroes, Rootways, Treant, Goblin King, menus, save | `p2-vertical-slice` |
 | 7–8 | Phase 3 — The world | Desert, Bog, Frozen Peaks, biplane travel, NG+ | `p3-world` |
 | 9 | Phase 4 — Lights in the Dark | Shadow Realm, meteor cutscene, ending, photo mode, pets | `p4-finale` |
@@ -45,7 +46,7 @@ Place these before the Phase 0 session so the teardown is complete on the first 
 - `docs/legacy/stewart-squad-dev-instructions.md`
 - `docs/reference/fernwood.jpeg` (visual north star)
 
-The v27 HTML is already in `docs/legacy/`. If any of the four are missing when a session needs them, the orchestrator stops and asks (Working Rule 1).
+The v27 HTML is already in `docs/legacy/`. If any of the four are missing when a session needs them, the orchestrator stops and asks (Working Rule 1). The brainstorm doc also gates Phase 0 part B and the Design Bible's §7 reconciliation in every `docs/design/` file (a `design-lead` pass, not a rewrite).
 
 ## When a session ends
 
