@@ -25,16 +25,20 @@ And the sixth, which no frame shows: **tempo** (`docs/reference/MOTION_TEMPO_NOT
 | Sky as a flat navy backdrop | **A 3-stop sky with a key lobe, stars that twinkle, a low-poly moon, clouds with cool bellies** (§2.6) | Seen at `L1`, `W1`, `CU` |
 | A single global tilt-shift | **Selective bloom + tilt-shift + vignette + ACES** with the focal band on the hero | Real post stack, verified shapes |
 
-## 3. The study plan
+## 3. The study plan (revised 2026-09-07 after Andrew's first pass: the studies are demo scenes)
 
-| # | Study | Question | Status |
-|---|---|---|---|
-| 1 | Forest dusk at the C1 camp, S1 | palette, fog, the fire's pool, the tent glow, the unit conversion, the station pitch | **rendered; sample set saved; awaiting Andrew** |
-| 2 | The same at deep night | stars, fireflies, lantern pools, the ring's light | next (a `?t=night` frame exists as a preview) |
-| 3 | Golden hour on the stream, S2 | water, rim light, foam, the walk pose | next (`?t=golden` preview exists) |
-| 4 | The four kids' line-up at gameplay distance | silhouette and colour at one-eighth screen height | after Andrew's read on Liam |
-| 5 | The Crystal Caves cross-section with the heart | T-03 | cluster A |
-| 6 | The anti-palette check | the same frame with the forbidden looks | last |
+Andrew's framing: each study is a **demo scene** he and his son can open, walk around in, tweak and screenshot, and the set of scenes is a reel to skip through before the full build. One scene per biome, each carrying one kid, so the four heroes and the five palettes are all seen before anything is locked. The Forest scene is the template; its rules are §6.
+
+| # | Scene | Hero | Questions it answers | Status |
+|---|---|---|---|---|
+| 1 | Forest: Stewart Camp at dusk (this scene) | Liam | palette, fog, fire and lantern pools, tent glow, unit conversion, station pitch, scatter, tilt-shift, the deer, walking and the camera follow | **built; Andrew's quick pass applied; awaiting the session with his son** |
+| 2 | Desert: Sunstone-style oasis at noon and dusk | Noah | the Desert palette (noon is its hero hour), sand and oasis water, the violet dusk, lizards and the beetle, Noah's orange-on-ochre legibility (`heroes.md` §2.1.3 "weak on ground") | next session |
+| 3 | Bog: the Witch's lantern shore at night | Collette | phosphor and bruise-purple, the thick fog, glow mushrooms by the hundred, the wisps, Collette's orb as a light source | next session |
+| 4 | Frozen Peaks: the valley under the aurora | Isabella | snow facets, ice blue, the aurora curtains lighting the snow, the elk herd, ruby on snow | next session |
+| 5 | Crystal Caves: the tiered descent to the heart | all four | T-01..T-04 (verticality, the lamp-lighting mechanic, the pulsing heart), the four-kid line-up at gameplay distance | after 2–4; a board first |
+| 6 | The anti-palette check | — | the Forest scene with the forbidden looks, so everyone knows what to avoid | last |
+
+Each scene is one folder under `sandbox/<biome>/` built from the same `_shared/` helpers, with the same keys, stations and save flow, and a `?shot=` list of its own. A hub page (`sandbox/index.html`, next session) lists the scenes so the reel can be skipped through.
 
 ## 4. What the first study taught (the findings, each with a tweak row)
 
@@ -54,3 +58,18 @@ And the sixth, which no frame shows: **tempo** (`docs/reference/MOTION_TEMPO_NOT
 4. Curved world: `curve=0` (flat), `1` (as rendered), `2`, `3`?
 5. The grass: as rendered, fewer, or none (reference-style)?
 6. Liam: proportions and face as rendered, or notes?
+
+## 6. Rules for the next demo scenes (what the Forest scene taught; keep it short, keep it loose)
+
+These are prototyping rules for whoever builds the next scene (an orchestrator session or another model), not design law. Design preferences live as rows in `PHASE_0.75_TWEAKS.md`; numbers live in `style-draft.json`; this list is the *how*.
+
+1. **Start from `_shared/`.** Tokens and keyframes (`style.ts`), the patched material (`material.ts`: height fog, curved world, sway, per-vertex emissive), the sky, the post stack, the stations and the save flow, the orbit. A new scene adds a biome keyframe set and its own props, terrain and creatures. Nothing in `_shared/` is game code; it is deleted after `p1-style-locked`.
+2. **Lights are physical.** Multiply a bible intensity by the `UNITS` factors (key ×3, hemisphere ×9) and then *look*; the day columns needed re-tuning by eye (T-07). Point lights are candela: a campfire is about 90, a lantern about 14.
+3. **Facing conventions.** A rig whose eyes are on local +z (the kids) takes `rotation.y = 180° − bearing`; a rig built along +x (the deer) takes `90° − bearing`. Wrap every accumulating heading to [−π, π] or a creature will one day turn the long way round.
+4. **Tempo.** Every recurring motion uses two incommensurate rates and eases in and out (`docs/reference/MOTION_TEMPO_NOTES.md`). Creatures: fast start, slow arrival, slow into a tight turn, a slow eat. Nothing pops.
+5. **Density is props, not particles.** About 1.2 grass tufts/m² in clusters and flowers only in drifts read right; the bible's 4/m² read as confetti (T-09). Twenty hand-placed things make a frame feel full.
+6. **Post.** Tilt-shift focus band 0.62, feather 0.5, smallest kernel at full resolution; bloom threshold 0.8, selective (layer 11); vignette 0.35; ACES. `B` toggles the tilt-shift so it can be judged; keep the toggle in every scene.
+7. **Terrain.** A 0.5 m grid with per-face 4 % value jitter; paths and decals baked as face colour; water on a ribbon along a spline with foam by edge distance. Keep the water a wall for walking (ground below −0.25 m).
+8. **Every scene has the same keys** (`O` shows them), the same station contract (`?shot=`), `Enter` to save a self-contained 1600 × 1000 PNG with the card, and `?freeze=1` for a reproducible frame. A blank save is 58,885 bytes; a hidden browser pane gets no animation frames, so verify motion from the console with a fixed `dt`.
+9. **Log as you go.** One `LOG.md` row per iteration, a tweak row per decision, numbers into `style-draft.json` when a frame is approved, a tag per demo state the family has seen.
+10. **Don't build the game.** No sim, no save, no ECS, no asset pipeline. If a scene wants more than a scene, it is a Phase 1 question: write it down as `needs-render`.

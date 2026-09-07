@@ -14,6 +14,7 @@ import { makeLiam } from './liam';
 import { makeProps } from './props';
 import { makeScatter, makeTrees } from './scatter';
 import { groundY, makeTerrain } from './terrain';
+import { makeWalk } from './walk';
 
 const W = 1600, H = 1000;
 const params = readParams();
@@ -67,6 +68,7 @@ scene.add(fx.group);
 const station = STATIONS[params.shot] ?? STATIONS['S1']!;
 placeCamera(camera, station);
 const orbit = makeOrbit(camera, canvas, station, () => refreshHud());
+// WASD walking (Andrew's demo): blockers are the prop footprints and trunks, minus whatever Liam starts inside
 const walking = params.shot === 'S2' || params.walk;
 // deer study stations start with the deer parked at the pose being judged
 if (params.shot === 'DR') deer.park(-2.7, 3.7, 40);
@@ -74,6 +76,7 @@ if (params.shot === 'DW') deer.park(-3.2, 10.0, 180);
 // Liam faces local +z (his eyes), so a compass bearing b becomes rotation.y = 180° − b (the deer faces +x: 90° − b)
 if (walking) { liam.root.position.set(-2.5, groundY(-2.5, 7.5), 7.5); liam.root.rotation.y = deg(180 - 205); liam.lookAt.set(-5.5, 0.5, 12.4); }
 else { liam.root.position.set(-2.4, groundY(-2.4, 1.0), 1.0); liam.root.rotation.y = deg(180 - 150); liam.lookAt.set(0, 0.5, 0); }
+const walkCtl = makeWalk(liam.root, orbit, groundY, [...props.footprints, ...trees.trunks].filter((c) => Math.hypot(c.x - liam.root.position.x, c.z - liam.root.position.z) > c.r + 0.6), liam.ring);
 key.target.position.set(station.target[0], 0, station.target[2]);
 WORLD_U.uCurveCenter.value.set(station.target[0], station.target[2]);
 const curveLevels = [0, 0.0006, 0.0012, 0.0022];
@@ -121,7 +124,7 @@ applyKeyframe();
 // UI
 const hud = document.getElementById('hud')!, toast = document.getElementById('toast')!, card = document.getElementById('card')!;
 const keysEl = document.getElementById('keys')!, party = document.getElementById('party')!;
-let showHud = params.ui, showCard = true, freeze = params.freeze, usePost = params.post;
+let showHud = params.ui, showCard = true, freeze = params.freeze, usePost = params.post, blur = true;
 function refreshHud(): void {
   hud.classList.toggle('hidden', !showHud);
   card.classList.toggle('hidden', !showCard); keysEl.classList.toggle('hidden', !showCard); party.classList.toggle('hidden', !showCard);
@@ -131,9 +134,9 @@ function refreshHud(): void {
     `time ${kf.name} (p ${kf.p}) · variant ${variantId}: ${VARIANT_NOTES[variantId]}`,
     `key ${kf.key.color} ×${kf.key.intensity} (×${UNITS.key} phys) elev ${kf.key.elev}° az ${kf.key.azim}° · hemi ${kf.hemi.sky}/${kf.hemi.ground} ×${kf.hemi.intensity} (×${UNITS.hemi} phys)`,
     `fog ${kf.fog.color} ${kf.fog.near}/${kf.fog.far} m max ${kf.fog.max} · sky ${kf.sky.zenith} ${kf.sky.horizon} ${kf.sky.ground}`,
-    `exposure ${kf.exposure} · bloom thr ${POST_DRAFT.bloom.threshold} int ${POST_DRAFT.bloom.intensity} · tilt ${POST_DRAFT.tilt.focusArea}/${POST_DRAFT.tilt.feather} · vignette ${POST_DRAFT.vignette.darkness}`,
+    `exposure ${kf.exposure} · bloom thr ${POST_DRAFT.bloom.threshold} int ${POST_DRAFT.bloom.intensity} · tilt ${blur ? `${POST_DRAFT.tilt.focusArea}/${POST_DRAFT.tilt.feather}` : 'off'} · vignette ${POST_DRAFT.vignette.darkness}`,
     `deer ${deer.speed.value.toFixed(2)} m/s · fire ${LIGHT.campfire.intensity * kf.fire} cd ${LIGHT.campfire.range} m · lantern ${LIGHT.lantern.intensity * kf.lantern} cd · curve ${WORLD_U.uCurve.value} · post ${usePost ? 'on' : 'off'}${freeze ? ' · FROZEN' : ''}`,
-    `drag orbit · wheel zoom · R reset · 0 deer walks · [ ] deer speed · keys 1-4 stations 5-9 W1/D1/CU/CF/L1 · T time · V variant · K curve · P post · F freeze · U card · O this · S save`,
+    `WASD walk · shift run · drag orbit · wheel zoom · R reset · B blur · 0 deer walks · [ ] deer speed · 1-4 stations 5-9 W1/D1/CU/CF/L1 · T time · V variant · K curve · P post · F freeze · U card · O this · Enter save`,
   ].join('\n');
 }
 function say(msg: string): void { toast.textContent = msg; toast.style.opacity = '1'; setTimeout(() => (toast.style.opacity = '0'), 2200); }
@@ -153,7 +156,8 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'f' || e.key === 'F') { freeze = !freeze; refreshHud(); }
   else if (e.key === 'u' || e.key === 'U') { showCard = !showCard; refreshHud(); }
   else if (e.key === 'o' || e.key === 'O') { showHud = !showHud; refreshHud(); }
-  else if (e.key === 's' || e.key === 'S') { void save(); }
+  else if (e.key === 'Enter') { void save(); }
+  else if (e.key === 'b' || e.key === 'B') { blur = !blur; post.tilt.blendMode.opacity.value = blur ? 1 : 0; say(`tilt-shift ${blur ? 'on' : 'off'}`); refreshHud(); }
   else if (e.key === '0') { deer.walkNow(); say('deer: walking'); }
   else if (e.key === '[' || e.key === ']') { deer.speed.value = Math.round(Math.max(0.2, Math.min(1.6, deer.speed.value + (e.key === ']' ? 0.05 : -0.05))) * 100) / 100; say(`deer speed ${deer.speed.value.toFixed(2)} m/s`); refreshHud(); }
 });
@@ -194,6 +198,9 @@ function drawOverlay(ctx: CanvasRenderingContext2D): void {
 }
 (window as unknown as { ssSave: () => Promise<void> }).ssSave = save;
 (window as unknown as { ssDeer: typeof deer }).ssDeer = deer;
+(window as unknown as { ssWalk: typeof walkCtl }).ssWalk = walkCtl;
+(window as unknown as { ssLiam: THREE.Object3D; ssOrbit: typeof orbit }).ssLiam = liam.root;
+(window as unknown as { ssOrbit: typeof orbit }).ssOrbit = orbit;
 (window as unknown as { ssSet: (q: Record<string, string>) => void }).ssSet = go;
 refreshHud();
 
@@ -217,7 +224,9 @@ function renderOnce(dt: number): void {
   props.fireLight.intensity = LIGHT.campfire.intensity * kf.fire * (0.8 + 0.15 * flVal);
   props.lanterns.forEach((l, i) => { l.rotation.z = Math.sin(t * 0.6 + i * 2.1) * 0.05; l.rotation.x = Math.sin(t * 0.45 + i) * 0.03; });
   props.lanternLights.forEach((l, i) => { l.intensity = LIGHT.lantern.intensity * kf.lantern * (0.85 + 0.15 * Math.sin(t * (8.8 + i * 0.4) + i)); });
-  liam.update(t, dt, walking);
+  if (!freeze) walkCtl.update(dt);
+  if (walkCtl.moving) liam.lookAt.set(liam.root.position.x + Math.sin(liam.root.rotation.y) * 6, 0.9, liam.root.position.z + Math.cos(liam.root.rotation.y) * 6);
+  liam.update(t, dt, walking || walkCtl.moving);
   if (!freeze) deer.update(t, dt, groundY);
   sky.clouds.forEach((c) => { c.mesh.position.set(c.base.x + t * 0.4 * (c.base.y > 0 ? 1 : 0.5), c.base.y + Math.sin(t * 0.25 + c.phase) * 0.4, c.base.z); });
   sky.group.position.set(camera.position.x, 0, camera.position.z);
