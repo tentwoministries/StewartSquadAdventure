@@ -1,7 +1,7 @@
 # World, events and weather — Design Bible
 
-**Status:** draft for orchestrator review · **Written:** 2026-09-06 · **Author:** design-lead (Fable, xhigh)
-**Sources read:** BRIEF §0, §2, §4 (twice), §5, §6, §7.3–7.4, §8, §11 · ATMOSPHERE_RECIPES §1–§19 in full (§19 first) · SYSTEMS_INVENTORY Part 2 §1–§2, §3.5–3.9, §4, §5, §9, §10, §15, §18.1–18.2; Part 1 §11 (`ETYPES`), §14.1 (spawner pools), §15 (mini-bosses) · FAMILY_CANON §2.1–2.2, §3.6, §5.5, §10.1, §10.3–10.4, §10.6, §12.9, §13 · AUDIO_INVENTORY §12, §14, §21 · DECISIONS.md · legacy HTML L688, L1611 (verified by grep) · **Depends on:** none earlier (first wave; `heroes.md` and `story-beats.md` are being written concurrently) · **Feeds:** camp.md, npcs.md, dungeons.md, ui-ux.md, audio.md, enemies.md, bosses.md, cutscenes.md, story-beats.md
+**Status:** reviewed by orchestrator 2026-09-06; reconciled to heroes.md (scale) · **Written:** 2026-09-06 · **Author:** design-lead (Fable, xhigh)
+**Sources read:** BRIEF §0, §2, §4 (twice), §5, §6, §7.3–7.4, §8, §11 · ATMOSPHERE_RECIPES §1–§19 in full (§19 first) · SYSTEMS_INVENTORY Part 2 §1–§2, §3.5–3.9, §4, §5, §9, §10, §15, §18.1–18.2; Part 1 §11 (`ETYPES`), §14.1 (spawner pools), §15 (mini-bosses) · FAMILY_CANON §2.1–2.2, §3.6, §5.5, §10.1, §10.3–10.4, §10.6, §12.9, §13 · AUDIO_INVENTORY §12, §14, §21 · DECISIONS.md · legacy HTML L688, L1611 (verified by grep) · **Depends on:** `heroes.md` (read 2026-09-06 for the scale reconciliation: 40 px = 1 m, the 80 m island, hero heights and run speeds, glow tokens, hero-side lights, rig sockets); `story-beats.md` was being written concurrently · **Feeds:** camp.md, npcs.md, dungeons.md, ui-ux.md, audio.md, enemies.md, bosses.md, cutscenes.md, story-beats.md
 **Brainstorm doc:** not available at time of writing — reconcile on arrival.
 
 v27's world felt alive because nine cheap layers were stacked in a fixed order every frame; the day/night plate, the weather wash, the fog disc and the biome particles did the work the drawing could not. This file turns those plates into a real sky, a real sun and moon, tinted fog, GPU particles and lights that light things, keeps every gameplay number and every announce string, and adds the living-world layer v27 never had: a moon, stars, aurora curtains that power a dungeon, animals that flee, and a river you can fish.
@@ -77,7 +77,7 @@ Wave survival after victory: enemy count `min(4 + floor(wave·0.8), 15)`, stats 
 
 ### 2.0 Conventions used in this file
 
-- **Scale:** 25 v27 px = 1 m. A v27 hero (~40 px) is 1.6 m; the 3200 px world is 128 m across. Every v27 radius below is converted at this scale. If `heroes.md` sets a different hero height, the implementer rescales by the same ratio once, in `src/style/scale.ts`, and nothing else changes.
+- **Scale:** 40 v27 px = 1 m (1 px = 0.025 m), fixed in `heroes.md` §2.5.1 and held as the one constant in `src/style/scale.ts`. The 3200 px overworld is an **80 m** island; Liam is 1.52 m (Noah 1.40, Collette 1.30, Isabella 1.14) and runs at 4.5 m/s (4.375 / 4.125 / 4.0). Every v27 radius below is converted at this scale; a row that keeps a larger design value says so and has a §6 line.
 - **Camera:** elevated orbit, pitch 45–55°, hero at about one-eighth of screen height, roughly 18–22 m from the hero (Brief §4.5). Every "reads at distance" note below is judged there.
 - **Tokens** are named `island.thing` or `family.thing` and become `src/style/` constants in Phase 1. Brief §4.2 hexes are the roots.
 - **Islands:** `forest`, `desert`, `bog`, `frozen`, `shadow`. v27's `swamp` key becomes `bog`; the v27 `cave` biome is not an island (§5.3).
@@ -123,17 +123,19 @@ The **directional light** is a single `DirectionalLight` that is the sun by day 
 
 #### 2.1.3 Forest keyframe table (build-ready for the pilot)
 
-Colours are hex; intensities are three.js `intensity` values with physically-correct lights on (tune the whole column once if the renderer differs). "Hemi" is `HemisphereLight(sky, ground, intensity)`. Fog is height fog in the shared material chunk: `near`/`far` are the distances (m) at which fog reaches 5 % and 90 % of `fog.max` (0.85 default), with a 12 m height falloff so the sky stays clear. The sky dome is a 3-stop vertical gradient (zenith at +90°, horizon at 0°, ground at −20°) plus a sun/moon glow lobe. Exposure is the ACES `toneMappingExposure` multiplier. Ambient sets are §2.4 names.
+Colours are hex; intensities are three.js `intensity` values with physically-correct lights on (tune the whole column once if the renderer differs). "Hemi" is `HemisphereLight(sky, ground, intensity)`. Fog is height fog in the shared material chunk: `near`/`far` are the camera distances (m) at which fog reaches 5 % and 90 % of `fog.max` (0.85 default), with a 12 m height falloff so the sky stays clear. The sky dome is a 3-stop vertical gradient (zenith at +90°, horizon at 0°, ground at −20°) plus a sun/moon glow lobe. Exposure is the ACES `toneMappingExposure` multiplier. Ambient sets are §2.4 names.
 
 | Keyframe | Key colour · intensity | Hemi sky · ground · intensity | Fog colour · near / far (m) | Sky zenith · horizon · ground | Cloud tint | Stars · moon | Exposure | Ambient set |
 |---|---|---|---|---|---|---|---|---|
-| dawn | `#FFB48C` · 1.6 | `#6E7FB8` · `#2E5A3A` · 0.55 | `#7A76B0` · 24 / 95 | `#2B3A70` · `#F2A57A` · `#3C4C7A` | `#F5C9B0` | stars 0.25 fading · none | 0.95 | pollen, mist wisps, birds wake |
-| morning | `#FFE9C4` · 2.6 | `#8CB8E8` · `#3A7D44` · 0.6 | `#A9C8DC` · 40 / 130 | `#3F7BC8` · `#C6E2F0` · `#4F8FBF` | `#FFFFFF` | none · none | 1.0 | pollen, leaves, butterflies |
-| noon | `#FFF6E6` · 3.0 | `#6FA8E6` · `#3A7D44` · 0.6 | `#9DC3DD` · 45 / 150 | `#2F6BC0` · `#A7D3EE` · `#4A8FC0` | `#FFFFFF` | none · none | 1.0 | pollen, leaves, butterflies |
-| **golden hour** | **`#FFD08A` · 2.4** | `#7A8FC8` · `#4A7A3A` · 0.55 | `#D9A66E` · 30 / 110 | `#3B5BA8` · `#FFB870` · `#6B5A8A` | `#FFD9A8` (lit underside) | none · none | 1.05 | pollen (backlit, bloom), leaves, fireflies from `p = 0.58` |
-| dusk | `#FF8C5A` · 1.2 | `#4A4E8E` · `#2A4A30` · 0.5 | `#7B5A8C` · 25 / 90 | `#22305E` · `#E86A4A` · `#3A2C5A` | `#C97A6A` | stars 0.4 · rising, `#F2E8C8` | 0.95 | fireflies ramping, leaves, ember motes start |
-| night | `#8FA8E0` · 0.55 | `#1B2A5A` · `#123524` · 0.6 | `#1E2B58` · 20 / 80 | `#0B1030` · `#24356E` · `#141C40` | `#2A3A6E` | stars 1.0 · full, halo | 0.85 | fireflies full, ember motes, mist wisps |
-| deep night | `#7C94D8` · 0.45 | `#14204A` · `#0F2A1E` · 0.6 | `#161F48` · 18 / 70 | `#060A22` · `#1A2856` · `#101838` | `#1E2C5A` | stars 1.0 + meteors · full | 0.80 | fireflies, embers, mist wisps, owl |
+| dawn | `#FFB48C` · 1.6 | `#6E7FB8` · `#2E5A3A` · 0.55 | `#7A76B0` · 22 / 65 | `#2B3A70` · `#F2A57A` · `#3C4C7A` | `#F5C9B0` | stars 0.25 fading · none | 0.95 | pollen, mist wisps, birds wake |
+| morning | `#FFE9C4` · 2.6 | `#8CB8E8` · `#3A7D44` · 0.6 | `#A9C8DC` · 32 / 86 | `#3F7BC8` · `#C6E2F0` · `#4F8FBF` | `#FFFFFF` | none · none | 1.0 | pollen, leaves, butterflies |
+| noon | `#FFF6E6` · 3.0 | `#6FA8E6` · `#3A7D44` · 0.6 | `#9DC3DD` · 35 / 98 | `#2F6BC0` · `#A7D3EE` · `#4A8FC0` | `#FFFFFF` | none · none | 1.0 | pollen, leaves, butterflies |
+| **golden hour** | **`#FFD08A` · 2.4** | `#7A8FC8` · `#4A7A3A` · 0.55 | `#D9A66E` · 26 / 74 | `#3B5BA8` · `#FFB870` · `#6B5A8A` | `#FFD9A8` (lit underside) | none · none | 1.05 | pollen (backlit, bloom), leaves, fireflies from `p = 0.58` |
+| dusk | `#FF8C5A` · 1.2 | `#4A4E8E` · `#2A4A30` · 0.5 | `#7B5A8C` · 23 / 62 | `#22305E` · `#E86A4A` · `#3A2C5A` | `#C97A6A` | stars 0.4 · rising, `#F2E8C8` | 0.95 | fireflies ramping, leaves, ember motes start |
+| night | `#8FA8E0` · 0.55 | `#1B2A5A` · `#123524` · 0.6 | `#1E2B58` · 20 / 56 | `#0B1030` · `#24356E` · `#141C40` | `#2A3A6E` | stars 1.0 · full, halo | 0.85 | fireflies full, ember motes, mist wisps |
+| deep night | `#7C94D8` · 0.45 | `#14204A` · `#0F2A1E` · 0.6 | `#161F48` · 19 / 50 | `#060A22` · `#1A2856` · `#101838` | `#1E2C5A` | stars 1.0 + meteors · full | 0.80 | fireflies, embers, mist wisps, owl |
+
+**Fog rule on an 80 m island (applied to every near/far column in this file, §2.1.4 and §2.8.1 included):** the camera stands about 20 m from the hero (pitch 50°: 13 m behind, 15 m up), so the far rim seen from the island's centre is 55 m from the camera (78 m on the 128 m draft) and the opposite rim seen from an edge is 94 m; every column was remapped so that the hero and the centre-view rim keep the fog fractions the draft gave them (`near' = 8 + 0.6·near`, `far' = near' + 0.6·(far − near)`, whole metres) and `far` is capped at 100 m because nothing on the island is farther than that from the camera, which is what "the world finishes before it disappears" means in metres: the rim is always softened, never gone, and the fog range is never spent on empty sky.
 
 Anti-palette check on this table: no fog colour is neutral (every one leans lavender, honey, or indigo); the darkest shadow colour is the night hemisphere ground `#0F2A1E` (a green-black, never `#000`); the noon key is cream, not the default bluish-white; and the night exposure never drops below 0.80, so night stays a place rather than a dimmer.
 
@@ -152,31 +154,31 @@ Point lights and emissives at the Forest camp per keyframe (the "night is a feat
 
 #### 2.1.4 The other four islands
 
-Same columns, compressed. Key and hemi intensities follow the Forest table unless a cell says otherwise. Fog near/far scale with the island: desert air is clear, bog air is thick.
+Same columns, compressed. Key and hemi intensities follow the Forest table unless a cell says otherwise. Fog near/far scale with the island: desert air is clear, bog air is thick; the Desert's and Frozen's day columns sit on the 100 m cap and differ by `near` alone.
 
 **Desert** (`#B3541E` sienna, `#D9A441` ochre, `#4A2C6B` dusk violet, `#1FA3A0` oasis, `#EDE3CF` bone). Noon is this island's hero look, not golden hour: hard cream light, then long violet shadows at dusk.
 
 | Keyframe | Key | Hemi sky · ground | Fog · near / far | Sky zenith · horizon | Exposure | Ambient set |
 |---|---|---|---|---|---|---|
-| dawn | `#FFC9A0` 1.8 | `#8A7BB8` · `#7A4A2A` | `#C9A98A` · 40 / 160 | `#3A3A78` · `#F7B98A` | 0.95 | sand streams (light), beetles |
-| morning | `#FFF0D0` 2.8 | `#9CC4EA` · `#8A5A30` | `#E2CBA8` · 60 / 220 | `#3F78C8` · `#E8D8C0` | 1.0 | sand streams, vultures |
-| noon | `#FFFBEE` **3.4** | `#78B0E8` · `#A06A38` | `#E8D8BC` · 70 / 260 | `#2C6AC0` · `#D8E4EC` | 1.05 | sand streams, **heat shimmer**, vultures |
-| golden hour | `#FFB86A` 2.4 | `#7A6AB0` · `#8A4A28` | `#D8955A` · 45 / 180 | `#4A3C8A` · `#FF9E5A` | 1.05 | sand streams, dust devils |
-| dusk | `#FF7A5A` 1.2 | `#4A2C6B` · `#5A3020` | `#6A4A80` · 35 / 140 | `#2A1C50` · `#E0604A` | 0.95 | sand hushes, first stars (the brightest sky in the game) |
-| night | `#9AB0E8` 0.6 | `#1E2A5A` · `#3A2418` | `#242A58` · 30 / 120 | `#080C2A` · `#2A3068` | 0.85 | stars 1.0 (dense), fennec foxes |
-| deep night | `#8AA0E0` 0.5 | `#141E48` · `#2A1A12` | `#1A2048` · 28 / 110 | `#04061C` · `#1C2454` | 0.8 | stars, meteors, cold sand glitter |
+| dawn | `#FFC9A0` 1.8 | `#8A7BB8` · `#7A4A2A` | `#C9A98A` · 32 / 100 | `#3A3A78` · `#F7B98A` | 0.95 | sand streams (light), beetles |
+| morning | `#FFF0D0` 2.8 | `#9CC4EA` · `#8A5A30` | `#E2CBA8` · 44 / 100 | `#3F78C8` · `#E8D8C0` | 1.0 | sand streams, vultures |
+| noon | `#FFFBEE` **3.4** | `#78B0E8` · `#A06A38` | `#E8D8BC` · 50 / 100 | `#2C6AC0` · `#D8E4EC` | 1.05 | sand streams, **heat shimmer**, vultures |
+| golden hour | `#FFB86A` 2.4 | `#7A6AB0` · `#8A4A28` | `#D8955A` · 35 / 100 | `#4A3C8A` · `#FF9E5A` | 1.05 | sand streams, dust devils |
+| dusk | `#FF7A5A` 1.2 | `#4A2C6B` · `#5A3020` | `#6A4A80` · 29 / 92 | `#2A1C50` · `#E0604A` | 0.95 | sand hushes, first stars (the brightest sky in the game) |
+| night | `#9AB0E8` 0.6 | `#1E2A5A` · `#3A2418` | `#242A58` · 26 / 80 | `#080C2A` · `#2A3068` | 0.85 | stars 1.0 (dense), fennec foxes |
+| deep night | `#8AA0E0` 0.5 | `#141E48` · `#2A1A12` | `#1A2048` · 25 / 74 | `#04061C` · `#1C2454` | 0.8 | stars, meteors, cold sand glitter |
 
 **Bog** (`#0B2B2E` teal-black water, `#6CE87A` phosphor, `#5A3E78` bruise fog, `#FFB347` witch-lantern, `#4A3524` rot-brown). Night is the hero look: the ground itself glows.
 
 | Keyframe | Key | Hemi sky · ground | Fog · near / far | Sky zenith · horizon | Exposure | Ambient set |
 |---|---|---|---|---|---|---|
-| dawn | `#E8B8A0` 1.3 | `#6A6A98` · `#2A3A28` | `#7A6A98` · 14 / 60 | `#2A2E58` · `#D8A088` | 0.9 | spores, ground fog 0.5, bubbles, frogs |
-| morning | `#F2E4C0` 2.0 | `#7A9CC0` · `#3A5A34` | `#8FA898` · 22 / 85 | `#3A6AA8` · `#B8C8B8` | 0.95 | spores, dragonflies, bubbles |
-| noon | `#F8F0DA` 2.3 | `#6E9AC8` · `#3E6438` | `#93AB9C` · 26 / 95 | `#2E62A8` · `#A8C0B8` | 1.0 | spores, dragonflies, herons |
-| golden hour | `#F0B870` 1.9 | `#6A5A98` · `#4A5A2A` | `#B08A6A` · 18 / 75 | `#3A4A98` · `#E89A6A` | 1.0 | spores backlit, bubbles, first wisps |
-| dusk | `#D8705A` 1.0 | `#4A3A70` · `#243A24` | `#5A3E78` · 12 / 55 | `#1A1C48` · `#C05A4A` | 0.9 | wisps rising, mushrooms lighting, ground fog 0.7 |
-| **night** | `#7A90D0` 0.45 | `#16204A` · `#0E2A22` | `#2A2448` · 10 / 50 | `#06081E` · `#1E2050` | 0.85 | wisps full, mushrooms full, witch lanterns, bubbles |
-| deep night | `#6C82C8` 0.4 | `#101838` · `#0B2B2E` | `#221C40` · 9 / 45 | `#030512` · `#181A44` | 0.8 | wisps, mushrooms, will-o'-wisp paths (dungeons.md) |
+| dawn | `#E8B8A0` 1.3 | `#6A6A98` · `#2A3A28` | `#7A6A98` · 16 / 44 | `#2A2E58` · `#D8A088` | 0.9 | spores, ground fog 0.5, bubbles, frogs |
+| morning | `#F2E4C0` 2.0 | `#7A9CC0` · `#3A5A34` | `#8FA898` · 21 / 59 | `#3A6AA8` · `#B8C8B8` | 0.95 | spores, dragonflies, bubbles |
+| noon | `#F8F0DA` 2.3 | `#6E9AC8` · `#3E6438` | `#93AB9C` · 24 / 65 | `#2E62A8` · `#A8C0B8` | 1.0 | spores, dragonflies, herons |
+| golden hour | `#F0B870` 1.9 | `#6A5A98` · `#4A5A2A` | `#B08A6A` · 19 / 53 | `#3A4A98` · `#E89A6A` | 1.0 | spores backlit, bubbles, first wisps |
+| dusk | `#D8705A` 1.0 | `#4A3A70` · `#243A24` | `#5A3E78` · 15 / 41 | `#1A1C48` · `#C05A4A` | 0.9 | wisps rising, mushrooms lighting, ground fog 0.7 |
+| **night** | `#7A90D0` 0.45 | `#16204A` · `#0E2A22` | `#2A2448` · 14 / 38 | `#06081E` · `#1E2050` | 0.85 | wisps full, mushrooms full, witch lanterns, bubbles |
+| deep night | `#6C82C8` 0.4 | `#101838` · `#0B2B2E` | `#221C40` · 13 / 35 | `#030512` · `#181A44` | 0.8 | wisps, mushrooms, will-o'-wisp paths (dungeons.md) |
 
 The Bog's morning and noon fog (`#8FA898`, `#93AB9C`) is sage, not gray: hue 140°, saturation 12 %. That is the floor for how neutral any fog in the game may get.
 
@@ -184,13 +186,13 @@ The Bog's morning and noon fog (`#8FA898`, `#93AB9C`) is sage, not gray: hue 140
 
 | Keyframe | Key | Hemi sky · ground | Fog · near / far | Sky zenith · horizon | Exposure | Ambient set |
 |---|---|---|---|---|---|---|
-| dawn | `#FFC2B0` 1.7 | `#7A8AC8` · `#8FA8C8` | `#B8C4E0` · 30 / 120 | `#2A3878` · `#F2B0A0` | 0.95 | snowfall (light), ice glitter, breath puffs |
-| morning | `#FFF4E4` 2.7 | `#9CC8F0` · `#A8C0DC` | `#CFE0F2` · 45 / 170 | `#3A80D0` · `#D8ECF8` | 1.0 | snowfall, ice glitter, ptarmigan |
-| noon | `#FFFFFF` 3.0 | `#84BCEE` · `#B0C8E0` | `#D4E4F4` · 50 / 190 | `#2E70C8` · `#C8E2F4` | 1.0 | snowfall (light), glitter, goats |
-| golden hour | `#FFC898` 2.2 | `#7A7AC0` · `#B098A8` | `#D0B0B8` · 35 / 140 | `#3C4AA0` · `#FFB090` | 1.05 | snowfall, pink glitter, elk |
-| dusk | `#E87A80` 1.0 | `#3E3C88` · `#5A6898` | `#5A5A98` · 25 / 110 | `#181C50` · `#C86078` | 0.9 | snowfall, stars 0.5, aurora fading in from `p = 0.68` |
-| **night** | `#9AB4F0` 0.65 | `#1B2A5A` · `#3A4A78` | `#22305E` · 22 / 95 | `#080C2C` · `#1E2A60` | 0.9 | **aurora**, snowfall, glitter, snowy owl |
-| deep night | `#8AA6E8` 0.55 | `#141F4A` · `#2E3C66` | `#1A2650` · 20 / 90 | `#04071E` · `#182452` | 0.85 | aurora peak, snowfall, meteors |
+| dawn | `#FFC2B0` 1.7 | `#7A8AC8` · `#8FA8C8` | `#B8C4E0` · 26 / 80 | `#2A3878` · `#F2B0A0` | 0.95 | snowfall (light), ice glitter, breath puffs |
+| morning | `#FFF4E4` 2.7 | `#9CC8F0` · `#A8C0DC` | `#CFE0F2` · 35 / 100 | `#3A80D0` · `#D8ECF8` | 1.0 | snowfall, ice glitter, ptarmigan |
+| noon | `#FFFFFF` 3.0 | `#84BCEE` · `#B0C8E0` | `#D4E4F4` · 38 / 100 | `#2E70C8` · `#C8E2F4` | 1.0 | snowfall (light), glitter, goats |
+| golden hour | `#FFC898` 2.2 | `#7A7AC0` · `#B098A8` | `#D0B0B8` · 29 / 92 | `#3C4AA0` · `#FFB090` | 1.05 | snowfall, pink glitter, elk |
+| dusk | `#E87A80` 1.0 | `#3E3C88` · `#5A6898` | `#5A5A98` · 23 / 74 | `#181C50` · `#C86078` | 0.9 | snowfall, stars 0.5, aurora fading in from `p = 0.68` |
+| **night** | `#9AB4F0` 0.65 | `#1B2A5A` · `#3A4A78` | `#22305E` · 21 / 65 | `#080C2C` · `#1E2A60` | 0.9 | **aurora**, snowfall, glitter, snowy owl |
+| deep night | `#8AA6E8` 0.55 | `#141F4A` · `#2E3C66` | `#1A2650` · 20 / 62 | `#04071E` · `#182452` | 0.85 | aurora peak, snowfall, meteors |
 
 Snow is brighter than every other ground, so the Frozen hemisphere *ground* colour is light: bounce off snow is real fill, and it is what keeps the Frozen night from being a dimmer.
 
@@ -200,7 +202,7 @@ Snow is brighter than every other ground, so the Frozen hemisphere *ground* colo
 |---|---|
 | Key | `#5A3A8A` · 0.7 from elevation 12° / azimuth 300°: a dusk sun that never sets, from the wrong side |
 | Hemi | sky `#2A1A48` · ground `#120A1F` · 0.5 |
-| Fog | `#1E1030` · 16 / 60, height falloff 6 m (fog pools low; the canopy stays clear) |
+| Fog | `#1E1030` · 18 / 44, height falloff 6 m (fog pools low; the canopy stays clear) |
 | Sky | zenith `#06030E` · horizon `#3A1A50` · ground `#120A1F`; a rift-cyan `#3AF0FF` glow lobe at the horizon where the sun should be, and a smaller one opposite |
 | Stars | wrong: the Forest constellations (§2.6) mirrored left-right, tinted `#3AF0FF` |
 | Moon | a black disc with a thin ember `#FF6A2A` rim, elevation 40°, never moves |
@@ -263,11 +265,11 @@ Why the longer non-clear duration: with a 6 s fade in and out, a 20 s v27 storm 
 | Type | Sky / fog / key | Particles (High) | Post stack | Sound hook | Visibility (`vis.radius`) | Gameplay |
 |---|---|---|---|---|---|---|
 | `clear` | keyframe as authored | island ambient set only | baseline | `amb.<island>.<phase>` bed | ×1.0 | none |
-| `rain` | key ×0.55, colour → `#CFD8E8` 40 %; hemi sky → `#4A5A80` 50 %; fog → island fog darkened 20 % and cooled, near ×0.85 far ×0.7; clouds → `#6A7290` | **900** streaks: quad 0.03 × 0.35 m stretched along velocity, vel (wind, −22, 0) m/s where wind = −1.5 m/s x-drift, life 1.2 s, colour `rgba(150,200,255,0.7)`; box 24 × 16 × 24 m around the camera. Plus **60** splash rings on the ground plane (decal quads, 0.25 s, r 0.1→0.3 m) spawned where streaks meet the ground within 8 m of the hero | saturation −8 %; bloom unchanged; DoF unchanged | `amb.rain` loop; `amb.rainLeaves` layered on Forest; `amb.rainWater` near water | ×1.0 | enemy speed ×0.9 (v27); crate drift ±0.8 m/s (v27 `rnd(-20,20)` px/s) |
+| `rain` | key ×0.55, colour → `#CFD8E8` 40 %; hemi sky → `#4A5A80` 50 %; fog → island fog darkened 20 % and cooled, near ×0.85 far ×0.7; clouds → `#6A7290` | **900** streaks: quad 0.03 × 0.35 m stretched along velocity, vel (wind, −22, 0) m/s where wind = −1.5 m/s x-drift, life 1.2 s, colour `rgba(150,200,255,0.7)`; box 24 × 16 × 24 m around the camera. Plus **60** splash rings on the ground plane (decal quads, 0.25 s, r 0.1→0.3 m) spawned where streaks meet the ground within 8 m of the hero | saturation −8 %; bloom unchanged; DoF unchanged | `amb.rain` loop; `amb.rainLeaves` layered on Forest; `amb.rainWater` near water | ×1.0 | enemy speed ×0.9 (v27); crate drift ±0.5 m/s (v27 `rnd(-20,20)` px/s) |
 | `storm` | rain × 1.6 (key ×0.35, hemi sky → `#3A4466` 65 %, fog far ×0.55, clouds → `#3E4460` fast drift ×3) | rain **1,400** at vel (−4, −26, 0); wind gust uniform on the sway shader ×2.2 with 3–5 s gusts; leaves ×2 | saturation −12 %; vignette 0.30 (from 0.25) | `amb.storm` bed (rain + wind); `thunder` per strike; `thunder.far` for sheet lightning | ×1.0 | rain effects **plus lightning** (§2.2.4); crate drift widened |
 | `snow` | key ×0.8, colour → `#DCE8F8` 30 %; hemi sky → `#9AB4D8` 30 %; fog → `#C8D8EC` 30 %, far ×0.8 | **700** flakes: flat hex quads 0.04–0.09 m, vel (±0.6 drift, −0.8 to −1.6, ±0.6) m/s, spin ±2 rad/s, life 6 s, `rgba(255,255,255,0.7)` | bloom threshold −0.05 (flakes catch the light); saturation −5 % | `amb.snowHush` (low wind, −6 dB on the island bed) | ×1.0 | hero damage ×1.1 (v27) |
 | `blizzard` **[new]** | snow × plus key ×0.5, hemi → `#8AA0C0` 60 %; fog → `#B8C8DC` 70 %, **near ×0.5, far ×0.35** | flakes **2,000** at vel (**8**, −3, 0) m/s streaming across; **12** wind-streak billboards (1.5 × 0.1 m, alpha 0.15, 0.4 s) | saturation −15 %; vignette 0.32; a 1 px chromatic shift at the frame edge (Medium+) | `amb.blizzard` (wind dominates; the island bed ducks −12 dB) | **×0.5** | hero damage ×1.1 (snow rule); enemy aggro range ×0.6 (§2.2.5); hero speed unchanged (v27 rule: weather never slows heroes); crate drift widened |
-| `sand` | key ×0.7 warmed → `#E0B070` 50 %; hemi → `#C29A64` 60 %; **fog → `#C29A64`** (v27 `rgba(194,154,100)`) 85 %, **near ×0.4, far ×0.4**; clouds hidden | **1,200** grains: 0.02–0.05 m, vel (**5–9**, ±0.4, ±0.4) m/s, life 2 s, `rgba(210,180,100,0.4)`, zero drag (v27's "crosses the whole screen"); plus **8** large dust billboards 3 × 2 m, alpha 0.12, drifting at 4 m/s, life 5 s (v27's heavy dust) | warm grade (+0.06 toward `#D9A441`); film grain 0.04; bloom radius ×1.3 | `amb.sandstorm` (hiss + low howl) | **×0.625** (v27) | crate drift ±0.8 m/s (v27); ranged enemies (`archer`, `healer`) lose 30 % range (new; enemies.md confirms) |
+| `sand` | key ×0.7 warmed → `#E0B070` 50 %; hemi → `#C29A64` 60 %; **fog → `#C29A64`** (v27 `rgba(194,154,100)`) 85 %, **near ×0.4, far ×0.4**; clouds hidden | **1,200** grains: 0.02–0.05 m, vel (**5–9**, ±0.4, ±0.4) m/s, life 2 s, `rgba(210,180,100,0.4)`, zero drag (v27's "crosses the whole screen"); plus **8** large dust billboards 3 × 2 m, alpha 0.12, drifting at 4 m/s, life 5 s (v27's heavy dust) | warm grade (+0.06 toward `#D9A441`); film grain 0.04; bloom radius ×1.3 | `amb.sandstorm` (hiss + low howl) | **×0.625** (v27) | crate drift ±0.5 m/s (v27); ranged enemies (`archer`, `healer`) lose 30 % range (new; **proposed**: enemies.md does not include it yet, §5.2) |
 | `fog` | key ×0.6, diffuse; hemi → island fog colour 40 %; **fog → island `fog.dense` token** (Forest `#A7C4B8` sage-mist, Bog `#7A6A98` bruise) 80 %, **near ×0.3, far ×0.35**; clouds hidden | **40** mist wisps: 4 × 1.5 m soft billboards at 0.3–1 m altitude, alpha 0.10, drifting 0.3 m/s, life 12 s | bloom radius ×1.6 and threshold −0.1 (lantern halos: the reason fog is pretty); saturation −6 % | `amb.fogDrip` (Bog), `amb.fogHush` (Forest) | **×0.5625** (v27) | crate drift unchanged (v27); enemies also lose aggro range ×0.75 |
 | `ashfall` **[new]** | key ×0.8; fog density +20 %; the rift lobes dim 30 % | ash **400** falling flakes `#5C5C66` at −0.9 m/s, life 8 s, plus embers ×1.5 | grain 0.05 | `amb.ashfall` (faint crackle) | ×0.85 | none |
 | `riftstorm` **[new]** | the rift lobes pulse ×2 at 0.4 Hz; hemi sky → `#1A4A5A` 40 %; no rain | none new; embers ×2 rising faster | bloom +0.2 | `amb.rift` bed; `thunder.rift` (pitched −12 st) | ×0.9 | the storm lightning recipe in rift cyan (§2.2.4), damage to shadow enemies only; bosses.md may key its cadence to Shadow Queen phases |
@@ -282,17 +284,17 @@ The brief requires "lightning flashes that light the scene" (§4.4 item 4). v27'
 |---|---|---|
 | First strike after the storm begins | 4–8 s | v27 |
 | Interval | 10–18 s | v27 |
-| Placement | hero ±16 m on each axis (v27 ±400 px); if within 8 m of the previous strike, pushed a further 8 m away along the same sign (v27 200 px rule) | v27 |
-| Telegraph | **1.0 s** ground decal: two rings r **2.4 m** and **1.2 m**, `#E8A838`, line width 0.08 m, alpha `0.3 + sin(t·15)·0.3` (0.0–0.6, ~2.4 Hz); the decal projects onto terrain (no floating discs on slopes) | v27 |
+| Placement | hero ±10 m on each axis (v27 ±400 px); if within 5 m of the previous strike, pushed a further 5 m away along the same sign (v27 200 px rule) | v27 |
+| Telegraph | **1.0 s** ground decal: two rings r **1.5 m** and **0.75 m** (v27 60 / 30 px, strict: the 3 m disc is two Liam-heights wide at the camera and the same size as Ground Pound's ring, heroes.md §2.5.1, so the decal system has one shape), `#E8A838`, line width 0.08 m, alpha `0.3 + sin(t·15)·0.3` (0.0–0.6, ~2.4 Hz); the decal projects onto terrain (no floating discs on slopes) | v27 |
 | Bolt | a 5–7 segment jagged polyline from 60 m altitude to the strike point, 0.15 m core `#FFFFFF` emissive 6 on the bloom layer with a `#6B8EC8` outer ribbon, 2 forks of 30 % length; visible **0.12 s**, dying as `(1 − t/0.12)²` | new geometry, v27 timing |
 | Scene flash | directional light intensity multiplied by `1 + 4.5·env(t)` and colour lerped to `#E8F0FF` by `env(t)`, where `env` is the **v27 double envelope**: `t < 0.06 s → clamp((0.12 − t)·6, 0, 0.45) / 0.45`, then `sin((0.12 − t)·180)·0.12 / 0.45` ripple; hemisphere sky → `#FFFFFF` at `0.6·env(t)` | v27 envelope, applied to lights |
 | Strike light | one pooled `PointLight` at the strike point, `#DDE8FF`, intensity 40, range 12 m, same envelope, 0.12 s | new |
 | Screen | fullscreen white at **0.12 × env(t)** maximum (a quarter of v27's 0.45): the lights now do the work | v27 → reduced |
 | Bloom | intensity +0.6 × env(t) | new |
-| Shake | `shake(6 × clamp(1 − d/30, 0.2, 1), 0.2)` where `d` is metres from the strike to the hero (Thud tier of ATMOSPHERE §10.3, scaled by distance) | v27 had none |
+| Shake | `shake(6 × clamp(1 − d/20, 0.2, 1), 0.2)` where `d` is metres from the strike to the hero (the divisor follows the ±10 m placement box) (Thud tier of ATMOSPHERE §10.3, scaled by distance) | v27 had none |
 | Sound | `thunder` = v27 `boom` 0.3 plus a 1.2 s low rumble tail (audio.md); played at the flash (distances here are too short for a delay to read) | v27 `boom` only |
-| Sparks | 12 particles, speed 2.4–7.2 m/s (v27 60–180 px/s), life 0.3 s, size 0.08–0.2 m, colours `#fff` `#6B8EC8` `#a29bfe`, drag 0.9 | v27 |
-| Damage | **30 to every enemy within 2.4 m** (v27 60 px); heroes are never hit | v27; kept because it is the game's one act of weather on the player's side: character-building weather |
+| Sparks | 12 particles, speed 1.5–4.5 m/s (v27 60–180 px/s), life 0.3 s, size 0.08–0.2 m, colours `#fff` `#6B8EC8` `#a29bfe`, drag 0.9 | v27 |
+| Damage | **30 to every enemy within 1.5 m** (v27 60 px, strict: the disc keeps v27's odds of catching a goblin, and it is the telegraph's outer ring); heroes are never hit | v27; kept because it is the game's one act of weather on the player's side: character-building weather |
 | Scorch | a 1.6 m dark decal `#2A2418` at 0.35 alpha fading over 20 s | new |
 
 **Sheet lightning** (new, storm only): every 6–14 s, with no strike, the sky dome's cloud layer flashes at a random azimuth (a 60° lobe, `#DDE8FF` at 0.5 for 0.08 s), the key light spikes to ×1.6 for 0.08 s, and `thunder.far` plays **0.8–2.0 s later**. This is where the distance-thunder beat ATMOSPHERE §18 asked for lives; it costs nothing and it makes the storm feel large.
@@ -305,6 +307,8 @@ v27's fog-of-war disc is **cut** as a visual (§2.4.4 has the rationale). Its *n
 vis.radius = 12 m × (isNight ? 0.75 : 1) × weatherMul, floored at 6 m
 weatherMul: sand 0.625 · fog 0.5625 · blizzard 0.5 · ashfall 0.85 · riftstorm 0.9 · else 1
 ```
+
+**12 m is a design value, not a conversion.** v27's 300 px disc is 7.5 m at 40 px = 1 m; 12 m is a diorama choice for an 80 m island seen from the orbit camera, where 7.5 m would end just past the party and reveal the minimap a tile at a time (§6). Interaction with enemies.md's 14 m perception radius: the aggro cap `min(aggro, vis.radius × 1.25)` is 15 m in clear daylight, so 14 m stands untouched; night (9 m → 11.25 m), `sand` (9.4 m), `fog` (8.4 m), `blizzard` (7.5 m) and `ashfall` (12.75 m) pull it under 14 m, and the 6 m floor keeps the cap at 7.5 m or more even at night in a sandstorm.
 
 Consumers: the compass strip and minimap reveal (ui-ux.md), enemy aggro range cap (`min(enemy.aggro, vis.radius × 1.25)`, enemies.md), the far-object dimming term in the shared material chunk (objects beyond `vis.radius × 1.5` lerp 25 % toward the fog colour), and the "20 px wider than the visual" entity cull becomes a streaming cull at `vis.radius × 2.5`. Sandstorm and blizzard therefore *are* the visibility mechanic dungeons.md reuses: a dungeon room sets `room.visOverride` in metres and the same shader term and the same aggro cap apply. The blizzard rope-line rooms and the pyramid's sandstorm chambers need nothing new from this file.
 
@@ -456,9 +460,9 @@ Every announce string below is verbatim from FAMILY_CANON §10.6 unless marked *
 | Field | Value |
 |---|---|
 | Announce | `💰 GOBLIN CARAVAN! Kill them for loot!` · end `Caravan loot secured!` |
-| Duration | **45 s** (v27 20 s: v27 goblins crossed a 128 m world; the island road walk is longer and the caravan must be catchable on foot) |
-| Cast | 8 × `caravan_goblin` (enemies.md variant of `goblin`: hp 40, spd 2.4 m/s, xp 10, drops nothing individually), plus **one loot cart** (new prop: a two-wheel cart 1.2 m long pulled by the lead goblin, stacked with three crates and **a lantern on a pole**, `#E8A838` point light 1.0 · 5 m, on the pooled budget) |
-| Path | spawns 30 m ahead of the hero on the island's main road and walks the road away from the camp toward the far edge; at the edge it "leaves" (walks off the rim onto a plank bridge into fog) and the event ends unrewarded |
+| Duration | **45 s** cap (v27 20 s). Re-checked at 40 px = 1 m: at 1.5 m/s the file covers 67 m in 45 s, longer than any road run on an 80 m island, so the rim exit ends most caravans after 17–43 s and the cap binds only on the longest road; the hero closes the 15 m spawn gap at 3 m/s in 5 s, so there are always 12 s or more to fight it |
+| Cast | 8 × `caravan_goblin` (enemies.md variant of `goblin`: hp 40, spd 1.5 m/s (v27 60 px/s), xp 10, drops nothing individually), plus **one loot cart** (new prop: a two-wheel cart 1.2 m long pulled by the lead goblin, stacked with three crates and **a lantern on a pole**, `#E8A838` point light 1.0 · 5 m, on the pooled budget) |
+| Path | spawns 15 m from the hero along the island's main road (just past `vis.radius`: the beam shows first, then the cart) and walks the road away from the camp toward the far rim; if fewer than 25 m of road remain that way it walks the other way instead (v27's line ran in either direction); at the edge it "leaves" (walks off the rim onto a plank bridge into fog) and the event ends unrewarded |
 | Telegraph | the cart lantern's beam: a 14 m vertical soft cone, `#E8A838` at 0.12, the lantern-beam language of Brief §6 in gold; visible from anywhere on the island above the tree line; the compass strip shows the cart icon |
 | Resolution | all 8 dead → the cart tips: 3 × `rollGearDrop(0, 1)` at the cart ±1.2 m, `addXP(50)`, the announce; the cart itself remains as a wreck prop for 45 s then despawns |
 | Reads at distance | a gold beam over a moving lantern, and a file of red goblins with one big brown shape |
@@ -481,9 +485,9 @@ Every announce string below is verbatim from FAMILY_CANON §10.6 unless marked *
 | Field | Value |
 |---|---|
 | Announce | `💰 TREASURE GOBLIN! Catch it!` · escape `The Treasure Goblin escaped!` |
-| Duration | **20 s** (v27 15 s; islands are larger) |
-| Cast | 1 × `treasure_goblin` (enemies.md variant: hp 100, spd **8 m/s**, colour `#E8A838` / `#C89E28`, size 0.4 m, xp 20, `fleeing`) carrying an over-sized sack `#E8A838` emissive 0.6 |
-| Spawn | hero ± 8 m (v27 ±200 px), on the far side from the camera so it runs *away* into frame |
+| Duration | **20 s** cap (v27 15 s). Re-checked at 40 px = 1 m: the island is v27's 3200 px exactly, so the chase geometry is v27's and the rim ends a straight sprint in 3–16 s; the extra 5 s covers the parachute exit |
+| Cast | 1 × `treasure_goblin` (enemies.md variant: hp 100, spd **5 m/s** (v27 200 px/s; 1.11× Liam, the v27 ratio), colour `#E8A838` / `#C89E28`, size 0.4 m, xp 20, `fleeing`) carrying an over-sized sack `#E8A838` emissive 0.6 |
+| Spawn | hero ± 5 m (v27 ±200 px), on the far side from the camera so it runs *away* into frame |
 | Trail | drops one coin every 0.5 s while fleeing (pickup 1–3 gold, 8 s life): a breadcrumb that also pays the chase **[new behaviour]** |
 | Telegraph | the sack's glow plus a jingling loop `treasure.jingle` that pans with it; a gold dot on the compass strip |
 | Resolution | killed → `trigAch('treasureHunter')`, 1 × `rollGearDrop(1, 1)` at the corpse + 2 × `rollGearDrop(1, 0)` at ±0.8 m (v27); escape → it reaches the island rim, jumps, and a tiny crate-style parachute (§12 canopy, red and cream) opens as it floats down into the clouds: the announce fires as the canopy disappears |
@@ -495,9 +499,9 @@ Every announce string below is verbatim from FAMILY_CANON §10.6 unless marked *
 |---|---|
 | Announce | `💚 Healing Spring appeared!` · end `The spring fades...` · world label `Healing Spring` |
 | Duration | **30 s** (v27 20 s) |
-| Position | hero ± 12 m (v27 ±300 px) clamped inside the island; snapped to the nearest flat ground cell (no springs on slopes or water) |
-| Visual | a 3.2 m stone basin rises out of the ground over 1.5 s (3 stacked low-poly rings, `#7A8A8A` with moss), water `#2EB8A6` fills it, a **green lantern beam** (`#3DCC7A` at 0.14, 14 m tall) marks it, white flowers (12 instanced) bloom around it, 20 `pt.pollen` tinted `#3DCC7A` rise from the water, one point light `#3DCC7A` · 1.4 · 6 m; the v27 breathing ring becomes a water-surface ripple ring at `r = 3.2 + 0.2·sin(t·4)` |
-| Gameplay | 25 HP/s to every unlocked, living, non-downed hero within 3.2 m (v27 80 px); `updateQuestProgress('survive_event')` on end (v27) |
+| Position | hero ± 7.5 m (v27 ±300 px) clamped inside the island; snapped to the nearest flat ground cell (no springs on slopes or water) |
+| Visual | a stone basin of radius 2.0 m (4 m across; v27 80 px) rises out of the ground over 1.5 s (3 stacked low-poly rings, `#7A8A8A` with moss), water `#2EB8A6` fills it, a **green lantern beam** (`#3DCC7A` at 0.14, 14 m tall) marks it, white flowers (12 instanced) bloom around it, 20 `pt.pollen` tinted `#3DCC7A` rise from the water, one point light `#3DCC7A` · 1.4 · 6 m; the v27 breathing ring becomes a water-surface ripple ring at `r = 2.0 + 0.15·sin(t·4)` |
+| Gameplay | 25 HP/s to every unlocked, living, non-downed hero within 2.0 m (v27 80 px); `updateQuestProgress('survive_event')` on end (v27) |
 | Sound | `event_start`, `amb.spring` (trickle) while alive |
 | Reads at distance | a green beam and a bright turquoise disc in the ground |
 
@@ -531,8 +535,8 @@ Every announce string below is verbatim from FAMILY_CANON §10.6 unless marked *
 |---|---|
 | Announce | `A lantern flickers somewhere in the dark.` **[new text]** · end `Lantern brought home.` **[new text]** · timeout `The lantern went out.` **[new text]** |
 | Duration | 90 s |
-| Setup | one lantern prop (`forest.lantern` model) placed 25–45 m from the camp on a path or clearing, lit `#FFB347` · 1.2 · 6 m, flickering ±20 % at 3 Hz (a dying flame); a **12 m vertical beam** at 0.08 marks it from afar |
-| Loop | Interact within 1.5 m picks it up; the carrying hero holds it (a hand-socket prop; heroes.md's rigs need one hand socket per hero) and its light travels with the party (vis.radius ×1.25 while carried); Bog wisps swarm toward it (harmless, pretty); enemies met on the way are ordinary; deliver to the camp's lantern post (within 3 m) |
+| Setup | one lantern prop (`forest.lantern` model) placed 20–35 m from the camp on a path or clearing (re-checked for the 80 m island: 45 m from a central camp would be past the rim), lit `#FFB347` · 1.2 · 6 m, flickering ±20 % at 3 Hz (a dying flame); a **12 m vertical beam** at 0.08 marks it from afar |
+| Loop | Interact within 1.5 m picks it up; the carrying hero holds it (a carry-socket prop: heroes.md's rigs have the weapon sockets `prop.R` / `prop.L` but no free-hand carry socket; one is **requested as a heroes.md addendum**, §5.2) and its light travels with the party (vis.radius ×1.25 while carried); Bog wisps swarm toward it (harmless, pretty); enemies met on the way are ordinary; deliver to the camp's lantern post (within 3 m) |
 | Reward | +50 XP; the lantern is **added to the camp** permanently (`camp.lanternCount++`, camp.md decides where the fourth, fifth, sixth lanterns hang); max 3 lanterns from this event per save |
 | Reads at distance | a lone warm beam in a dark wood |
 
@@ -570,6 +574,8 @@ v27 had none of these outside the meteor cutscene (ATMOSPHERE §18). They are ne
 | Constellations | five hand-placed groups of 4–7 brighter stars (size 2.6, brightness 1.0), visible on every island at deep night: **The Biplane**, **The Lantern**, **The Campfire**, **The Squad** (four stars in a row), **The Meteor** (a streak-shaped line that "points" toward the crater's island). Names are **[new text]**; they appear only when a hero sits at the campfire and looks up (camp.md, §2.7.3) |
 | Clouds | 5–9 low-poly cloud clusters per island (3–7 merged icospheres each, flat-shaded, vertex-coloured white with a `#B8C8E0` underside), 8–14 m across, drifting 0.4 m/s with slow bob; **two per island sit below the island rim** so the camera sees them between the trees (Brief §4.1); tinted by the keyframe cloud colour; 1 draw call via `InstancedMesh`; cast no shadows, receive the key |
 | Void clouds (Shadow) | the same meshes in `#1A1030`, all below the rim, drifting *toward* the shard at 0.2 m/s |
+
+The sizes and distances in this table are design values that do not follow the island scale: the dome, sun, moon and stars sit 500–600 m out, far beyond the 100 m fog cap, and are drawn with fog off; a 14 m cloud is a sixth of the island's width, which is the toy chunkiness of the reference; and the two clouds below the rim are what make an 80 m island read as floating rather than small.
 
 ### 2.7 The peaceful layer in the world
 
@@ -626,14 +632,14 @@ One button, timing only, no meters. Brief §5.5 names it; Phase 4 ships it (Brie
 | Prerequisite | `flag.fishingRodOwned` (a story-beats placeholder: the rod is a camp item, most naturally from Gran's things or the first supply drop; story-beats.md and camp.md decide who gives it) |
 | Spots | authored **fishing spots** (a 1.5 m ring decal on the water, `#2EB8A6` at 0.25, gently pulsing at 0.5 Hz): Forest — the camp stream pool and the lake; Desert — the oasis; Bog — three open-water spots, one only reachable by lily pads; Frozen — an ice hole on the frozen lake (a drilled ring in the ice); Shadow — the mirrored stream, one spot (see the catch table) |
 | Approach | within 2 m of a spot with no enemy within 15 m, the Interact prompt reads `Fish` (ui-ux.md); Interact (Space / A / `ACT`) casts |
-| Cast | the hero turns to the water, a 1.2 s cast animation (heroes.md: one shared `fish_cast` and `fish_reel` clip per hero, personality allowed), the bobber (0.12 m, red and cream like the parachute) lands 3–5 m out with a splash ring |
+| Cast | the hero turns to the water, a 1.2 s cast animation (one `fish_cast` and one `fish_reel` clip per hero, personality allowed: **requested as a heroes.md addendum**, §5.2; heroes.md does not define them), the bobber (0.12 m, red and cream like the parachute) lands 3–5 m out with a splash ring |
 | Wait | 2–8 s; the bobber bobs at 0.8 Hz; **two fake nibbles** (a 0.1 m dip with a small ring) at random times before the real bite; a fake nibble rewards patience, not reaction |
 | Bite | the bobber plunges 0.4 m, a 0.5 m splash ring, `fish.bite` sound, gamepad rumble 0.2 s; the **window is 0.7 s** (1.0 s on Easy, 0.5 s on Hard); a rare catch shows a double plunge and a 0.5 s window |
 | Hit | Interact inside the window → `fish.catch`; the fish arcs out of the water on a 0.6 s spline into the hero's hand; the hero holds it overhead for 1.2 s with a **catch card** (name, length, rarity; ui-ux.md draws it in the scrapbook style); the fish goes to the inventory |
 | Miss | Interact outside the window or window expires → `It got away.` **[new text]** in the announce channel, the bobber pops, recast is immediate |
 | Interrupt | an enemy within 10 m, taking damage, or moving cancels the cast (no penalty) |
 | Value | fish sell at the merchant (npcs.md) at 5 / 12 / 40 gold by rarity; the first catch of each species adds a scrapbook page entry; catching every species awards a new achievement **`Gone Fishin'`** — `Catch one of every fish` **[new text]** (ui-ux.md adds it to the achievements page; existing achievement names are untouched) |
-| Companions | the three idle heroes stand at the bank and watch (heroes.md: a `watch` idle); no combat AI while a cast is live and no enemy is near |
+| Companions | the three idle heroes stand at the bank and watch (a `watch` idle, **requested as a heroes.md addendum**, §5.2; heroes.md does not define it); no combat AI while a cast is live and no enemy is near |
 
 Catch table (weights in parentheses; **rare** rows have the double-plunge tell):
 
@@ -662,37 +668,39 @@ dungeons.md builds its interiors on these tokens so a dungeon reads as the same 
 
 #### 2.8.1 Fog and darkness tokens
 
-Every v27 `DNG_AMBIENT` plate becomes a tinted fog plus a low hemisphere: never neutral, never black. `dark` is the v27 alpha kept as a 0–1 number that scales fog density and hemisphere intensity.
+Every v27 `DNG_AMBIENT` plate becomes a tinted fog plus a low hemisphere: never neutral, never black. `dark` is the v27 alpha kept as a 0–1 number that scales fog density and hemisphere intensity. Near / far are camera distances, as in §2.1.3 (the draft's 4–8 m nears were measured from the hero and would have put the hero, 20 m from the camera, inside the fog); they are set so the floor is clear for 4–8 m beyond the hero and closes to `dark` 14–28 m beyond the hero, which is the v27 darkness-disc read, and if dungeons.md pulls the camera in it subtracts the same amount from both columns.
 
 | Token | v27 source | Fog colour | Hemi sky · ground | `dark` | Near / far (m) | Note |
 |---|---|---|---|---|---|---|
-| `dng.forest` | `rgba(8,20,10,0.70)` | `#0E2412` | `#1A3A22` · `#08140A` | 0.70 | 6 / 22 | green-black |
-| `dng.cave` | `rgba(12,10,28,0.72)` | `#16123A` | `#2A2458` · `#0C0A1C` | 0.72 | 5 / 20 | violet-black; crystal rooms add `pt.sparkle` |
-| `dng.desert` | `rgba(40,28,8,0.62)` | `#3A2A10` | `#5A4020` · `#281C08` | 0.62 | 8 / 28 | **warm brown, the brightest dungeon** (v27 rule kept) |
-| `dng.bog` | `rgba(8,18,8,0.72)` | `#0E1E10` | `#1C3A1E` · `#08120A` | 0.72 → **0.85** in the lantern rooms | 4 / 14 | dungeons.md may push `dark` to 0.85 for the darkness dungeon; the hero pool then shrinks (§2.8.2) |
-| `dng.frozen` | `rgba(8,14,35,0.73)` | `#101A3A` | `#1E2C5A` · `#0A0E24` | 0.73 | 6 / 22 | blue-black, the darkest v27 dungeon; aurora rooms add `uAurora` |
-| `dng.volcanic` | `rgba(35,8,4,0.65)` | `#2A0C08` | `#4A1A10` · `#1C0806` | 0.65 | 7 / 24 | red-black; embers up |
-| `dng.citadel1` | `rgba(18,8,28,0.72)` | `#1A0C2A` | `#2A1840` · `#0E0818` | 0.72 | 6 / 22 | violet |
-| `dng.citadel2` | same | `#160A26` | `#281438` · `#0A0410` | 0.74 | 5 / 20 | deeper violet |
-| `dng.citadel3` | same | `#1A0A10` | `#381414` · `#08040E` | 0.76 | 5 / 18 | **red**; descent written into the palette (ATMOSPHERE §15.5) |
-| `dng.shadow` | `rgb(60,0,80)` wash | `#1E1030` | `#2A1A48` · `#120A1F` | 0.70 | 6 / 20 | the Shadow Realm's island values (§2.1.4), indoors |
+| `dng.forest` | `rgba(8,20,10,0.70)` | `#0E2412` | `#1A3A22` · `#08140A` | 0.70 | 24 / 38 | green-black |
+| `dng.cave` | `rgba(12,10,28,0.72)` | `#16123A` | `#2A2458` · `#0C0A1C` | 0.72 | 24 / 36 | violet-black; crystal rooms add `pt.sparkle` |
+| `dng.desert` | `rgba(40,28,8,0.62)` | `#3A2A10` | `#5A4020` · `#281C08` | 0.62 | 26 / 44 | **warm brown, the brightest dungeon** (v27 rule kept) |
+| `dng.bog` | `rgba(8,18,8,0.72)` | `#0E1E10` | `#1C3A1E` · `#08120A` | 0.72 → **0.85** in the lantern rooms | 23 / 31 | dungeons.md may push `dark` to 0.85 for the darkness dungeon; the hero pool then shrinks (§2.8.2) |
+| `dng.frozen` | `rgba(8,14,35,0.73)` | `#101A3A` | `#1E2C5A` · `#0A0E24` | 0.73 | 24 / 38 | blue-black, the darkest v27 dungeon; aurora rooms add `uAurora` |
+| `dng.volcanic` | `rgba(35,8,4,0.65)` | `#2A0C08` | `#4A1A10` · `#1C0806` | 0.65 | 25 / 40 | red-black; embers up |
+| `dng.citadel1` | `rgba(18,8,28,0.72)` | `#1A0C2A` | `#2A1840` · `#0E0818` | 0.72 | 24 / 38 | violet |
+| `dng.citadel2` | same | `#160A26` | `#281438` · `#0A0410` | 0.74 | 24 / 36 | deeper violet |
+| `dng.citadel3` | same | `#1A0A10` | `#381414` · `#08040E` | 0.76 | 24 / 34 | **red**; descent written into the palette (ATMOSPHERE §15.5) |
+| `dng.shadow` | `rgb(60,0,80)` wash | `#1E1030` | `#2A1A48` · `#120A1F` | 0.70 | 24 / 36 | the Shadow Realm's island values (§2.1.4), indoors |
 
 Rules: atmosphere particles are on the bloom layer and **ignore fog** (v27 drew them on top of the darkness, ATMOSPHERE §6.2 step 5); the hero light pool is always present; the outdoor keyframe never applies indoors unless a room is flagged open-sky, in which case the island keyframe blends in at `1 − dark`.
 
 #### 2.8.2 Light pools (the dynamic light budget)
 
-One `DirectionalLight`, one `HemisphereLight`, and a pool of **8 `PointLight`s** per scene (Brief §4.3 "small pool, distance-culled"). Priority when more than 8 want to exist: hero pool > carried lantern > boss > spell light (newest first) > event marker > torches by distance > enemy glow. Everything below the cut renders emissive-only; the flame still flickers because the oscillator runs in the shader, not in the light.
+One `DirectionalLight`, one `HemisphereLight`, and a pool of **8 `PointLight`s** per scene (Brief §4.3 "small pool, distance-culled"; heroes.md §4.2: `src/render/lights.ts` owns the pool and everything else requests). Priority when more than 8 want to exist: `light.heroPool` (indoors) or `light.ring` (overworld at night) > Collette's orb > carried lantern > boss > Collette's bolts (newest first; the oldest bolt is the first thing reclaimed) > `light.strike` (takes the oldest bolt's slot for 0.12 s) > event marker > torches by distance > projectiles. **Reserve:** heroes.md's worst case is 6 hero-side lights (orb 1, bolts 4, ring or pool 1), so 6 slots are guaranteed to the hero side and 2 to the world; the carried lantern and a boss are what fill those 2, and while all 8 are taken, torches, event markers, placed lanterns and projectiles run emissive-only (a 4-bolt volley lasts about 2 s, so they are lit most of the time). Indoors `light.heroPool` replaces `light.ring` in the same slot; they never coexist. Everything below the cut renders emissive-only; the flame still flickers because the oscillator runs in the shader, not in the light, and a light that loses its slot fades over 0.3 s (§4.6).
 
 | Token | Colour | Intensity | Range | Decay | v27 source | Notes |
 |---|---|---|---|---|---|---|
-| `light.heroPool` | `#FFDC96` | 1.8 | **4.8 m** (120 px); **7.2 m** in boss rooms (180 px) | 2 | ATMOSPHERE §6.2 hero light | falloff shaped to v27's 1 / 0.7 / 0.3 / 0 shoulders via a custom `distanceAttenuation` in the chunk; in `dng.bog` at `dark 0.85`: 1.5 m |
-| `light.torch` | `#FFB450` | 1.2 × (0.8 + 0.15·flVal) | 2.2 m (55 px) | 2 | §8.2 torch | driven by the torch oscillator (§2.8.3) |
+| `light.heroPool` | `#FFDC96` | 1.8 | **4 m** (v27 120 px, strict 3.0 m; design value, §6); **6 m** in boss rooms (v27 180 px, strict 4.5 m) | 2 | ATMOSPHERE §6.2 hero light | falloff shaped to v27's 1 / 0.7 / 0.3 / 0 shoulders via a custom `distanceAttenuation` in the chunk; in `dng.bog` at `dark 0.85`: 1.5 m; dungeons only, centred on the active hero, replacing `light.ring` indoors |
+| `light.ring` | `hero.<active>.glow` | 0.6 | 3 m | 2 | heroes.md §2.7.5 | the active hero's selection ring drives it on the overworld when `isNight()`, 0.3 m above the ground; off by day and indoors; cross-fades with the ring on swap |
+| `light.torch` | `#FFB450` | 1.2 × (0.8 + 0.15·flVal) | **2 m** (v27 55 px, strict 1.4 m; design value, §6) | 2 | §8.2 torch | driven by the torch oscillator (§2.8.3) |
 | `light.lantern` | `#FFB347` | 1.2 carried · 1.0 placed | 6 m carried · 4 m placed | 2 | new (v27 had none) | the Bog dungeon's only light source; also the camp lanterns and the Lost Lantern |
 | `light.campfire` | `#FF9A3C` | 2.5 ± 12 % at 7–9 Hz | 9 m | 2 | new | the shared-oscillator rule applies (flame mesh and light share the value) |
-| `light.spell.<hero>` | hero colour from heroes.md | 1.5 | 4 m | 2 | Brief §4.3 | 0.4 s life on cast, pooled; Collette's may persist 3 s (heroes.md) |
-| `light.projectile` | projectile colour | 0.6 | 1.4 m (35 px) | 2 | §6.2 | only when the pool has room; else emissive core + bloom |
+| `light.spell.collette` | `#E08CF0` (`hero.collette.glow`) | orb 0.8 steady, 2.0 for 1.2 s on Arcane Nova; bolts 1.2 | orb 2.5 m, 4.5 m during the ult; bolts 3 m | 2 | heroes.md §2.5.4, §4.2 | one orb light while Collette is unlocked and in the scene; ≤ 4 bolt lights live, oldest reclaimed; the numbers are heroes.md's and are not restated anywhere else |
+| `light.spell.liam` · `.noah` · `.isabella` | `#4A9ED8` · `#FFC46B` · `#FFD966` (the `glow` tokens) | — | — | — | heroes.md §4.2 | **no pooled light**: trails, rings and ult telegraphs are emissive in `glow` on the bloom layer; the tokens exist so an addendum could light them without renaming |
+| `light.projectile` | projectile colour | 0.6 | 0.9 m (35 px) | 2 | §6.2 | enemy and boss projectiles only (Collette's bolts are `light.spell.collette`); only when the pool has room; else emissive core + bloom |
 | `light.enemyGlow` | — | — | — | — | §6.2 enemy 35 px `rgba(255,100,100,0.3)` | **no light**: emissive eyes `#FF6464` 0.8 on the bloom layer |
-| `light.boss` | `#FFC864` · enraged `#FF5050` | 2.0 · 2.6 | 2.4 m · 3.2 m (60 / 80 px) | 2 | §6.2 boss | the enraged room tint is a grade (`#B40000` at 0.06), not a light |
+| `light.boss` | `#FFC864` · enraged `#FF5050` | 2.0 · 2.6 | 1.5 m · 2.0 m (60 / 80 px) | 2 | §6.2 boss | the enraged room tint is a grade (`#B40000` at 0.06), not a light; bosses.md may raise the range for a boss taller than 2 m |
 | `light.event` | event colour (§2.5.2) | 1.0–1.4 | 3–6 m | 2 | new | springs, carts, shards |
 | `light.strike` | `#DDE8FF` | 40 | 12 m | 2 | §2.2.4 | 0.12 s, takes any slot |
 
@@ -756,7 +764,7 @@ A room sets `room.visOverride` in metres (§2.2.5) and gets the sandstorm or bli
 | §9.2 Crate landing dust, lightning sparks, crater motes | kept | `pt.dust` ×6 on landing; 12 sparks per strike; crater motes rise (`pt.ember` in `#A862C4` / `#1abc9c`) — cutscenes/story own the crater. |
 | §10 Shake ladder | kept | Earthquake 12 / 3.0 and the strike's Thud 6 / 0.2 (scaled by distance) sit on the v27 ladder. |
 | §11 Biplane as four noise sources | deferred to npcs.md | This file only reserves the channel and blows the crates in bad weather. |
-| §12 Parachute crates blown by weather | **kept** | `storm`, `sand`, `blizzard` widen drift to ±0.8 m/s. |
+| §12 Parachute crates blown by weather | **kept** | `storm`, `sand`, `blizzard` widen drift to ±0.5 m/s. |
 | §15.1 Always-on world vignette in `--bg-0` navy | **kept** | `#0B0E1A` at 0.25, raised in storms. |
 | §15.1 Blood-moon plate | **replaced** | A real red moon, a red key, a lifted-red grade, and a pulse on the moon's bloom: the same 0.5 Hz breath, no plate. |
 | §15.5 Shadow Realm violet wash | translated | One locked keyframe plus a shadow-lift grade; the "no time of day" rule kept on purpose. |
@@ -832,7 +840,7 @@ Update order inside the fixed step (SYSTEMS_INVENTORY Part 2 §18.2 kept): input
 ### 4.5 Test hooks
 
 - Dev console: `clock.set <p|dawn|morning|noon|golden|dusk|night|deep>`, `clock.speed <mul>`, `weather.set <key> [--now]`, `weather.strike` (forces a lightning strike 6 m ahead), `event.fire <key>`, `event.list`, `aurora.force <0..1|off>`, `animals.count`, `animals.flee`, `fish.bite` (forces the next bite in 1 s), `vis.radius` (prints).
-- Vitest (sim, deterministic): phase boundaries at `p` 0.10 / 0.60 / 0.70 / 0.85; v27 migration `p_new = (p_v27 − 0.75) mod 1`; weather pool weights match §2.2.1 over 10,000 seeded rolls ±2 %; non-clear never repeats; strike placement never within 8 m of the previous; `vis.radius` table; event eligibility filters; `survive_event` counts all eight; `bloodmoon` XP ×3 overrides night ×1.5; fishing window by difficulty; catch-table gating by phase and aurora.
+- Vitest (sim, deterministic): phase boundaries at `p` 0.10 / 0.60 / 0.70 / 0.85; v27 migration `p_new = (p_v27 − 0.75) mod 1`; weather pool weights match §2.2.1 over 10,000 seeded rolls ±2 %; non-clear never repeats; strike placement never within 5 m of the previous; `vis.radius` table; event eligibility filters; `survive_event` counts all eight; `bloodmoon` XP ×3 overrides night ×1.5; fishing window by difficulty; catch-table gating by phase and aurora.
 - Headless smoke: the twelve stations render non-black PNGs at each of the three clock values; a storm capture shows a mean luminance spike ≥ 40 % on the strike frame versus the frame before (the "lightning lights the scene" check); a frame-time budget test at High with blizzard active.
 
 ### 4.6 Perf risks and mitigations
@@ -862,22 +870,22 @@ Update order inside the fixed step (SYSTEMS_INVENTORY Part 2 §18.2 kept): input
 
 ### 5.1 Earlier design files
 
-None exist yet; this file is in the first wave. It assumes nothing from `heroes.md` or `story-beats.md` except what is listed as a placeholder below.
+`heroes.md` (the foundation file) was read on 2026-09-06 for this reconciliation. Taken from it: the scale, 40 px = 1 m, and the 80 m island (§2.5.1); hero heights and run speeds (§2.0, §2.3.1); the glow tokens for `light.spell.<hero>` and `light.ring` (§2.1.1, §2.7.5); Collette's orb and bolt lights and the six-slot hero-side worst case that the light pool now reserves (§2.5.4, §4.2); the rig's `prop.R` / `prop.L` sockets (§2.7.3); Ground Pound's 1.5 m ring as the size the lightning telegraph matches (§2.5.1). `story-beats.md` was being written concurrently; this file assumes nothing from it beyond the placeholders in §5.3.
 
 ### 5.2 What later files must pick up from this one
 
 | File | Must pick up |
 |---|---|
 | **camp.md** | the campfire as `light.campfire` with the shared-oscillator rule; the campfire **rest** prompt (skip to next dawn or dusk) and the **sit** prompt (stargazing camera, §2.7.3); the three camp lanterns and cabin windows lighting on the §2.1.3 schedule; `camp.lanternCount` from the Lost Lantern event (max +3) and the Bog's rusted-lantern catch (+1); the camp stream fishing spot and where the rod lives; the fox that sits 12 m from the fire (pet or not is camp.md's call); pets never count against the 24-animal wild budget |
-| **npcs.md** | the `edFlyover` / `supplyDrop` slots and the 10 s exclusion via `events.reserve`; crate drift ±0.8 m/s in `storm`, `sand`, `blizzard`; the flight sequence showing departing and arriving weather; the merchant's violet beam and the `merchantArrival` slot; the Sand Nomad's awning and camel are shelter and animal props that this file does not design; Ed may deliver tip 2 in person during rain |
+| **npcs.md** | the `edFlyover` / `supplyDrop` slots and the 10 s exclusion via `events.reserve`; crate drift ±0.5 m/s in `storm`, `sand`, `blizzard`; the flight sequence showing departing and arriving weather; the merchant's violet beam and the `merchantArrival` slot; the Sand Nomad's awning and camel are shelter and animal props that this file does not design; Ed may deliver tip 2 in person during rain |
 | **dungeons.md** | everything in §2.8 (fog tokens, light pool and priorities, torch recipe, particle recipes, `visOverride`); the clock runs in dungeons; `world.aurora.intensity` as the power signal with a 0.5 default threshold; `dng.bog` at `dark 0.85` with the 1.5 m hero pool for the darkness dungeon; the frozen entrance's permanent shimmer; open-sky rooms blend the island keyframe at `1 − dark` |
 | **ui-ux.md** | the compass-strip icons for clock phase (v27 `hudDayNight` ☀️ 🌅 🌙) and weather (v27 labels); the `XP +50%` night badge; the announce channel with the verbatim emoji-led strings and the colours `#94C4DC` / `#dfe6e9`; the two *Storm Chaser* entries kept distinct; event markers as coloured lantern beams (gold cart, green spring, violet merchant, blue-white shard); the minimap's unexplored area as unlit paper, revealed by `vis.radius`; the catch card, the fish scrapbook page, `Gone Fishin'`, the `Fish` interact prompt, `It got away.`; the photo-mode prompt on migrations; the constellation name cards; the sheltering caption; the `star shard` scrapbook count |
 | **audio.md** | hook names: `amb.<island>.<phase>` beds, `amb.rain`, `amb.rainLeaves`, `amb.rainWater`, `amb.storm`, `amb.snowHush`, `amb.blizzard`, `amb.sandstorm`, `amb.fogDrip`, `amb.fogHush`, `amb.ashfall`, `amb.rift`, `amb.bloodMoon`, `amb.spring`, `thunder`, `thunder.far` (0.8–2.0 s late), `thunder.rift`, `quake.rumble`, `treasure.jingle`, `fish.bite`, `fish.catch`, `event_start` (v27, kept), one idle call per animal species, an owl hoot; ducking rules per weather in §2.2.3 |
-| **enemies.md** | `caravan_goblin` and `treasure_goblin` as `goblin` variants with the §2.5.2 stats; the `fleeing` flag used by the treasure goblin and the migration push; night ×1.15, rain/storm ×0.9, blood moon ×1.25 speed and ×1.5 damage; the aggro cap `min(aggro, vis.radius × 1.25)`; ranged range ×0.7 in `sand`; emissive eyes instead of enemy lights; growls pitched −3 st under the blood moon; animals are never targets |
+| **enemies.md** | `caravan_goblin` and `treasure_goblin` as `goblin` variants with the §2.5.2 stats; the `fleeing` flag used by the treasure goblin and the migration push; night ×1.15, rain/storm ×0.9, blood moon ×1.25 speed and ×1.5 damage; the aggro cap `min(aggro, vis.radius × 1.25)` (15 m by day, so its 14 m perception stands; night and weather lower it, §2.2.5); ranged range ×0.7 in `sand` (**proposed**; not in enemies.md yet); emissive eyes instead of enemy lights; growls pitched −3 st under the blood moon; animals are never targets |
 | **bosses.md** | `riftstorm` may be keyed to Shadow Queen phases; no world event during a boss; the boss light tokens |
 | **cutscenes.md** | cutscenes own the sky; the star layer and the meteor-streak shader are shared with the meteor cutscene; the crater's teal core on the bloom layer |
 | **story-beats.md** | the placeholder flags in §5.3; the Crystal Caves question; endless mode's fate and the event-driven hook if it stays; whether `flag.auroraFinale` is used |
-| **heroes.md** | hero height sets `scale.ts`; one hand socket per rig for the carried lantern and the held fish; `fish_cast`, `fish_reel` and a `watch` idle; spell light colours per hero for `light.spell.<hero>` |
+| **heroes.md** | Facts this file reads from heroes.md (§2.0, §2.1.1, §2.5.1, §2.5.4, §2.7.5, §4.2): 40 px = 1 m and the 80 m island; heights Liam 1.52 / Noah 1.40 / Collette 1.30 / Isabella 1.14 m; the glow tokens Liam `#4A9ED8`, Noah `#FFC46B`, Collette `#E08CF0`, Isabella `#FFD966` for `light.spell.<hero>` and `light.ring`; Collette's orb 0.8 / 2.5 m (2.0 / 4.5 m for 1.2 s on the ult) and bolts 1.2 / 3 m, ≤ 4 live, oldest reclaimed; the ring light 0.6 / 3 m at night; a hero-side worst case of 6 pool lights. **Requests for a heroes.md addendum, which the orchestrator collects (none of these exist in heroes.md yet):** one free-hand carry socket per rig for the carried lantern (§2.5.2) and the held fish (§2.7.2), since `prop.R` / `prop.L` are the weapon sockets; a `fish_cast` and a `fish_reel` clip per hero; a `watch` idle for companions at the bank. |
 
 ### 5.3 Placeholder flags and open reconciliations with story-beats.md
 
@@ -897,7 +905,7 @@ None exist yet; this file is in the first wave. It assumes nothing from `heroes.
 - **Teardown internal:** SYSTEMS_INVENTORY Part 1 says the `weather` bounty can never complete; Part 2 and the HTML (L1611, L688) show it does. This file follows the HTML. The teardown is not edited; the orchestrator may want a one-line erratum in the Phase 0 spot-check.
 - **Brief §4.3 vs v27 dungeon clock:** the brief's aurora-powered mechanisms require the clock to run in dungeons; v27 froze it. Resolved in favour of the brief (§2.1.1, logged).
 - **Brief §4.4 vs v27 fog of war:** a radial darkness plate cannot coexist with a lit diorama. Resolved by cutting the visual and keeping the number (§2.4.4, logged).
-- No conflict with `heroes.md` or `story-beats.md` is known; both were unwritten at the time of writing.
+- **Scale vs `heroes.md` (resolved 2026-09-06):** the draft used a provisional 25 px = 1 m (128 m island, 1.6 m hero) while heroes.md was being written in parallel; heroes.md fixed 40 px = 1 m (80 m island, Liam 1.52 m) and every converted value here was reconciled to it (§2.0, §6). No conflict with `story-beats.md` is known; it was unwritten at the time of writing.
 
 ## 6. Decisions logged
 
@@ -913,10 +921,10 @@ None exist yet; this file is in the first wave. It assumes nothing from `heroes.
 - 2026-09-06 · phase-0.5/world-events-weather · Shadow Realm gets two new weather types (`ashfall`, `riftstorm`) · v27 had no weather there; the finale needs a sky that moves · rejected: rain or storm in the Shadow Realm (too much like home).
 - 2026-09-06 · phase-0.5/world-events-weather · v27 `cave` retired as an island; its ambient and dungeon tokens (`pt.dust`, `pt.sparkle`, `dng.cave`) kept for a sub-region or dungeon story-beats.md may place · Brief §5.1 names four islands plus the Shadow Realm · rejected: a fifth island (brief), dropping the recipes (canon quests reference the Crystal Depths).
 - 2026-09-06 · phase-0.5/world-events-weather · Lightning lights the scene: the v27 double-flash envelope drives the directional light (×5.5 peak) and a strike point light; the fullscreen white plate drops from 0.45 to 0.12 · Brief §4.4 item 4; the telegraph, timing, damage and heroes-never-hit rule are kept verbatim · rejected: plate-only flash (fake), removing damage (loses "character-building weather").
-- 2026-09-06 · phase-0.5/world-events-weather · Sheet lightning with 0.8–2.0 s delayed far thunder added to storms · ATMOSPHERE §18 asked for a thunder delay; strike distances (≤ 24 m) are too short to delay, so the beat moves to the sky · rejected: delaying strike thunder (imperceptible).
+- 2026-09-06 · phase-0.5/world-events-weather · Sheet lightning with 0.8–2.0 s delayed far thunder added to storms · ATMOSPHERE §18 asked for a thunder delay; strike distances (≤ 15 m) are too short to delay, so the beat moves to the sky · rejected: delaying strike thunder (imperceptible).
 - 2026-09-06 · phase-0.5/world-events-weather · Aurora is four hanging shader curtains, not ribbons, lit onto the snow by one material uniform (`uAurora`) and no extra light; signal `world.aurora.intensity` published for dungeons · keeps v27's faintness, hues and rarity; a light would cost a pool slot · rejected: a directional aurora fill light, a screen-space ribbon port (parallax breaks in 3D).
 - 2026-09-06 · phase-0.5/world-events-weather · All eight world events count toward `survive_event` (v27 counted three of five) · the quest text says "Survive 3 world events" · rejected: preserving the omission.
-- 2026-09-06 · phase-0.5/world-events-weather · Event durations: caravan 45 s (was 20), blood moon 40 s (25), treasure 20 s (15), spring 30 s (20); earthquake 3 s unchanged · islands are larger than 128 m and sky transitions need 3 s in / 5 s out · rejected: v27 durations.
+- 2026-09-06 · phase-0.5/world-events-weather · Event durations: caravan 45 s (was 20), blood moon 40 s (25), treasure 20 s (15), spring 30 s (20); earthquake 3 s unchanged · the caravan and treasure durations are caps that the island rim usually ends first (§2.5.2), and the blood-moon sky and the spring basin need 3 s in / 5 s out to read as events · rejected: v27 durations.
 - 2026-09-06 · phase-0.5/world-events-weather · Blood Moon gets a real red moon and a false night if it fires by day; weight ×3 at night so the false night is rare · v27 had a red plate and no moon; "night is a feature" · rejected: night-only blood moons (too rare), plate-only (anti-palette).
 - 2026-09-06 · phase-0.5/world-events-weather · Three new events, all marked [new text]: Meteor Shower (deep night), The Lost Lantern (night, Forest/Bog), Migration (dawn/dusk, Forest/Frozen) · each showcases a layer v27 could not draw (stars, carried light, herds); count kept modest · rejected: combat-only additions, more than three.
 - 2026-09-06 · phase-0.5/world-events-weather · A 10 s exclusion between world events and biplane flyovers/supply drops via `events.reserve` · "if you see a yellow biplane, wave" only works if the plane is never upstaged · rejected: folding the biplane into the event scheduler (npcs.md owns it).
@@ -925,6 +933,9 @@ None exist yet; this file is in the first wave. It assumes nothing from `heroes.
 - 2026-09-06 · phase-0.5/world-events-weather · Five constellations named for the family's things (The Biplane, The Lantern, The Campfire, The Squad, The Meteor), visible from the campfire at deep night · tips 11 and 12 made visible; names avoid hero props because roles are open in heroes.md · rejected: constellations named after the kids' weapons (role-dependent).
 - 2026-09-06 · phase-0.5/world-events-weather · The `weather` bounty is treated as working (v27 L1611 calls it), contradicting SYSTEMS_INVENTORY Part 1 · verified by grep against the HTML · rejected: "fixing" a bug that does not exist.
 - 2026-09-06 · phase-0.5/world-events-weather · Dynamic light pool fixed at 8 points with a named priority order; enemy glows become emissive eyes · Brief §7.4 and §4.3; v27 capped implicitly by entity count · rejected: per-enemy lights.
+- 2026-09-06 · phase-0.5/world-events-weather · Adopted heroes.md's 40 px = 1 m (1 px = 0.025 m) in place of the draft's provisional 25 px = 1 m and reconverted every px-derived value: lightning ±10 m placement, 5 m spacing, 1.5 / 0.75 m rings, 1.5 m damage, 1.5–4.5 m/s sparks; caravan goblins 1.5 m/s; treasure goblin 5 m/s at ±5 m; spring ±7.5 m and 2.0 m; crate drift ±0.5 m/s; projectile light 0.9 m; boss light 1.5 / 2.0 m; fog columns remapped to the 80 m island with `far` capped at 100 m; caravan spawn 30 → 15 m and the Lost Lantern 20–35 m from camp so both fit the island · the foundation file's decision: an 80 m island and 4.0–4.5 m/s kids are the right size for the orbit camera, and every kit ratio is preserved · rejected: keeping 25 px = 1 m.
+- 2026-09-06 · phase-0.5/world-events-weather · Dungeon light ranges kept at v27's size relative to the hero instead of the strict conversion: `light.heroPool` 4 m (strict 3.0 m), 6 m in boss rooms (strict 4.5 m), `light.torch` 2 m (strict 1.4 m) · heroes.md's 1.52 m hero is 1.5× the strict-converted v27 sprite, so a strict pool lights two hero heights of floor and reads as a ring around the feet, not a pool, at the gameplay camera · rejected: strict conversion, a 6 m pool (swallows the torches).
+- 2026-09-06 · phase-0.5/world-events-weather · `vis.radius` default 12 m is a design value; v27's 300 px disc is 7.5 m at 40 px = 1 m · on an 80 m island seen from the orbit camera, 7.5 m would cap enemy aggro under enemies.md's 14 m perception in clear daylight and reveal the minimap a tile at a time; 12 m × 1.25 = 15 m leaves 14 m intact by day and lets night, sand, fog and blizzard bite · rejected: strict 7.5 m.
 
 ## 7. Reconcile when the brainstorm doc lands
 
