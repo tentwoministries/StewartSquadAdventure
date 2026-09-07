@@ -17,6 +17,10 @@ export interface Deer {
   update: (t: number, dt: number, groundY: (x: number, z: number) => number) => void;
   /** Park at a position and heading (for a station frame), grazing. */
   park: (x: number, z: number, bearing: number) => void;
+  /** Start a walk to a new spot now (demo key). */
+  walkNow: () => void;
+  /** Walking speed in m/s (demo keys nudge it). */
+  speed: { value: number };
 }
 
 export interface Patch { x: number; z: number; r: number; avoid: { x: number; z: number; r: number }[] }
@@ -68,7 +72,7 @@ export function makeDeer(patch: Patch, seed = 5): Deer {
 
   // ---- behaviour ------------------------------------------------------------------------------
   const r = rng(seed);
-  const SPEED = 0.55; // m/s: slower than the bible's 1.0 for the demo (Andrew); logged in LOG.md
+  const speed = { value: 0.55 }; // m/s: slower than the bible's 1.0 for the demo (Andrew); [ and ] nudge it
   let state: 'graze' | 'walk' | 'look' = 'graze';
   let stateT = 6 + r() * 5;
   let heading = 0, wantHeading = 0;
@@ -99,7 +103,7 @@ export function makeDeer(patch: Patch, seed = 5): Deer {
         let diff = ((wantHeading - heading + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
         diff = Math.max(-turnRate * dt, Math.min(turnRate * dt, diff));
         heading += diff;
-        const sp = SPEED * Math.min(1, dist / 1.2);
+        const sp = speed.value * Math.min(1, dist / 1.2);
         root.position.x += Math.cos(heading) * sp * dt;
         root.position.z -= Math.sin(heading) * sp * dt;
         stride = Math.min(1, stride + dt * 2);
@@ -109,14 +113,15 @@ export function makeDeer(patch: Patch, seed = 5): Deer {
     root.rotation.y = heading;
     root.position.y = groundY(root.position.x, root.position.z);
     // legs and body: a slow diagonal walk, faded in and out; a still stance while grazing
-    walkPhase += dt * 6.283 * 0.95 * stride;
+    walkPhase += dt * 6.283 * (0.95 * speed.value / 0.55) * stride;
     legs.forEach((l, i) => { const ph = i === 0 || i === 3 ? 0 : Math.PI; l.rotation.z = Math.sin(walkPhase + ph) * 0.32 * stride; });
     body.position.y = 0.95 + Math.abs(Math.sin(walkPhase)) * 0.02 * stride + 0.006 * Math.sin(t * 1.2);
     // head: down to graze, up to walk or look; eased; small bob while walking
     const wantGraze = state === 'graze' ? 1 : 0;
     graze += (wantGraze - graze) * Math.min(1, dt * 1.8);
-    neck.rotation.z = -0.7 - 0.75 * graze + 0.05 * Math.sin(walkPhase * 2) * stride + (state === 'graze' ? 0.04 * Math.sin(t * 2.6) : 0);
-    head.rotation.z = 0.6 + 0.35 * graze;
+    // grazing: the neck swings down about 60° and the muzzle reaches the grass, with a nibble
+    neck.rotation.z = -0.7 - 1.05 * graze + 0.05 * Math.sin(walkPhase * 2) * stride + (state === 'graze' ? 0.05 * Math.sin(t * 2.6) : 0);
+    head.rotation.z = 0.6 + 0.55 * graze;
     head.rotation.y = state === 'look' ? 0.5 * Math.sin(t * 0.9) : 0;
     // ears: a flick every few seconds (Andrew liked the timing); the near ear leads
     if (t - earT > nextEar) { earT = t; nextEar = 2.5 + r() * 3; }
@@ -128,5 +133,6 @@ export function makeDeer(patch: Patch, seed = 5): Deer {
     heading = ((90 - bearing) * Math.PI) / 180; wantHeading = heading;
     state = 'graze'; stateT = 9; graze = 1; stride = 0;
   };
-  return { root, update, park };
+  const walkNow = () => { state = 'walk'; stateT = 30; pickTarget(); };
+  return { root, update, park, walkNow, speed };
 }

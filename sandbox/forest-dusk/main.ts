@@ -53,8 +53,9 @@ scene.add(scatter.group);
 const liam = makeLiam();
 scene.add(liam.root);
 // the camp-meadow deer (camp.md §2.9: habitat x −20..−8, z −14..−6), avoiding the tent, the fire and the boulders
-const deer = makeDeer({ x: -14, z: -9, r: 6.5, avoid: [{ x: -6, z: -3, r: 4 }, { x: 0, z: 0, r: 6.5 }, { x: -9, z: 3.5, r: 2.2 }] });
-deer.park(-9, -1, 180);
+// demo patch on the camp side of the tent so it stays in the S1/L1 frame; avoids the tent, the fire, Liam, the woodpile and the boulders
+const deer = makeDeer({ x: -8, z: 4, r: 5.5, avoid: [{ x: -6, z: -3, r: 4 }, { x: 0, z: 0, r: 5 }, { x: -2.4, z: 1, r: 2.2 }, { x: -3.6, z: 2, r: 1.8 }, { x: -9, z: 3.5, r: 2.4 }, { x: -1.2, z: 4.6, r: 1 }] });
+deer.park(-9, -1, 160);
 scene.add(deer.root);
 const sky = makeSky();
 scene.add(sky.group);
@@ -128,8 +129,8 @@ function refreshHud(): void {
     `key ${kf.key.color} ×${kf.key.intensity} (×${UNITS.key} phys) elev ${kf.key.elev}° az ${kf.key.azim}° · hemi ${kf.hemi.sky}/${kf.hemi.ground} ×${kf.hemi.intensity} (×${UNITS.hemi} phys)`,
     `fog ${kf.fog.color} ${kf.fog.near}/${kf.fog.far} m max ${kf.fog.max} · sky ${kf.sky.zenith} ${kf.sky.horizon} ${kf.sky.ground}`,
     `exposure ${kf.exposure} · bloom thr ${POST_DRAFT.bloom.threshold} int ${POST_DRAFT.bloom.intensity} · tilt ${POST_DRAFT.tilt.focusArea}/${POST_DRAFT.tilt.feather} · vignette ${POST_DRAFT.vignette.darkness}`,
-    `fire ${LIGHT.campfire.intensity * kf.fire} cd ${LIGHT.campfire.range} m · lantern ${LIGHT.lantern.intensity * kf.lantern} cd · curve ${WORLD_U.uCurve.value} · post ${usePost ? 'on' : 'off'}${freeze ? ' · FROZEN' : ''}`,
-    `drag orbit · wheel zoom · R reset · keys 1-4 stations 5-9 W1/D1/CU/CF/L1 · T time · V variant · K curve · P post · F freeze · U card · O this · S save`,
+    `deer ${deer.speed.value.toFixed(2)} m/s · fire ${LIGHT.campfire.intensity * kf.fire} cd ${LIGHT.campfire.range} m · lantern ${LIGHT.lantern.intensity * kf.lantern} cd · curve ${WORLD_U.uCurve.value} · post ${usePost ? 'on' : 'off'}${freeze ? ' · FROZEN' : ''}`,
+    `drag orbit · wheel zoom · R reset · 0 deer walks · [ ] deer speed · keys 1-4 stations 5-9 W1/D1/CU/CF/L1 · T time · V variant · K curve · P post · F freeze · U card · O this · S save`,
   ].join('\n');
 }
 function say(msg: string): void { toast.textContent = msg; toast.style.opacity = '1'; setTimeout(() => (toast.style.opacity = '0'), 2200); }
@@ -150,6 +151,8 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'u' || e.key === 'U') { showCard = !showCard; refreshHud(); }
   else if (e.key === 'o' || e.key === 'O') { showHud = !showHud; refreshHud(); }
   else if (e.key === 's' || e.key === 'S') { void save(); }
+  else if (e.key === '0') { deer.walkNow(); say('deer: walking'); }
+  else if (e.key === '[' || e.key === ']') { deer.speed.value = Math.round(Math.max(0.2, Math.min(1.6, deer.speed.value + (e.key === ']' ? 0.05 : -0.05))) * 100) / 100; say(`deer speed ${deer.speed.value.toFixed(2)} m/s`); refreshHud(); }
 });
 // A save renders a frame itself: right after load the synchronous world build delays the first frame,
 // and a hidden browser pane stops requestAnimationFrame entirely.
@@ -187,6 +190,7 @@ function drawOverlay(ctx: CanvasRenderingContext2D): void {
   }
 }
 (window as unknown as { ssSave: () => Promise<void> }).ssSave = save;
+(window as unknown as { ssDeer: typeof deer }).ssDeer = deer;
 (window as unknown as { ssSet: (q: Record<string, string>) => void }).ssSet = go;
 refreshHud();
 
@@ -224,3 +228,7 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+// A hidden tab gets no animation frames; this keeps the world ticking while it is hidden (Chrome
+// throttles the timer to about 1 Hz, so it runs slow, not frozen). Logic checks from the console
+// call ssDeer.update directly with a fixed dt instead of waiting on real time.
+setInterval(() => { if (document.hidden) { const now = performance.now(); const dt = Math.min(0.05, (now - last) / 1000); last = now; renderOnce(dt); } }, 33);
