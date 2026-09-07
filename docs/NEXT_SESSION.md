@@ -39,6 +39,10 @@ These are Andrew's standing rules. They go at the top of every handoff document,
 - **Design Bible:** unchanged (Phase 0.75 rule 1). `p0.5-design-bible` on `main`.
 - **Phase 0 part B** still blocked on the brainstorm doc (Rule 1). Legacy inputs still missing from `docs/legacy/`: `stewart-squad-v26-complete-state.md`, `stewart-squad-gameplay-brainstorm-v2.md`, `stewart-squad-dev-instructions.md`. `docs/reference/fernwood.jpeg` is now the `Fernwood1–3` set.
 
+## Demo state and the scratch branch (Andrew, 2026-09-07)
+
+The study 1 sample set is frozen as tag **`p0.75-study1-demo`** on `phase-0.75-visual-studies`: `git checkout p0.75-study1-demo`, `npm run dev`, open `http://localhost:5173/sandbox/forest-dusk/?shot=L1&t=dusk&v=B` to demo it for Andrew's son. Quick, out-of-order suggestions are tried on **`phase-0.75-scratch`** (branched from the same commit): frames saved there are candidates, not approved; anything worth keeping becomes a tweak row and is cherry-picked onto the study branch. The structured process (this file, `LOG.md`, the tweak rows) continues on `phase-0.75-visual-studies`; the full design pass with his son happens there, with their screenshots filed under `docs/reference/` and a row per reaction. Nothing on the scratch branch is ever merged wholesale.
+
 ## What to do next session (in order)
 
 1. Read this file, `CLAUDE.md`, `docs/design/PHASE_0.75_BRIEF.md` §3, `docs/design/mockups/LOG.md`, `STUDY_NOTES.md` and the tweak rows. Confirm `CLAUDE_CODE_EFFORT_LEVEL` is unset. `git checkout phase-0.75-visual-studies`.
