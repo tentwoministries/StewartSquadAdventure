@@ -51,3 +51,14 @@ Branch `phase-0.5-design`, merged to `main` at the gate. Documents only. Eleven 
 - Process: the two Fable consistency agents died on the session limit and the pass re-ran on Opus with Edit (logged); `audio.md` slipped into the ui-ux commit unreviewed and was reviewed the next day (logged)
 - Size: Design Bible 8,845 lines / 12 files; teardown 10,432 lines; legacy HTML 9,901 lines
 - Still blocked (Rule 1): Phase 0 part B (`KEEP_CHANGE_DROP.md`, `PORT_MAP.md`, the `p0-teardown` tag) on the brainstorm doc; each design file's §7 lists what to reconcile when it lands
+
+## 2026-09-07 — Phase 0.75 session 1: the visual studies, study 1 (branch `phase-0.75-visual-studies`)
+
+Plan: set up `sandbox/` per `PHASE_0.75_BRIEF.md` §3.3 with verified library shapes, run study 1 (Forest dusk at the C1 camp from S1), produce a sample set for Andrew, log everything, edit no design file.
+
+- [x] Branch `phase-0.75-visual-studies`; Andrew's 21 reference frames filed with `docs/reference/README.md`; `docs/reference/MOTION_TEMPO_NOTES.md` (Andrew's tempo observations, T-06)
+- [x] Rule 2 verification of `postprocessing` 6.39.4 and three 0.185.1 shapes by real import (`docs/design/mockups/LOG.md`)
+- [x] `sandbox/_shared/` (tokens and keyframes, patched world material with height fog + curved world + sway + per-vertex emissive, sky dome/stars/moon/clouds, post stack, stations and the PNG save) and `sandbox/forest-dusk/` (terrain plate + stream + pond + cliff rim, trees and the seeded scatter, the C1 prop list, the pilot Liam rig with idle/walk/ring, the deer, fire/embers/smoke/fireflies/pollen, the page with the title card, party strip and key hints); `npm run check` green with `sandbox/` included; 2,300 lines across 16 files, none over 400
+- [x] Five iterations on the first frame; eight sample frames saved under `docs/design/mockups/`; `style-draft.json` (status draft) with every number; T-06..T-12 logged in `PHASE_0.75_TWEAKS.md`; `STUDY_NOTES.md` with the findings and the six questions for Andrew
+- [ ] Andrew's verdict on study 1 (variant, station pitch, tilt-shift, curve, grass, Liam) → approved frame(s) marked in `style-draft.json` and `LOG.md`; then study 2 (deep night) and study 3 (golden hour on the stream, S2)
+- Findings: the bible's light columns render as night under three's physical units (T-07); at pitch 48° no canopy enters S1 (T-08); the scatter densities read as confetti (T-09); the tent's 1.6 emissive blows out (T-10); variant B is the orchestrator's pick (T-11)

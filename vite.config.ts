@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import { fileURLToPath, URL } from 'node:url';
 import { viteSingleFile } from 'vite-plugin-singlefile';
+import { sandboxShotPlugin } from './sandbox/_shared/vite-shot-plugin';
 
 const alias = (name: string) => ({
   find: `@${name}`,
@@ -20,6 +21,7 @@ export default defineConfig(({ mode }) => ({
     outDir: mode === 'archive' ? 'dist-archive' : 'dist',
     assetsInlineLimit: mode === 'archive' ? Number.MAX_SAFE_INTEGER : 4096,
   },
-  plugins: mode === 'archive' ? [viteSingleFile({ removeViteModuleLoader: true })] : [],
+  // sandboxShotPlugin is dev-serve only (Phase 0.75 studies); it never enters a build.
+  plugins: mode === 'archive' ? [viteSingleFile({ removeViteModuleLoader: true })] : [sandboxShotPlugin()],
   server: { port: 5173, strictPort: true },
 }));

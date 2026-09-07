@@ -24,77 +24,37 @@ These are Andrew's standing rules. They go at the top of every handoff document,
 - Implementers (`render-engineer`, `systems-engineer`, `dungeon-designer`, `world-builder`, `ui-designer`, `net-engineer`): `opus` / `high`.
 - `archaeologist` and any mechanical work: `opus` / `medium`.
 - Escalate an implementer to Fable only for unusually judgment-heavy work (Phase 1 shader and lighting, the curved-world shader, the `BOSS_BLOCKS` port, the multiplayer spike, anything that failed twice on Opus) by adding a separate agent file such as `render-engineer-fable.md` and one `docs/DECISIONS.md` line. Never Fable on mechanical work; never `max` except scoring or gating; one strong review pass over repeated weak ones.
+- Phase 0.75 studies: the orchestrator writes the sandbox directly (logged exception); effort **medium** for the iteration loop, **high** when a study opens or a frame is approved (`PHASE_0.75_BRIEF.md` §5).
 
 ---
 
-# Next session — handoff written 2026-09-07 (end of session 1: Phase 0.5, the Design Bible; Phase 0.75 inserted before Phase 1)
-
-## Read this first: Phase 0.75 comes before Phase 1
-
-Andrew inserted **Phase 0.75 — Design Dialog** (2026-09-07) between the Design Bible and the pilot: an interactive pass over `docs/design/` where he and the orchestrator talk through each system, collect every agreed change in `docs/design/PHASE_0.75_TWEAKS.md`, and only then apply the list to the design files systematically. The process, the session plan, the effort levels per session type and the prompts to paste are in `docs/design/PHASE_0.75_BRIEF.md`. **The phase starts with the visual studies** (brief §3): a throwaway Three.js sandbox under `sandbox/`, rendered in the app's browser pane and screenshotted, so the palette, fog, light and scale are decided on real frames before any dialog; approved frames land under `docs/design/mockups/` and their numbers in `docs/design/mockups/style-draft.json`, which seeds `src/style/` in Phase 1. Then the dialog clusters, starting with the Crystal Caves (five ideas already logged as T-01 to T-05 in the tweaks file, with the dialog verbatim).
-
-Rules for the dialog and study sessions: answer from the files, log every decision as a row, commit the tweaks file and mockups every few rows, edit no design file, write no game code (the sandbox is a sketchbook, deleted after `p1-style-locked`). The Phase 1 plan below still stands and is also saved as `docs/handoffs/phase-1-pilot-handoff-2026-09-07.md`; the 0.75 application session restores it, updates it for the tweaks, and tags `p0.75-design-locked`.
-
-## Fresh machine setup (Andrew's laptop, first session there)
-
-Clone, or pull on an existing clone:
-
-```bash
-git clone https://github.com/tentwoministries/StewartSquadAdventure.git
-```
-
-Then, inside the repo, in this order:
-
-```bash
-nvm use
-```
-
-(`.nvmrc` pins 24.16.0; `nvm install 24.16.0` first if it is missing.)
-
-```bash
-npm ci
-```
-
-```bash
-npm run check
-```
-
-`npm run check` must be green before any work. `CLAUDE_CODE_EFFORT_LEVEL` must be unset in the shell (`echo $CLAUDE_CODE_EFFORT_LEVEL` prints nothing; if it prints a level, unset it, because it silently overrides every agent's frontmatter effort). `.claude/agents/` and `.claude/settings.json` are tracked, so every agent travels with the repo; Claude Code's auto-memory does **not** travel between machines, which is why this file is complete on its own. Run `gh auth login` once so the end-of-phase PR step works. Sanity check: `git tag` lists `p0-setup` and `p0.5-design-bible`, and `git log --oneline -1` on `main` is the Phase 0.5 gate merge.
+# Next session — handoff written 2026-09-07 (end of Phase 0.75 session 1: the visual studies, study 1 rendered and awaiting Andrew)
 
 ## Where we are
 
-- **Repo:** https://github.com/tentwoministries/StewartSquadAdventure. `main` holds the scaffold (`p0-setup`), Phase 0 part A (five of seven teardown docs), and Phase 0.5 (`p0.5-design-bible`, 2026-09-07). Both working branches so far (`phase-0-teardown`, `phase-0.5-design`) are merged. The next branch is `phase-1-pilot`.
-- **The Design Bible is done and authoritative:** `docs/design/`, eleven system files plus the README, 8,845 lines. Every file has *What v27 does → What it becomes → What preserves the magic*, was reviewed by the orchestrator (`docs/qa/phase-0.5-design-review-2026-09-06.md`, all PASS), and went through the 2026-09-07 consistency pass. `docs/DECISIONS.md` holds 389 dated lines. `CLAUDE.md` and Brief §2, §4–6 and §8 point at it. Revise a design file only through the `design-lead` agent plus a `DECISIONS.md` line; never edit one to match code.
-- **Decided in the bible, no longer open questions:** hero colors and roles — Liam sapphire `#2A62CF` / `#173A86`, glow `#4A9ED8`, **Tank**; Noah fox-orange `#EE7F24` / `#1F5E3F`, glow `#FFC46B`, **Ranger**; Collette amethyst `#9D4FD8` / `#5B2A8F`, glow `#E08CF0`, **Mage**; Isabella ruby `#D6294E` / `#8A1538`, glow `#FFD966`, **Whirlwind** (`heroes.md` §2.1–2.2; the Brief §1 versus v27-code conflict is closed). World scale 40 px = 1 m (0.025 m/px) in every file; island footprints per `story-beats.md` §2.2 (Forest 360 × 300 m, per-island `island.layoutScale`); north is `−z` (`+x` east, `+z` south); endless mode cut; 17 enemy types on five rigs; the plane is the travel system with four states; no audio files, ever.
-- **Toolchain green:** `npm run check` (tsc + eslint + vitest), `npm run build`, `npm run build:archive` (single-file verified). Node 24.16.0 pinned.
-- **Phase 0 part B is still not done** (`KEEP_CHANGE_DROP.md`, `PORT_MAP.md`, the `p0-teardown` tag): blocked on the brainstorm doc (Rule 1). The pilot does not depend on it (logged in `DECISIONS.md`). When the brainstorm doc lands, each design file's §7 lists exactly what to reconcile.
-
-## Needs Andrew (these gate specific tasks, not the session)
-
-1. **Legacy inputs** still missing from `docs/legacy/`: `stewart-squad-v26-complete-state.md`, `stewart-squad-gameplay-brainstorm-v2.md`, `stewart-squad-dev-instructions.md`; and `docs/reference/fernwood.jpeg`. Without the image, Brief §4.1's written description binds Phase 1. Without the brainstorm doc, part B and the bible's §7 reconciliations wait.
-2. **Repo visibility.** The remote is public; the brief asks for private. Flip it in GitHub settings if that is still the intent.
-3. **Optional, non-blocking, in Dad's voice:** a dedication line under the ending card (`story-beats.md` §8) and Grandpa Ed's likeness details (`npcs.md` §8). Both files ship without them.
+- **Branch:** `phase-0.75-visual-studies`, off `main` at `fee956e`. Everything from this session is committed there: Andrew's 21 reference frames, the sandbox, the eight sample frames, the logs and tweak rows. `main` is untouched. The branch is also the base for a second AI's independent visual pass if Andrew wants one (`DECISIONS.md` 2026-09-07). It merges to `main` at the Phase 0.75 application step.
+- **Study 1 (Forest dusk at the C1 camp, S1) is rendered and waiting for Andrew's verdict.** The sandbox runs: `npm run dev`, then `http://localhost:5173/sandbox/forest-dusk/?shot=S1&t=dusk&v=B` (all params and keys in `docs/design/mockups/LOG.md`). Eight frames are saved under `docs/design/mockups/`; the questions Andrew answers are `docs/design/mockups/STUDY_NOTES.md` §5 (variant A/B/C, S1 pitch, tilt-shift, curve, grass, Liam). Nothing is approved yet: `style-draft.json` is `status: draft`.
+- **Findings that became tweak rows** (`docs/design/PHASE_0.75_TWEAKS.md` T-06..T-12): the bible's light intensities need a physical-unit conversion (T-07, agreed); at pitch 48° no tree canopy can enter S1 (T-08, Andrew's call); the scatter densities read as confetti (T-09, Andrew's call); the tent's 1.6 emissive blows out (T-10, agreed); variant B "ember dusk" is the orchestrator's pick (T-11, Andrew's call); ember rate (T-12, agreed); Andrew's motion-tempo observations (T-06, `needs-render`, filed in `docs/reference/MOTION_TEMPO_NOTES.md`).
+- **Toolchain:** `npm run check` green with `sandbox/` in `tsconfig.json`; `vite.config.ts` carries the serve-only screenshot plugin; `.claude/launch.json` starts the dev server for the browser pane. `CLAUDE_CODE_EFFORT_LEVEL` verified unset.
+- **Design Bible:** unchanged (Phase 0.75 rule 1). `p0.5-design-bible` on `main`.
+- **Phase 0 part B** still blocked on the brainstorm doc (Rule 1). Legacy inputs still missing from `docs/legacy/`: `stewart-squad-v26-complete-state.md`, `stewart-squad-gameplay-brainstorm-v2.md`, `stewart-squad-dev-instructions.md`. `docs/reference/fernwood.jpeg` is now the `Fernwood1–3` set.
 
 ## What to do next session (in order)
 
-0. **Phase 0.75 first** (`docs/design/PHASE_0.75_BRIEF.md`): dialog sessions by cluster, then the application session and the `p0.75-design-locked` tag. Steps 1–5 below are the Phase 1 plan that follows it.
-1. Read this file, `CLAUDE.md`, `docs/PROGRESS.md`, then `docs/design/README.md` (the reading order), `heroes.md` §2 summary card, `camp.md` §2.2 and §2.11, `world-events-weather.md` §2.1.3 and §2.2.6. Confirm `CLAUDE_CODE_EFFORT_LEVEL` is unset. Note the plan in `docs/PROGRESS.md`.
-2. **If the legacy inputs are present:** one `archaeologist` each for `KEEP_CHANGE_DROP.md` and `PORT_MAP.md` (inputs: the five teardown docs, the brainstorm doc, Brief §5 and §7.3, and the bible's per-file cut lists in `ui-ux.md` §2.5.2, `audio.md` §2.10, `enemies.md` §5, `world-events-weather.md` §5, `dungeons.md` §2.8); one `design-lead` reconciliation pass over the eleven §7 sections; `qa-inspector-max` runs the Phase 0 gate; tag `p0-teardown`; update `docs/COMPLETE_STATE.md`. **If they are still missing:** say so in the summary (Rule 1) and go straight to step 3.
-3. **Phase 1 — the pilot, built from the bible, not from v27.** Branch `phase-1-pilot`. Spikes first, each a Rule 2 gate with the verified shape written to `docs/visual-loop/spikes.md` and the decision in `DECISIONS.md`: Rapier vs a custom capsule/heightfield; bitecs vs plain typed systems; Puppeteer vs Playwright headless capture with software GL (it must produce a non-black PNG). Then, in parallel where files do not overlap:
-   - `render-engineer` builds `pilot/`: the Forest island cut (`camp.md` §2.11.1); the C1 camp from the §2.2 prop list with §2.11.2's sources and triangle budget, §2.11.3's materials and the tent glow (§2.11.4); the four screenshot stations (§2.11.5, the fixed contract with the art director), the deer's path (§2.11.6), the water shader's edges (§2.11.7), the title card (§2.11.8); the Forest keyframe table (`world-events-weather.md` §2.1.3) and the pilot's weather toggle (§2.2.6); the 8-slot light pool and the shared fire oscillator (§2.8.2–2.8.3, `camp.md` §2.7.1); the curved-world shader and the full post stack per Brief §8 Phase 1; the HUD stub and dev console per `ui-ux.md` §4.4 Phase 1 (`src/style/ui.ts` tokens, the fonts, the title card, a party strip with one portrait, the compass strip, the prompt pill, the console with stations and perf).
-   - **The pilot Liam is `heroes.md` §2.7**: model source (§2.7.1), geometry and material (§2.7.2), rig (§2.7.3, including the `carry.L` and `hat` sockets from §2.4.7), the idle and walk clips (§2.7.4), the selection ring (§2.7.5), the two scored poses (§2.7.6); sapphire `#2A62CF` / `#173A86` with the `#4A9ED8` glow, 1.52 m tall. Not the v27 sprite's proportions or palette.
-   - `systems-engineer`: the fixed-step 60 Hz loop with interpolation, the seeded RNG, the event bus that `snd()` rides (`audio.md` §2.3), Liam's kit as content data (`heroes.md` §2.5). No combat yet.
-   - Audio in the pilot is optional and late: `audio.md` §4.4 asks for the engine skeleton, the four Forest beds, the campfire crackle on the shared oscillator and `amb.stream`, so the day/night and weather toggles can be heard. Do it only after the visual loop has a passing iteration.
-4. **Visual loop:** capture → `art-director` scores (`art-director-max` once a pass looks like it could hit the excellence mark) → `render-engineer` implements → repeat. Commit every iteration's screenshots and log to `docs/visual-loop/`. Max 12 iterations; Brief §2(d) if unmet. Promote the winning tokens to `src/style/` and tag `p1-style-locked`.
-5. End of session: `PROGRESS.md`, `COMPLETE_STATE.md` if a gate passed, rewrite this file, one summary to Andrew.
+1. Read this file, `CLAUDE.md`, `docs/design/PHASE_0.75_BRIEF.md` §3, `docs/design/mockups/LOG.md`, `STUDY_NOTES.md` and the tweak rows. Confirm `CLAUDE_CODE_EFFORT_LEVEL` is unset. `git checkout phase-0.75-visual-studies`.
+2. **Take Andrew's feedback on study 1** (his answers to `STUDY_NOTES.md` §5, and any marked-up screenshots, which go in `docs/reference/` with a row in the tweaks file). Iterate in `sandbox/forest-dusk/` until a frame is approved; each iteration is a `LOG.md` row and every few are a commit. On approval: copy the winning variant's numbers into `style-draft.json` as `approved` with the frame's filename, set the T-08/T-09/T-11 rows to `agreed`, and add a `DECISIONS.md` line.
+3. **Study 2, deep night** (same scene, `?t=night`, station S1 or the approved S1 revision, then S2): stars, fireflies, the lantern pools, the ring's light, the moon band on the water. **Study 3, golden hour on the stream** (`?shot=S2&t=golden&walk=1`): water, rim light, foam, the walk pose. **Study 4, the four kids' line-up** needs Noah, Collette and Isabella rigs built the way `liam.ts` builds Liam (`heroes.md` §2.3.1 proportions, §2.1.1 colours); one file each under 400 lines. Then the Crystal Caves cross-section (T-03, a board first) and the anti-palette check.
+4. Then the dialog clusters (A first, the Crystal Caves, T-01..T-05), the application session, and `p0.75-design-locked` per `PHASE_0.75_BRIEF.md` §2 and §4. The Phase 1 plan is preserved at `docs/handoffs/phase-1-pilot-handoff-2026-09-07.md`.
 
 ## Known issues and load-bearing findings
 
-- **Teardown errata to fix in Phase 0 part B** (found while writing the bible): `ATMOSPHERE_RECIPES.md` §9.3 quotes the MiniBoss death-particle rate for the Enemy; `SYSTEMS_INVENTORY.md` Part 1 says the Storm Chaser `weather` bounty can never complete, but HTML L1611 calls it.
-- **Historical decision lines** dated 2026-09-06 inside the design files still say "80 m island", "Shadow Realm source", "Endless-only" or "the dungeon paper minimap"; the 2026-09-07 lines supersede them (the log is append-only).
-- **From the teardown, still true:** hero switching is free, instant and total (no swap cooldown); the companion fall-through bug at legacy L2290 damps companion combat movement to about 40–45 %, decide and log before porting; v27 has no campfire, lantern, sky gradient, stars, moon, ambient loops, engine sound, gamepad, save export or selection ring (all new work, now specified in the bible); orphaned canon to re-wire (Ed's `crash_landing` lines, nine `HERO_REACTIONS` contexts, `crater_hint`); `Bog Witch` and `Sand Nomad` are missing from `NPC_DEFS`; enemies have no display names in v27 (the bible authors them); skill-tree bonuses are silently wiped by `recalcHeroStats`, port the intent; frame-rate hazards are resolved by the fixed-step sim.
-- **Session mechanics learned (also in `docs/DECISIONS.md`):** a new `.claude/agents/*.md` is not loadable in the turn it is written; `SendMessage` may be unavailable, so follow-ups are fresh agents with self-contained prompts; long Fable agents can hit the session limit, so split big passes and use Opus with Edit for pure application work; never `git add docs/design` wholesale while an unreviewed file sits there.
+- **Saving a frame right after load gives a blank canvas** if the save fires before the first rendered frame (the synchronous world build takes several seconds). `save()` now waits for two rendered frames; when driving the page from the browser pane, wait about 8 s after a navigation before calling `window.ssSave()`. A blank frame is 58,885 bytes (the overlay alone); a real one is about 1.2 MB.
+- **The sandbox's curved world does not bend shadows** (the depth material is not patched); harmless at `curve` ≤ 0.0012.
+- **Fonts:** the title card uses Georgia/serif and Segoe UI fallbacks; Lora and Nunito are bundled in Phase 1 (`ui-ux.md` §2.0). Judge the card's layout and colour, not its letterforms.
+- **Facing conventions in the sandbox:** Liam's eyes are on local +z, so a compass bearing b is `rotation.y = 180° − b`; the deer and any prop built along +x use `90° − b`. Getting this wrong showed Liam's back at the close-up (iteration 4).
+- **Shell heredocs in this environment mangled long TypeScript sources twice**; write source files with the Write tool and patch with small `node -e` string replacements.
+- From the Phase 0.5 handoff, still true: teardown errata for part B (`ATMOSPHERE_RECIPES.md` §9.3 MiniBoss rate; `SYSTEMS_INVENTORY.md` Part 1 Storm Chaser bounty); historical 2026-09-06 decision lines superseded by the 2026-09-07 ones; a new `.claude/agents/*.md` is not loadable in the turn it is written; never `git add docs/design` wholesale while an unreviewed file sits there.
 
 ## Handy paths
 
-`docs/BRIEF.md` · `docs/design/README.md` · `docs/SESSION_PLAN.md` · `docs/INSPECTION_CHECKLIST.md` · `docs/DECISIONS.md` · `docs/qa/` · `.claude/agents/` · teardown `docs/teardown/` · legacy source `docs/legacy/stewart-squad-v27.html` (script starts L516).
+`docs/design/PHASE_0.75_BRIEF.md` · `docs/design/PHASE_0.75_TWEAKS.md` · `docs/design/mockups/` (`LOG.md`, `STUDY_NOTES.md`, `style-draft.json`, the frames) · `docs/reference/` (`README.md`, `MOTION_TEMPO_NOTES.md`, the 21 frames) · `sandbox/_shared/` (style, material, sky, post, shot) · `sandbox/forest-dusk/` (terrain, scatter, props, liam, deer, fx, main) · `docs/handoffs/phase-1-pilot-handoff-2026-09-07.md` · `docs/BRIEF.md` · `docs/design/README.md` · `docs/DECISIONS.md` · `docs/PROGRESS.md`

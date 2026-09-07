@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Study: Forest dusk at the C1 camp (S1)</title>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0B0E1A; }
+    #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+    #frame { position: absolute; left: 0; top: 0; transform-origin: top left; width: 1600px; height: 1000px; }
+    canvas { display: block; width: 1600px; height: 1000px; }
+    /* title card: ui-ux.md §2.1.3 (Lora 600 36 / Lora italic 18), bundled fonts are Phase 1; serif fallback here */
+    #card { position: absolute; left: 28px; bottom: 36px; padding: 18px 26px 20px 24px; min-width: 260px;
+      background: rgba(11,14,26,0.55); border-radius: 10px; color: #FFF5E6; box-shadow: 0 2px 8px rgba(11,14,26,0.35);
+      font-family: Lora, Georgia, 'Times New Roman', serif; opacity: 1; transition: opacity 0.8s; }
+    #card .eyebrow { font: 600 10px/1.2 Nunito, 'Segoe UI', system-ui, sans-serif; letter-spacing: 0.18em; color: #D4C4A8; text-transform: uppercase; margin-bottom: 8px; }
+    #card .eyebrow b { color: #E8A838; font-weight: 800; }
+    #card .name { font-size: 36px; font-weight: 600; line-height: 1.15; }
+    #card .rule { width: 42px; height: 2px; background: #E8A838; margin: 9px 0 8px; opacity: 0.85; }
+    #card .line { font-size: 18px; font-style: italic; color: #D4C4A8; }
+    #keys { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); display: flex; gap: 14px; padding: 8px 14px;
+      background: rgba(11,14,26,0.55); border-radius: 10px; color: #D4C4A8; font: 700 12px/1 Nunito, 'Segoe UI', system-ui, sans-serif; }
+    #keys span { display: inline-flex; align-items: center; gap: 5px; }
+    #keys kbd { font: 800 11px/1 Nunito, 'Segoe UI', system-ui, sans-serif; color: #2B2118; background: #FFF5E6; border-radius: 5px; padding: 3px 5px; }
+    #party { position: absolute; left: 28px; top: 26px; display: flex; align-items: center; gap: 10px; }
+    #party .portrait { width: 46px; height: 46px; border-radius: 50%; background: radial-gradient(circle at 45% 40%, #2A62CF, #173A86 70%);
+      box-shadow: 0 0 0 2px rgba(11,14,26,0.55), 0 0 0 4px #4A9ED8; }
+    #party .name { color: #FFF5E6; font: 800 15px/1.2 Nunito, 'Segoe UI', system-ui, sans-serif; }
+    #party .hp { width: 120px; height: 6px; background: rgba(11,14,26,0.55); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+    #party .hp i { display: block; width: 100%; height: 100%; background: #FFF5E6; }
+    #hud { position: absolute; right: 24px; top: 20px; color: #E8A838; font: 12px/1.45 Consolas, 'Cascadia Mono', monospace; white-space: pre;
+      background: rgba(11,14,26,0.7); padding: 10px 12px; border-radius: 8px; max-width: 460px; }
+    #toast { position: absolute; right: 24px; bottom: 24px; color: #FFF5E6; font: 600 13px Nunito, 'Segoe UI', system-ui, sans-serif;
+      background: rgba(11,14,26,0.8); padding: 8px 12px; border-radius: 8px; opacity: 0; transition: opacity 0.3s; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="stage"><div id="frame">
+    <canvas id="c" width="1600" height="1000"></canvas>
+    <div id="party"><div class="portrait"></div><div><div class="name">Liam</div><div class="hp"><i></i></div></div></div>
+    <div id="card"><div class="eyebrow">Forest · <b>Home</b></div><div class="name">Stewart Camp</div><div class="rule"></div><div class="line">Tent, fire, one bedroll. For now.</div></div>
+    <div id="keys"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk</span><span><kbd>⇧</kbd> run</span><span><kbd>space</kbd> dodge</span><span><kbd>E</kbd> interact</span><span><kbd>Tab</kbd> swap</span></div>
+    <div id="hud"></div>
+    <div id="toast"></div>
+  </div></div>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

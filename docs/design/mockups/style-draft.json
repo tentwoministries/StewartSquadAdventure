@@ -1,0 +1,95 @@
+{
+  "$comment": "Phase 0.75 visual studies: every number the current sample frames used. status 'draft' until Andrew approves a frame; then the approved variant's values are marked 'approved' with the frame's filename. Seeds src/style/ in Phase 1. Units: three r185 physical lights (see units.note).",
+  "status": "draft",
+  "updated": "2026-09-07",
+  "study": "forest-dusk",
+  "frames": {
+    "candidates": ["forest-dusk-s1-a-03.png", "forest-dusk-s1-b-01.png", "forest-dusk-s1-c-01.png", "forest-dusk-l1-b-01.png", "forest-dusk-w1-b-01.png", "forest-dusk-cu-b-01.png"],
+    "context": ["forest-golden-l1-a-01.png", "forest-night-l1-a-01.png"],
+    "approved": []
+  },
+  "units": {
+    "note": "world-events-weather.md §2.1.3 intensities × these factors give three r185 physical values (T-07). Point lights are candela.",
+    "keyMultiplier": 3.0,
+    "hemiMultiplier": 9.0
+  },
+  "camera": {
+    "fovDeg": 35,
+    "stations": {
+      "S1": { "target": [0, 0.6, 0], "yaw": 315, "pitch": 48, "d": 19, "source": "camp.md §2.11.5" },
+      "L1": { "target": [0, 0.9, 0], "yaw": 315, "pitch": 40, "d": 22, "source": "study; proposed S1 revision (T-08)" },
+      "W1": { "target": [0, 0.6, 0], "yaw": 315, "pitch": 44, "d": 30, "source": "study" },
+      "CU": { "target": [-2.4, 0.95, 1.0], "yaw": 320, "pitch": 14, "d": 4.6, "source": "study" }
+    }
+  },
+  "keyframes": {
+    "dusk-A": {
+      "source": "world-events-weather.md §2.1.3 dusk, as written",
+      "key": { "color": "#FF8C5A", "intensity": 1.2, "elevDeg": 4, "azimDeg": 270 },
+      "hemi": { "sky": "#4A4E8E", "ground": "#2A4A30", "intensity": 0.5 },
+      "fog": { "color": "#7B5A8C", "near": 23, "far": 62, "max": 0.85, "heightFalloff": 12 },
+      "sky": { "zenith": "#22305E", "horizon": "#E86A4A", "ground": "#3A2C5A", "keyLobe": 0.6 },
+      "cloud": "#C97A6A", "stars": 0.4, "moon": { "elevDeg": 8, "azimDeg": 95 }, "exposure": 0.95
+    },
+    "dusk-B": {
+      "source": "study variant: ember dusk (the orchestrator's pick)",
+      "key": { "color": "#FF9A55", "intensity": 1.7, "elevDeg": 6, "azimDeg": 250 },
+      "hemi": { "sky": "#6A5EA8", "ground": "#3A6A3A", "intensity": 0.8 },
+      "fog": { "color": "#8A5A7C", "near": 24, "far": 70, "max": 0.75, "heightFalloff": 12 },
+      "sky": { "zenith": "#1B2B66", "horizon": "#FF8A50", "ground": "#4A2C5A", "keyLobe": 0.8 },
+      "cloud": "#E89A7A", "stars": 0.5, "moon": { "elevDeg": 8, "azimDeg": 95 }, "exposure": 1.0, "fireMultiplier": 1.3
+    },
+    "dusk-C": {
+      "source": "study variant: blue hour",
+      "key": { "color": "#C08AA0", "intensity": 0.7, "elevDeg": 2, "azimDeg": 272 },
+      "hemi": { "sky": "#3A4A9E", "ground": "#20402A", "intensity": 0.6 },
+      "fog": { "color": "#5A4E8C", "near": 22, "far": 60, "max": 0.85, "heightFalloff": 12 },
+      "sky": { "zenith": "#101C4A", "horizon": "#D8705A", "ground": "#2E2A58", "keyLobe": 0.5 },
+      "cloud": "#8A6A8A", "stars": 0.7, "moon": { "elevDeg": 12, "azimDeg": 95 }, "exposure": 0.9, "fireMultiplier": 1.15, "fireflies": 0.85
+    },
+    "golden": { "source": "bible row through the same units; context frame only", "exposure": 1.05 },
+    "night": { "source": "bible row through the same units; context frame only", "exposure": 0.85 }
+  },
+  "lights": {
+    "campfire": { "color": "#FF9A3C", "candela": 90, "range": 9, "decay": 2, "flicker": "0.8 + 0.15·sin(t·f), f = 8.8–10 Hz, shared with the flame mesh", "bibleIntensity": 2.5 },
+    "lantern": { "color": "#FFB347", "candela": 14, "range": 6, "decay": 2, "bibleIntensity": 1.2, "swing": "0.6 rad/s ±3°" },
+    "ring": { "color": "#4A9ED8", "candela": 3, "range": 3, "decay": 2, "onWhen": "stars > 0" }
+  },
+  "emissive": {
+    "tentCanvas": { "color": "#FFD08A", "gain": 0.5, "falloff": "0.9 at the ridge → 0 at the hem, exponent 1.2", "bibleGain": 1.6, "note": "T-10" },
+    "lanternGlass": { "color": "#FFB347", "gain": 3.0 },
+    "glowCap": { "color": "#6CE87A", "gain": 0.8 },
+    "flames": { "outer": "#E85D04", "core": "#FFD166", "hdrMultiplier": 1.9 },
+    "schedule": "all × the keyframe lantern value (0 by day, 0.3 golden hour, 1 dusk and night)"
+  },
+  "post": {
+    "order": ["selective bloom (layer 11)", "tilt-shift", "exposure", "vignette", "ACES filmic", "SMAA high"],
+    "bloom": { "luminanceThreshold": 0.8, "luminanceSmoothing": 0.3, "intensity": 1.0, "radius": 0.7, "levels": 6, "blend": "ADD", "ignoreBackground": true },
+    "tiltShift": { "offset": 0.0, "focusArea": 0.5, "feather": 0.55, "kernelSize": "SMALL", "resolutionScale": 0.75 },
+    "vignette": { "offset": 0.4, "darkness": 0.35 },
+    "frameBufferType": "HalfFloat"
+  },
+  "world": {
+    "curvedWorld": { "drop": "y -= k·d², d from the station target", "k": 0.0006, "options": [0, 0.0006, 0.0012, 0.0022] },
+    "terrainGrid": 0.5,
+    "faceValueJitter": 0.04,
+    "shadow": { "mapSize": 2048, "type": "PCFSoft", "orthoHalf": 24, "radius": "3 day / 4 low sun / 5 night", "bias": -0.0004, "normalBias": 0.03 }
+  },
+  "scatter": {
+    "note": "per m²: core (<22 m), meadow, under canopy, bank; bible values in camp.md §2.4 were 4.0/1.0/1.5 for grass/flowers/pebbles (T-09)",
+    "grass": [1.2, 0.8, 0.5, 1.6], "grassClusterRule": "×0.7 outside bonus cells; +5 in the 15 % bonus cells",
+    "flower": [0.06, 0.03, 0.02, 0.1], "flowerDrifts": "six seeded discs r 1.5–2.5 m at +2.5/m², off the paths",
+    "pebble": [0.3, 0.15, 0.2, 2.0], "mushroom": [0.08, 0.04, 0.5, 0.4], "leaf": [0.3, 0.2, 1.5, 0.3], "clover": [0.6, 0.3, 0.2, 0.4], "twig": [0.2, 0.1, 0.6, 0.3],
+    "grassBlade": { "width": 0.11, "height": "0.24–0.32", "colours": "grass.a ×1.05, grass.b ×1.10, tip ×1.12" },
+    "sway": { "grass": 0.14, "trees": 0.012, "formula": "two sines 1.3 and 2.9 rad/s × height" }
+  },
+  "hero": {
+    "liam": { "base": "#2A62CF", "dark": "#173A86", "accent": "#D3DDE6", "glow": "#4A9ED8", "hair": "#8B6914", "skin": "#F2CBA7", "height": 1.52, "ring": { "outer": 1.6, "softAlpha": 0.35, "rimAlpha": 0.7, "breath": "±6 % at 1.2 s" }, "facing": "rotation.y = 180° − bearing (eyes on +z)" }
+  },
+  "particles": {
+    "embers": { "rate": 1.2, "life": 3, "rise": 0.7, "bibleRate": 0.3, "note": "T-12" },
+    "smoke": { "sprites": 6, "rise": 0.8, "column": 4, "alpha": "0.35 → 0", "tint": "#B4B4B4 × (hemiSky × 1.5 + 0.35)" },
+    "fireflies": { "count": 140, "blink": "smoothstep(sin(t·1.5–3 + φ), 0.2, 0.9)", "wander": "±1.2 m" },
+    "pollen": { "count": 220 }
+  }
+}

@@ -33,5 +33,5 @@
       "@dev/*": ["src/dev/*"]
     }
   },
-  "include": ["src", "pilot", "tests", "vite.config.ts", "vitest.config.ts"]
+  "include": ["src", "pilot", "sandbox", "tests", "vite.config.ts", "vitest.config.ts"]
 }
