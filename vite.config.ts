@@ -17,11 +17,14 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     target: 'es2022',
-    sourcemap: mode !== 'archive',
-    outDir: mode === 'archive' ? 'dist-archive' : 'dist',
+    sourcemap: mode !== 'archive' && mode !== 'demo',
+    outDir: mode === 'archive' ? 'dist-archive' : mode === 'demo' ? 'dist-demo' : 'dist',
     assetsInlineLimit: mode === 'archive' ? Number.MAX_SAFE_INTEGER : 4096,
+    // `vite build --mode demo`: the Phase 0.75 demo reel as a static site (the hub and the five scenes),
+    // for sharing on a static host. Relative paths (base './'), no runtime network calls, no dev plugin.
+    ...(mode === 'demo' ? { rollupOptions: { input: Object.fromEntries(['index', 'forest-dusk', 'desert-noon', 'bog-night', 'frozen-night', 'caves-descent'].map((n) => [n, fileURLToPath(new URL(n === 'index' ? './sandbox/index.html' : `./sandbox/${n}/index.html`, import.meta.url))])) } } : {}),
   },
   // sandboxShotPlugin is dev-serve only (Phase 0.75 studies); it never enters a build.
-  plugins: mode === 'archive' ? [viteSingleFile({ removeViteModuleLoader: true })] : [sandboxShotPlugin()],
+  plugins: mode === 'archive' ? [viteSingleFile({ removeViteModuleLoader: true })] : mode === 'demo' ? [] : [sandboxShotPlugin()],
   server: { port: 5173, strictPort: true },
 }));

@@ -6,7 +6,7 @@ Working Rule 4: **all 27 steps, every delivery, no tiers.** The qa-inspector run
 
 | # | Step | Evidence |
 |---|---|---|
-| 1 | Memory / handoff read: `docs/NEXT_SESSION.md` and the relevant `docs/teardown/` docs were read in full | Cited in task notes |
+| 1 | Memory / handoff read: `docs/NEXT_SESSION.md` and the relevant `docs/teardown/` docs were read in full; **`docs/design/mockups/LESSONS.md` read for every system the task touches** (the defects the demo scenes fixed, so the game never re-makes them) | Cited in task notes |
 | 2 | Design approval on record: the design or creative decision is logged in `docs/DECISIONS.md` (Brief §2: decide, log, proceed) | `DECISIONS.md` line |
 | 3 | API verification done (Rule 2): every external interface touched was hit with a real call and the actual shape recorded | Shape recorded in task notes |
 | 4 | Inherited code audited: any existing code the change builds on was read, not assumed | Files listed in task notes |

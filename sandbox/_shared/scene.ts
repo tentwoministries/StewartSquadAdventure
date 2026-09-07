@@ -174,8 +174,8 @@ export function runScene(def: SceneDef): void {
   async function save(): Promise<void> {
     renderOnce(1 / 60);
     const name = `${def.id}-${def.times[timeIdx]}-${shot.toLowerCase()}${def.variants ? `-${variantId.toLowerCase()}` : ''}`;
-    const file = await saveShot(canvas, name, showCard ? drawOverlay : undefined);
-    say(`saved ${file}`);
+    try { const file = await saveShot(canvas, name, showCard ? drawOverlay : undefined); say(`saved ${file}`); }
+    catch { say('saving frames works from the dev server only'); }
   }
   function drawOverlay(ctx: CanvasRenderingContext2D): void {
     const serif = 'Lora, Georgia, "Times New Roman", serif', sans = 'Nunito, "Segoe UI", system-ui, sans-serif';

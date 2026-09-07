@@ -40,3 +40,11 @@ Then open `http://localhost:5180/sandbox/forest-dusk/?shot=L1&t=dusk&v=B`. The w
 ## The keys (every scene, the same)
 
 `O` shows them. WASD walk, shift run · drag orbit, wheel zoom, `R` back to the station · `B` tilt-shift on/off · `X` the kid's flourish · `Tab` swaps the walked kid (caves) · `0` `[` `]` the scene's own keys (Forest: the deer and its speed; Desert: the camel and the wind; Bog: the next lantern and the fog; Frozen: the herd and the aurora; Caves: the next lamp and the heart's pulse) · `1`–`4` the bible's stations, `5`–`9` the study framings · `T` time of day (the caves: lamps dark / half / lit), `V` variant (Forest), `K` curve · `P` post on/off, `F` freeze, `U` card · `,` `.` the previous and next scene, `H` the hub · `Enter` saves a frame. URL: `?shot=&t=&v=&curve=&freeze=1&ui=0`.
+
+## Sharing the reel (a static build for here.now or any static host)
+
+`npm run build:demo` builds the hub and the five scenes into `dist-demo/` (relative paths, no runtime network calls, about 1 MB) and zips it as `dist-demo.zip` (about 300 KB). Upload the **contents** of `dist-demo/` (or the zip, if the host unpacks it) so that `index.html` sits at the site root; it forwards to `sandbox/`, the hub. Verify before sharing: `npx vite preview --mode demo --port 4173` (or the `demo-preview` entry in `.claude/launch.json`) serves the built folder exactly as a host would. The frame-save key says so and does nothing outside the dev server. Nothing under `docs/` (the photos, the frames) is in the build. Viewers need a laptop browser with WebGL2; a scene takes a few seconds to build on first load.
+
+## The lessons ledger
+
+`LESSONS.md` is the list of defects the demo scenes fixed (symptom, cause, the rule, where the fix lives), one row each. Phase 1's inspection checklist step P0-1 reads it before building any system it names. Add a row whenever a demo fixes something a kid could have noticed.

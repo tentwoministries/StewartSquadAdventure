@@ -169,8 +169,8 @@ window.addEventListener('keydown', (e) => {
 async function save(): Promise<void> {
   renderOnce(1 / 60);
   const name = `forest-${times[timeIdx]}-${params.shot.toLowerCase()}-${variantId.toLowerCase()}`;
-  const file = await saveShot(canvas, name, showCard ? drawOverlay : undefined);
-  say(`saved ${file}`);
+  try { const file = await saveShot(canvas, name, showCard ? drawOverlay : undefined); say(`saved ${file}`); }
+  catch { say('saving frames works from the dev server only'); }
 }
 // The DOM card, party strip and key hints, drawn into the saved PNG so a frame is self-contained.
 function drawOverlay(ctx: CanvasRenderingContext2D): void {

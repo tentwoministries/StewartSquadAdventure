@@ -11,6 +11,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:archive": "vite build --mode archive",
+    "build:demo": "vite build --mode demo && node scripts/demo-root.cjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

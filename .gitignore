@@ -13,3 +13,5 @@ Thumbs.db
 # headless capture scratch (committed screenshots live in docs/visual-loop/)
 tmp/
 dist-archive/
+dist-demo/
+dist-demo.zip
