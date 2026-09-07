@@ -39,7 +39,8 @@ export function makeLantern(colour: string, cd: number, range: number, glassGain
   frameMesh.castShadow = true;
   const light = new THREE.PointLight(colour, litNow ? cd : 0, range, 2);
   light.position.y = -0.245 * scale;
-  pivot.add(frameMesh, glass, light);
+  pivot.add(frameMesh, glass);
+  if (cd > 0) pivot.add(light); // cd 0: emissive glass only, no light in the shader
   const l: Lantern = {
     pivot, light, glass, lit: litNow ? 1 : 0, target: litNow ? 1 : 0,
     update(t, dt, schedule) {
@@ -54,12 +55,12 @@ export function makeLantern(colour: string, cd: number, range: number, glassGain
 }
 
 /** A post with a lantern hanging from an arm (the Forest's L1, the Bog's seven posts). */
-export function makePost(height: number, wood: string, iron: string, colour: string, cd: number, range: number, litNow: boolean): { group: THREE.Group; lantern: Lantern } {
+export function makePost(height: number, wood: string, iron: string, colour: string, cd: number, range: number, litNow: boolean, glassGain = 3.0): { group: THREE.Group; lantern: Lantern } {
   const group = new THREE.Group();
   worldMat ??= makeWorldMaterial();
   const post = new THREE.Mesh(mergeGeos([xf(CY(0.06, 0.07, height, 6, wood), 0, height / 2), xf(B(0.4, 0.05, 0.05, iron), 0.15, height - 0.05, 0)]), worldMat);
   post.castShadow = true; post.receiveShadow = true;
-  const lantern = makeLantern(colour, cd, range, 3.0, iron, 1, litNow);
+  const lantern = makeLantern(colour, cd, range, glassGain, iron, 1, litNow);
   lantern.pivot.position.set(0.32, height - 0.08, 0);
   group.add(post, lantern.pivot);
   return { group, lantern };

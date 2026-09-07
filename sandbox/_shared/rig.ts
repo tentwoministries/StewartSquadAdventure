@@ -20,8 +20,6 @@ export interface KidSpec {
   eye: { w: number; h: number; lid: number }; // lid: idle eye scale.y (Liam half-lidded)
   brow: 'low' | 'oneUp' | 'lash' | 'round';
   smile: boolean;
-  lightColour?: string; // a carried light (Collette's orb)
-  lightCd?: number;
 }
 export interface Limb { sh: THREE.Group; ua: THREE.Group; fa: THREE.Group; hand: THREE.Group }
 export interface Leg { th: THREE.Group; sh: THREE.Group; foot: THREE.Group }
@@ -44,7 +42,7 @@ export interface KidCtx { t: number; dt: number; idle: number; blend: number; w:
 export interface KidHooks { update: (c: KidCtx) => void; flourishLen: number }
 export interface Kid {
   name: string; colours: KidColours;
-  root: THREE.Group; bones: Bones; ring: THREE.Mesh; ringLight: THREE.PointLight; light?: THREE.PointLight;
+  root: THREE.Group; bones: Bones; ring: THREE.Mesh; ringLight: THREE.PointLight;
   lookAt: THREE.Vector3;
   update: (t: number, dt: number, walking: boolean) => void;
   flourish: () => void;
@@ -160,8 +158,6 @@ export function makeKid(spec: KidSpec, extras: (b: Bones, h: Helpers) => KidHook
   const ringLight = new THREE.PointLight(c.glow, 3, 3, 2);
   ringLight.position.y = 0.3;
   root.add(ringLight);
-  let light: THREE.PointLight | undefined;
-  if (spec.lightColour) { light = new THREE.PointLight(spec.lightColour, spec.lightCd ?? 8, 7, 2); }
 
   const hooks = extras(bones, h);
   const lookAt = new THREE.Vector3(0, 0.6, 0);
@@ -211,6 +207,5 @@ export function makeKid(spec: KidSpec, extras: (b: Bones, h: Helpers) => KidHook
     name: spec.name, colours: c, root, bones, ring, ringLight, lookAt, update,
     flourish: () => { armed = true; },
     face: (bearing) => { root.rotation.y = ((180 - bearing) * Math.PI) / 180; },
-    ...(light ? { light } : {}),
   };
 }

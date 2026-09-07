@@ -74,6 +74,9 @@ export function makeWorldMaterial(opts: WorldMatOpts = {}): THREE.MeshStandardMa
         gl_Position = projectionMatrix * mvPosition;
         #ifdef SS_EMISSIVE
         vSsEmissive = aEmissive; vSsGlow = aGlow;
+        #ifdef USE_INSTANCING_COLOR
+        vSsGlow *= instanceColor.g; // per-instance glow (the Bog's mushrooms brighten near Collette): setColorAt(i, (g, g, g))
+        #endif
         #endif`,
       );
     shader.fragmentShader = shader.fragmentShader

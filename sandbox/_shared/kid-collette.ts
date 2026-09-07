@@ -5,7 +5,7 @@
 // lash, the default smile; the composed idle broken by a laugh. Flourish: staff twirl, plant,
 // amber sparkle burst, hand on the hip. "And THAT is how it's done."
 import * as THREE from 'three';
-import { colorize, mergeGeos, xf } from './material';
+import { colorize, mergeGeos, WORLD_U, xf } from './material';
 import { burst } from './particles';
 import { makeKid, type Kid } from './rig';
 
@@ -14,7 +14,7 @@ export const COLLETTE = { base: '#9D4FD8', dark: '#5B2A8F', accent: '#E8A838', g
 export function makeCollette(): Kid & { sparkle: ReturnType<typeof burst> } {
   const sparkle = burst(14, COLLETTE.accent, 6, 2.2, 21);
   const kid = makeKid(
-    { name: 'Collette', legs: 0.62, torso: 0.48, shoulder: 0.19, headR: 0.19, stance: 0.22, colours: COLLETTE, eye: { w: 0.066, h: 0.06, lid: 1 }, brow: 'lash', smile: true, lightColour: COLLETTE.glow, lightCd: 9 },
+    { name: 'Collette', legs: 0.62, torso: 0.48, shoulder: 0.19, headR: 0.19, stance: 0.22, colours: COLLETTE, eye: { w: 0.066, h: 0.06, lid: 1 }, brow: 'lash', smile: true },
     (b, h) => {
       const { mesh, box, prism } = h;
       const c = COLLETTE;
@@ -45,25 +45,27 @@ export function makeCollette(): Kid & { sparkle: ReturnType<typeof burst> } {
       b.hips.add(mesh(xf(colorize(new THREE.TorusGeometry(0.2, 0.02, 4, 10), c.accent), 0, 0.05, 0, 0, Math.PI / 2)));
       for (const s of [-1, 1]) b.spine.add(mesh(xf(box(0.012, 0.36, 0.012, c.accent), s * 0.05, 0.18, 0.2 * b.wf)));
       // the staff in the right hand: 1.55 m, the orb a head above her, planted ahead of the foot at idle
-      const staff = h.node('prop.R');
-      staff.add(mesh(xf(prism(0.018, 0.022, 1.5, c.dark, 6), 0, 0.35)));
-      staff.add(mesh(xf(prism(0.03, 0.03, 0.12, c.accent, 6), 0, 1.06)));
-      const orb = h.glowBall(0.075, c.accent, 2.4); orb.position.y = 1.18; staff.add(orb);
+      // the staff stands on its own (planted 0.2 m ahead of the right foot, carried upright when she walks);
+      // its pivot is at the hands' height so the flourish twirl is a baton twirl
+      const staff = h.node('prop.R', 0.24, 0.9, 0.22);
+      staff.add(mesh(xf(prism(0.018, 0.022, 1.7, c.dark, 6), 0, -0.05)));
+      staff.add(mesh(xf(prism(0.03, 0.03, 0.12, c.accent, 6), 0, 0.74)));
+      const orb = h.glowBall(0.075, c.accent, 2.4); orb.position.y = 0.86; staff.add(orb);
       const orbLight = kidLight();
+      orbLight.position.y = 0.86;
       staff.add(orbLight);
-      b.R.hand.add(staff);
-      staff.position.set(0.02, -0.08, 0.05);
+      b.root.add(staff);
       let circleT = -10, laughT = -100;
-      function kidLight() { const l = new THREE.PointLight(c.glow, 9, 7, 2); l.position.y = 1.18; return l; }
+      function kidLight() { return new THREE.PointLight(c.glow, 9, 7, 2); }
       const tailLag = [0, 0];
       let lastYaw = 0;
       return {
         flourishLen: 2.6,
         update: ({ t, dt, idle, blend, fl }) => {
           // idle pose: heel to toe, both hands toward the staff at chest height, the staff planted ahead
-          b.R.sh.rotation.x += -0.95 * idle; b.R.fa.rotation.x = -0.35 * idle; b.R.sh.rotation.z = -0.15 * idle;
-          b.L.sh.rotation.x += -0.55 * idle; b.L.fa.rotation.x = -0.9 * idle; b.L.sh.rotation.z = 0.35 * idle;
-          staff.rotation.x = 0.1 * idle - 0.15 * blend; staff.rotation.z = 0.05;
+          b.R.sh.rotation.x += -0.75 * idle; b.R.fa.rotation.x = -0.55 * idle; b.R.sh.rotation.z = -0.2 * idle;
+          b.L.sh.rotation.x += -0.6 * idle; b.L.fa.rotation.x = -1.0 * idle; b.L.sh.rotation.z = 0.3 * idle; b.L.sh.rotation.y = -0.5 * idle;
+          staff.rotation.x = -0.06 * idle + 0.1 * blend; staff.rotation.z = 0.03; staff.position.y = 0.9 + 0.03 * Math.abs(Math.sin(t * 6.283)) * blend;
           // the free hand traces a small circle every 2 s (the amber-mote idle) : a little wrist circle
           if (t - circleT > 2.0) circleT = t;
           const cu = THREE.MathUtils.smoothstep(t - circleT, 0, 0.8) * (1 - THREE.MathUtils.smoothstep(t - circleT, 0.6, 0.9));
@@ -71,7 +73,7 @@ export function makeCollette(): Kid & { sparkle: ReturnType<typeof burst> } {
           // the orb pulses (v27: sin(gt·5)·0.3 + 0.7)
           const pulse = Math.sin(t * 5) * 0.3 + 0.7;
           orb.scale.setScalar(0.85 + 0.25 * pulse);
-          orbLight.intensity = 9 * (0.7 + 0.3 * pulse);
+          orbLight.intensity = 9 * (0.7 + 0.3 * pulse) * (0.15 + 0.85 * WORLD_U.uEmissiveGain.value);
           // the walk: the hem swings, the staff is carried upright
           bellMesh.rotation.x = 0.12 * Math.sin(t * 6.283) * blend; bellMesh.rotation.z = 0.06 * Math.sin(t * 6.283 * 0.5) * blend;
           // the tails lag the head by ~0.15 s
@@ -91,7 +93,7 @@ export function makeCollette(): Kid & { sparkle: ReturnType<typeof burst> } {
           // flourish: twirl (0.9 s), plant, burst, hand on the hip
           if (fl >= 0) {
             const tw = THREE.MathUtils.smoothstep(fl, 0.05, 0.95);
-            staff.rotation.z = 0.05 + tw * Math.PI * 4; staff.rotation.x = 0.1 * (1 - tw);
+            staff.rotation.z = 0.03 + tw * Math.PI * 4; staff.rotation.x = -0.06 * (1 - tw); staff.position.y = 0.9 + 0.5 * Math.sin(Math.min(1, fl / 0.95) * Math.PI);
             b.R.sh.rotation.x = -1.2 * (1 - THREE.MathUtils.smoothstep(fl, 0.9, 1.2)) * THREE.MathUtils.smoothstep(fl, 0, 0.2);
             const hip = THREE.MathUtils.smoothstep(fl, 1.0, 1.4);
             b.L.sh.rotation.z = 0.9 * hip; b.L.fa.rotation.x = -1.3 * hip; b.L.sh.rotation.x = -0.2 * hip;

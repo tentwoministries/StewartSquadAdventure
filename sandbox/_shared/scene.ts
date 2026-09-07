@@ -109,7 +109,7 @@ export function runScene(def: SceneDef): void {
       sky.sun.position.copy(keyDir).multiplyScalar(500); sky.sun.lookAt(0, 0, 0);
       sky.moon.visible = kf.moon.on;
     }
-    for (const k of def.kids) { k.ringLight.intensity = 3 * (kf.stars > 0 || def.sky === 'cave' ? 1 : 0); if (k.light) k.light.intensity = 9 * (0.35 + 0.65 * kf.lantern); }
+    for (const k of def.kids) k.ringLight.intensity = 3 * (kf.stars > 0 || def.sky === 'cave' ? 1 : 0);
     world.applyKeyframe?.(kf, keyDir, hemiSky);
     post.exposure.exposure = kf.exposure;
   }
