@@ -109,3 +109,20 @@ Reconciled to 40 px = 1 m and the final heroes: 124 replacements; hero facts rep
 | 10 | Empty. |
 
 **Running consistency-pass list (end of phase):** world-events §2.0 "80 m island" sentence → story-beats footprints; world-events §2.8.2 `light.lantern` placed value → match §2.1.3 (1.2 · 6 m); world-events §2.1.2 axis sentence → north = `−z`; world-events cloud note (below-rim clouds visible only within ≈ 24 m of a rim at gameplay pitch); enemies fire-family home column → the Rift (shard secondary), camp counts per island, cages at camps A–C with dormant totems, the endless pool marked cut; camp §2.4 flier pass-over 1.2 → 0.5 m; heroes.md addendum (carry socket; `fish_cast` / `fish_reel` / `watch`; `sit_down` / `sit_idle` / `stand_up` per kid with the seated idles of camp §2.7.2 and Liam's fire-poke; Noah 4.4 → 4.375 in the summary card; the "80 m island" sentence). Plus whatever `npcs.md` and `bosses.md` add.
+
+## bosses.md — 755 lines — PASS
+
+| # | Result |
+|---|---|
+| 1 | Pass. Roster table opens §2 (twelve fights plus the shadow squad set piece). |
+| 2 | Pass. 149 canon strings grep-verified by the author; orchestrator spot-checked `YOUR LITTLE FRIENDS ARE MINE!`, `KIDNAP PHASE - Protect your siblings!`, `Ruler of the Horde — Kid Snatch!`, Collette's caged line, `Sever the roots!`, `Hit hard to break the channel.`, `Track the afterimage.` — verbatim. New text: `The Shadow Squad` / `Four of them. Four of you.` (popup) and `The water rises!` — marked. The five guides' boss tips are made literally true by the mechanics. No §2(b) question; the shadow squad is the brief's own ask and its nameplates are the canon skin names. |
+| 3 | Pass. The intro keeps the v27 4.1 s letterbox timeline exactly (freeze, `#0B0E1A` bars, 0.8 s card, overshoot, growl, the world trembling under a frozen frame) and adds the push-in from v27's own dungeon-boss zoom curve; boss light and emissive share one oscillator per boss; the shake ladder is kept verbatim and no hit-stop is added. |
+| 4 | Pass. Heights 2.4–6 m with one signature shape per boss; a ×1.25 boss-arena follow distance so a 5.5 m Treant and the party fit one frame; read-at-distance per boss. |
+| 5 | Pass. Twelve `boss.*` tokens; the King's red kept (23 points darker than ruby); Pharaoh and Titan moved off Noah's band; the Queen's `#A862C4` retired from her body and kept on the card only. |
+| 6 | Pass. ≈ 90 draw calls worst case (Queen P4); one boss light plus the pool rules; 8-of-16 telegraph ownership and a 12-hazard pool; tri budgets per boss. |
+| 7 | Pass. `BossDef` shape; 8 ported blocks with v27 data and 17 named new blocks, each with telegraph, windup/active/recovery and a sound hook; every line at its trigger per boss; test hooks include a call-site spy that the shadow squad never fires an ultimate. |
+| 8 | Nine items surfaced; one real conflict: `enemies.md` §2.9 gave the Queen's clones the Runt rig — resolved in bosses' favor (the sibling's shadow rig) per the prompt; one-line edit in the consistency pass. Rulings logged: the two floor mini-bosses count for `Mini-Boss Slayer` but not island `kill_miniboss` quests; `light.boss` raised to 4 / 5 m (world-events allowed it); a heroes.md addendum (companions attack a sibling's ice block within 5 m before any enemy). Consistent with story-beats (King in Act 1, no portal; lairs; the Citadel folded into Home, Wrong; banished siblings restored) and camp (the Throne of Shadows is C6 mirrored). |
+| 9 | 36 lines merged into `DECISIONS.md`. |
+| 10 | Empty. |
+
+**Orchestrator notes.** The Act 1 retune (HP `1400 + teamLv × 140`, dmg 28, everything else verbatim, `expectedTeamLv 7` as a Phase 2 tunable) restores v27's felt ratios rather than inventing a curve — accepted. The party-wipe rule (return to camp; the King waits at his phase) is the right call for an Act 1 climax. **Consistency-pass additions:** enemies.md §2.9 clone row → shadow rig; enemies.md §5 `Mini-Boss Slayer` note → per bosses; heroes.md addendum: the ice-block companion preference; ui-ux must check the Queen's card `#A862C4` against Collette's portrait ring.
