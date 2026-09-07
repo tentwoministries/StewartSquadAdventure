@@ -41,11 +41,11 @@ export function makeIsabella(): Kid {
       for (const s of [-1, 1]) b.chest.add(mesh(xf(h.ball(0.025, c.accent), s * 0.14, 0.2, -0.1)));
       // the hammer: 1.10 m shaft in garnet, a stone head with gold bands; pivot at the hand
       const hammer = h.node('prop.R');
-      hammer.add(mesh(xf(prism(0.022, 0.026, 1.06, c.dark, 6), 0, -0.45)));
+      hammer.add(mesh(xf(prism(0.022, 0.026, 0.92, c.dark, 6), 0, -0.4)));
       hammer.add(mesh(mergeGeos([
         xf(box(0.42, 0.26, 0.24, '#6F7D86'), 0, 0, 0),
         xf(box(0.44, 0.05, 0.26, c.accent), 0, 0.09, 0), xf(box(0.44, 0.05, 0.26, c.accent), 0, -0.09, 0),
-      ]).translate(0, -0.9, 0)));
+      ]).translate(0, -0.8, 0)));
       b.R.hand.add(hammer); hammer.position.set(0.02, -0.06, 0.06);
       // the whirl ribbon: a short cylinder shell in glow, additive, hidden until the flourish
       const ribbon = new THREE.Mesh(
@@ -62,9 +62,9 @@ export function makeIsabella(): Kid {
           b.spine.rotation.z = -lean;
           rockPh += dt * 3.1;
           const rock = Math.sin(rockPh) * 0.08 * idle;
-          b.R.sh.rotation.x += -0.55 * idle; b.R.sh.rotation.z = -0.5 * idle; b.R.fa.rotation.x = -0.25 * idle;
-          b.L.sh.rotation.x += -0.5 * idle; b.L.sh.rotation.z = 0.25 * idle; b.L.fa.rotation.x = -1.1 * idle; b.L.sh.rotation.y = -0.6 * idle;
-          hammer.rotation.z = 0.5 * idle + rock; hammer.rotation.x = 0.35 * blend;
+          b.R.sh.rotation.x += -0.2 * idle; b.R.sh.rotation.z = -0.38 * idle; b.R.fa.rotation.x = -0.15 * idle;
+          b.L.sh.rotation.x += -0.45 * idle; b.L.sh.rotation.z = 0.3 * idle; b.L.fa.rotation.x = -1.25 * idle; b.L.sh.rotation.y = -0.95 * idle;
+          hammer.rotation.z = 0.8 * idle + rock; hammer.rotation.x = 0.35 * blend;
           // the walk: a stomp on every contact (a deeper hip bob and a squash), the hammer drags behind
           const stomp = Math.abs(Math.sin(t * 6.283));
           b.hips.position.y -= 0.025 * (1 - stomp) * blend;

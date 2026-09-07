@@ -30,6 +30,8 @@ export interface WalkOpts {
   walkable?: (x: number, z: number) => boolean;
   /** The hero's height above the ground the camera aims at. */
   eye?: number;
+  /** The largest ground rise or drop one step may take (the caves' tiers); default unlimited. */
+  maxStep?: number;
 }
 
 export function makeWalk(opts: WalkOpts): Walk {
@@ -82,7 +84,8 @@ export function makeWalk(opts: WalkOpts): Walk {
           const dx = next.x - c.x, dz = next.z - c.z, d = Math.hypot(dx, dz), r = c.r + 0.35;
           if (d < r && d > 0.001) { next.x = c.x + (dx / d) * r; next.z = c.z + (dz / d) * r; }
         }
-        const ok = groundY(next.x, next.z) > waterY && (!opts.walkable || opts.walkable(next.x, next.z));
+        const ny = groundY(next.x, next.z);
+        const ok = ny > waterY && (!opts.walkable || opts.walkable(next.x, next.z)) && (opts.maxStep === undefined || Math.abs(ny - groundY(hero.position.x, hero.position.z)) <= opts.maxStep);
         if (ok) { hero.position.x = next.x; hero.position.z = next.z; }
         else vel.multiplyScalar(0.5);
         hero.position.y = groundY(hero.position.x, hero.position.z);

@@ -20,6 +20,7 @@ export interface SceneWorld {
   blockers: Circle[];
   waterY?: number;
   walkable?: (x: number, z: number) => boolean;
+  maxStep?: number;
   applyKeyframe?: (kf: Keyframe, keyDir: THREE.Vector3, hemiSky: THREE.Color) => void;
   update: (t: number, dt: number, kf: Keyframe, ctx: SceneCtx) => void;
   hud?: () => string[];
@@ -62,6 +63,8 @@ export function runScene(def: SceneDef): void {
   const hemi = new THREE.HemisphereLight('#4A4E8E', '#2A4A30', 0.5);
   scene.add(hemi);
 
+  const winEarly = window as unknown as Record<string, unknown>;
+  winEarly['ssKids'] = def.kids;
   const world = def.build(scene, params);
   const sky = def.sky === 'dome' ? makeSky(def.clouds) : null;
   if (sky) scene.add(sky.group);
@@ -76,8 +79,9 @@ export function runScene(def: SceneDef): void {
   let activeIdx = 0;
   const active = () => def.kids[activeIdx]!;
   const blockersFor = (k: Kid) => world.blockers.filter((c) => Math.hypot(c.x - k.root.position.x, c.z - k.root.position.z) > c.r + 0.6);
-  const walkOpts = { hero: active().root, orbit, groundY: world.groundY, blockers: blockersFor(active()), ...(world.waterY !== undefined ? { waterY: world.waterY } : {}), ...(world.walkable ? { walkable: world.walkable } : {}) };
+  const walkOpts = { hero: active().root, orbit, groundY: world.groundY, blockers: blockersFor(active()), ...(world.waterY !== undefined ? { waterY: world.waterY } : {}), ...(world.walkable ? { walkable: world.walkable } : {}), ...(world.maxStep !== undefined ? { maxStep: world.maxStep } : {}) };
   const walk = makeWalk(walkOpts);
+  winEarly['ssWalk'] = walk;
   WORLD_U.uCurveCenter.value.set(station.target[0], station.target[2]);
   const curveLevels = [0, 0.0006, 0.0012, 0.0022];
   WORLD_U.uCurve.value = curveLevels[params.curve] ?? curveLevels[def.curveDefault ?? 1]!;
