@@ -83,7 +83,10 @@ export function makeProps(): Props {
     const win = new THREE.Color(C.window).multiplyScalar(LIGHT.window);
     const panel = (side: number) => {
       const g = new THREE.BufferGeometry();
-      const v = [-L / 2, 0, side * W, L / 2, 0, side * W, L / 2, H, 0, -L / 2, 0, side * W, L / 2, H, 0, -L / 2, H, 0];
+      // both panels wound outward (the −z side reverses the triangle order) so neither is back-face culled
+      const v = side > 0
+        ? [-L / 2, 0, W, L / 2, 0, W, L / 2, H, 0, -L / 2, 0, W, L / 2, H, 0, -L / 2, H, 0]
+        : [-L / 2, 0, -W, L / 2, H, 0, L / 2, 0, -W, -L / 2, 0, -W, -L / 2, H, 0, L / 2, H, 0];
       g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
       const teal = new THREE.Color(C.tealSlate);
       const col: number[] = [], em: number[] = [], gl: number[] = [];

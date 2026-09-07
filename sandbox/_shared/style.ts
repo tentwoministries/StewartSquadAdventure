@@ -48,18 +48,19 @@ export interface Keyframe {
 export const KEYFRAMES: Record<string, Keyframe> = {
   noon: {
     name: 'noon', p: 0.35,
-    key: { color: '#FFF6E6', intensity: 3.0, elev: 58, azim: 180 },
-    hemi: { sky: '#6FA8E6', ground: '#3A7D44', intensity: 0.6 },
-    fog: { color: '#9DC3DD', near: 35, far: 98, max: 0.85, height: 12 },
+    // day columns re-tuned under the physical conversion (T-07): the bible's 3.0 / 0.6 blow out to pastel
+    key: { color: '#FFF6E6', intensity: 1.15, elev: 58, azim: 180 },
+    hemi: { sky: '#6FA8E6', ground: '#2E6A38', intensity: 0.32 },
+    fog: { color: '#9DC3DD', near: 38, far: 98, max: 0.45, height: 12 },
     sky: { zenith: '#2F6BC0', horizon: '#A7D3EE', ground: '#4A8FC0', glow: 0.35 },
-    cloud: '#FFFFFF', stars: 0, moon: { on: false, elev: 0, azim: 0 }, exposure: 1.0,
+    cloud: '#FFFFFF', stars: 0, moon: { on: false, elev: 0, azim: 0 }, exposure: 0.92,
     lantern: 0, fireflies: 0, pollen: 0.6, fire: 0.35,
   },
   golden: {
     name: 'golden hour', p: 0.54,
-    key: { color: '#FFD08A', intensity: 2.4, elev: 16, azim: 245 },
-    hemi: { sky: '#7A8FC8', ground: '#4A7A3A', intensity: 0.55 },
-    fog: { color: '#D9A66E', near: 26, far: 74, max: 0.85, height: 12 },
+    key: { color: '#FFD08A', intensity: 1.4, elev: 16, azim: 245 },
+    hemi: { sky: '#7A8FC8', ground: '#3E6A36', intensity: 0.38 },
+    fog: { color: '#D9A66E', near: 28, far: 78, max: 0.6, height: 12 },
     sky: { zenith: '#3B5BA8', horizon: '#FFB870', ground: '#6B5A8A', glow: 0.6 },
     cloud: '#FFD9A8', stars: 0, moon: { on: false, elev: 0, azim: 0 }, exposure: 1.05,
     lantern: 0.3, fireflies: 0.15, pollen: 1.0, fire: 0.8,

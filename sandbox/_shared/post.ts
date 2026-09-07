@@ -31,7 +31,7 @@ export interface PostStack {
 
 export const POST_DRAFT = {
   bloom: { threshold: 0.8, smoothing: 0.3, intensity: 1.0, radius: 0.7, levels: 6 },
-  tilt: { offset: 0.0, focusArea: 0.5, feather: 0.55, kernel: 'SMALL' },
+  tilt: { offset: 0.0, focusArea: 0.62, feather: 0.5, kernel: 'VERY_SMALL' },
   vignette: { offset: 0.4, darkness: 0.35 },
   tone: 'ACES_FILMIC',
 };
@@ -52,7 +52,7 @@ export function makePost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, came
   bloom.selection.layer = BLOOM_LAYER;
   const tilt = new TiltShiftEffect({
     offset: POST_DRAFT.tilt.offset, rotation: 0, focusArea: POST_DRAFT.tilt.focusArea, feather: POST_DRAFT.tilt.feather,
-    kernelSize: KernelSize.SMALL, resolutionScale: 0.75,
+    kernelSize: KernelSize.VERY_SMALL, resolutionScale: 1.0,
   });
   const exposureFx = new ExposureEffect(exposure);
   const vignette = new VignetteEffect({ offset: POST_DRAFT.vignette.offset, darkness: POST_DRAFT.vignette.darkness });
