@@ -17,6 +17,10 @@ These are Andrew's standing rules. They go at the top of every handoff document,
 
 **Family canon is sacred.** The kids' names, core personalities, and canon text never change: **Liam** (oldest, protective, steady — the leader), **Noah** (sharp, quick, independent), **Collette** (creative, imaginative), **Isabella** (youngest, fierce, unstoppable). Grandpa Ed flies the biplane. Each kid's color and role are set in the Design Bible (`docs/design/heroes.md`, Phase 0.5) and may be revised only there, with the rationale logged in `docs/DECISIONS.md`; Brief §1 is the starting point, not the law. Existing dialogue, quest text, in-jokes, cutscene lines, voice lines, achievement names, and loading tips are ported **verbatim** — never paraphrased or "improved". New text may be added. Nothing ships that isn't family-friendly.
 
+## Routing (2026-09-07): read docs/LANES.md first
+
+This checkout is lane **0.75 visual studies** (the default lane) on branch `phase-0.75-visual-studies`. If Andrew's first line names another lane, move to that lane's worktree before reading further. Open lanes: 0.75 visual studies (this checkout), 0.75 biomes (`StewartSquad-biomes/`, branch `phase-0.75-biomes`, may be live in another session), 0.75 demo (`StewartSquad-demo/`, a tag), 0.85 story and play (`StewartSquad-story/`, branch `phase-0.85-story`: the walkthrough, the kids' suggestions, the storyboard). Default when unnamed: this lane.
+
 ## Model and effort policy (Andrew, 2026-09-06)
 
 - Orchestrator: Fable 5.1 at **high**, every session. At session start, confirm `CLAUDE_CODE_EFFORT_LEVEL` is unset (it silently overrides every agent's frontmatter `effort`).
