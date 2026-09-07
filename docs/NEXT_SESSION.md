@@ -30,6 +30,18 @@ These are Andrew's standing rules. They go at the top of every handoff document,
 
 # Next session — handoff written 2026-09-07 (end of Phase 0.75 session 1: the visual studies, study 1 rendered and awaiting Andrew)
 
+## Systems at a glance (read `docs/design/mockups/README.md` for the one-page map)
+
+| Piece | Where | State |
+|---|---|---|
+| Design Bible (not edited in 0.75) | `docs/design/*.md` | `p0.5-design-bible` on `main` |
+| Phase 0.75 process, sessions, prompts | `docs/design/PHASE_0.75_BRIEF.md` | studies first, then dialog clusters, then the application session |
+| The demo scenes (= the visual studies) | `sandbox/<biome>/` + `sandbox/_shared/`; plan `mockups/STUDY_NOTES.md` §3, rules §6 | Forest built (`p0.75-demo-forest-1`); Desert, Bog, Frozen, Caves next |
+| Decisions | `docs/design/PHASE_0.75_TWEAKS.md` (T-01..T-14) | Andrew's calls open on T-08, T-09, T-11, T-13, T-14 |
+| Numbers / log / frames | `mockups/style-draft.json` (draft) / `mockups/LOG.md` / `mockups/*.png` | nothing approved yet |
+| Branches | `phase-0.75-visual-studies` (work), `phase-0.75-scratch` (throwaway, currently identical), tags per demo state | `main` untouched |
+| A demo that survives a working session | the worktree `C:/Documents TEMP/ClaudeCode/StewartSquad-demo` at `p0.75-demo-forest-1`, `npx vite --port 5180` there → `http://localhost:5180/sandbox/forest-dusk/?shot=L1&t=dusk&v=B` | the working checkout keeps 5173 |
+
 ## Where we are
 
 - **Branch:** `phase-0.75-visual-studies`, off `main` at `fee956e`. Everything from this session is committed there: Andrew's 21 reference frames, the sandbox, the eight sample frames, the logs and tweak rows. `main` is untouched. The branch is also the base for a second AI's independent visual pass if Andrew wants one (`DECISIONS.md` 2026-09-07). It merges to `main` at the Phase 0.75 application step.
