@@ -1,7 +1,7 @@
 # Audio — Design Bible
 
-**Status:** draft for orchestrator review · **Written:** 2026-09-06 · **Author:** design-lead (Fable, xhigh)
-**Sources read:** AUDIO_INVENTORY §1–§26 (all 29 recipes, BGM9, §22 replication, §23 call sites, §24 mix, §25 gaps, §26 port notes) · ATMOSPHERE_RECIPES §19, §8.2, §11, §4, §13 · FAMILY_CANON §12.1, §12.5, §10.1 (the `M: Mute` strip, L866), §12.4 (`Music: OFF` / `Music: ON`, L1405) · SYSTEMS_INVENTORY Part 2 §16.5, §18.1, §19.3 · legacy L538–L577, L695, L2261, L2381, L2402, L3412, L8508–L8541 verified by `grep -n` · **Depends on:** heroes.md, enemies.md, story-beats.md, world-events-weather.md, bosses.md, camp.md, npcs.md · **Feeds:** dungeons.md, cutscenes.md, ui-ux.md (each has a reserved cue family here; §5)
+**Status:** reviewed by orchestrator 2026-09-07; consistency pass applied 2026-09-07 · **Written:** 2026-09-06 · **Author:** design-lead (Fable, xhigh)
+**Sources read:** AUDIO_INVENTORY §1–§26 (all 29 recipes, BGM9, §22 replication, §23 call sites, §24 mix, §25 gaps, §26 port notes) · ATMOSPHERE_RECIPES §19, §8.2, §11, §4, §13 · FAMILY_CANON §12.1, §12.5, §10.1 (the `M: Mute` strip, L866), §12.4 (`Music: OFF` / `Music: ON`, L1405) · SYSTEMS_INVENTORY Part 2 §16.5, §18.1, §19.3 · legacy L538–L577, L695, L2261, L2381, L2402, L3412, L8508–L8541 verified by `grep -n` · **Depends on:** heroes.md, enemies.md, story-beats.md, world-events-weather.md, bosses.md, camp.md, npcs.md · **Reconciled 2026-09-07 with:** dungeons.md, cutscenes.md, ui-ux.md (written in the same wave; they landed first and own their cue names, adopted in §2.2.8 and §2.5.6; §5.3 items 8–10)
 **Brainstorm doc:** not available at time of writing — reconcile on arrival.
 
 v27's twenty-nine `snd()` recipes port as data, verbatim, under a real bus and a voice pool, and every hook the other design files asked for becomes a parameter set in one of seventeen recipe families rather than a new sound. The two things v27 never had, ambient beds and a music engine that knows where you are and what is happening, are built the same way: oscillators, filtered noise and note data, no audio files, ever.
@@ -30,7 +30,7 @@ v27's twenty-nine `snd()` recipes port as data, verbatim, under a real bus and a
 
 ### 2.0 Conventions
 
-- **Hook names** are dotted, lower camel, namespaced by owner: `hero.*`, `dodge.*`, `alert.*`, `enemy.*`, `death.*`, `horde.*`, `cage.*`, `boss.*`, `amb.*`, `thunder*`, `animal.*`, `fish.*`, `camp.*`, `plane.*`, `crate.*`, `frog.*`, `lantern.*`, `dlg.*`, `ui.*`, `dng.*`, `cs.*`, `music.*`. The 29 v27 names and the three v27 left undefined keep their exact v27 spelling (`snake_case`) so every canon call site ports unchanged.
+- **Hook names** are dotted, lower camel, namespaced by owner: `hero.*`, `dodge.*`, `alert.*`, `enemy.*`, `death.*`, `horde.*`, `cage.*`, `boss.*`, `amb.*`, `thunder*`, `animal.*`, `fish.*`, `camp.*`, `plane.*`, `crate.*`, `frog.*`, `lantern.*`, `dlg.*`, `ui.*`, `card.*`, `photo.*`, `dng.*`, `grove.*`, `tomb.*`, `temple.*`, `ice.*`, `shard.*`, `cs.*`, `music.*`. The 29 v27 names and the three v27 left undefined keep their exact v27 spelling (`snake_case`) so every canon call site ports unchanged.
 - **Volumes** are the v27 linear `vol` argument (0–1). "vol" in a table is the default the map applies when a call passes none; v27 names default to 0.25 exactly as v27 did. Decibel figures describe bus and duck moves only.
 - **Pitch** in semitones (st) or Hz; "detune" is `OscillatorNode.detune` in cents, or `playbackRate` for a noise buffer.
 - **Positional** means the cue is spatialised from its world position (§2.7); **2D** means it is not.
@@ -255,7 +255,7 @@ Beds (`amb.*` with an island or dungeon key) are specified in §2.5 and listed h
 | `fish.nibble` | blip | sine 330 d .04 ×.25 | .15 | new | yes | effects | P4 | the two fakes |
 | `fish.bite` | blip + chirp | blip sine 220 d .08 ×.5; chirp plop sine 900→300 d .06 | .30 | new | yes | effects | P2 | the 0.7 s window opens |
 | `fish.catch` | arpeggio + whoosh | tri [523,659,784,1047,1319] step .07 atk .02 dec .25 ×.6; whoosh d .3 bp 2500→1200 amp .4 (the splash) | .35 | new | yes | effects | P1 | the catch card |
-| `fish.miss` | sweep | sine 600→300 exp .15 ×.3; + plop | .15 | new | yes | effects | P4 | `It got away.` |
+| `fish.miss` | sweep | sine 600→300 exp .15 ×.3; + plop | .15 | new | yes | effects | P4 | `It got away.` **[new text]** (world-events §2.7.2) |
 | `animal.deer` | chirp | a soft huff: whoosh d .25 bp 600→300 amp .25 | .10 | new | yes | effects | P6 | every 8–20 s per animal (world-events §2.7.1), ≤ 4 animal voices live |
 | `animal.fox` | chirp | = `camp.fox.yip` | .10 | new | yes | effects | P6 | night |
 | `animal.rabbit` | chirp | none by default; a 2-grain thump (impact d .04 lp 300 ×2 at 90 ms) on a hop start | .06 | new | yes | effects | P6 | the hop is the call |
@@ -296,7 +296,7 @@ Beds (`amb.*` with an island or dungeon key) are specified in §2.5 and listed h
 | `camp.canvas.snap` | impact + whoosh | impact d .12 bp 700 Q1.5 amp .7; whoosh d .2 bp 1500→600 amp .3 | .25 | new | yes | effects | P4 | the tarp becomes the roof |
 | `camp.seedling` | blip | sine 1400 d .03 ×.3 | .10 | new | yes | effects | P5 | a soft tick per seedling |
 | `camp.rest.sweep` | pair | sine 220→440 exp 3.0 · tri 330→660 exp 3.0, lp opening 400→4000 over 3 s, ×.25 | .30 | new | 2D | effects | P1 | the 3 s sky sweep; the beds crossfade underneath (§2.5.4) |
-| `camp.sit` | whoosh + blip | whoosh d .5 bp 500→200 amp .3 (cloth settling); blip sine 400 d .04 ×.2 | .15 | new | 2D | effects | P4 | the squad sits; at deep night the constellation cards use `ui.titleCard` each |
+| `camp.sit` | whoosh + blip | whoosh d .5 bp 500→200 amp .3 (cloth settling); blip sine 400 d .04 ×.2 | .15 | new | 2D | effects | P4 | the squad sits; at deep night the constellation cards use `card.constellation` each (§2.2.8) |
 | `camp.hen` | chirp | square 700→500 d .06 ×3 at 8 Hz, lp 2500 | .12 | new | yes | effects | P6 | the run; the flap on a running hero |
 | `camp.fox.yip` | sweep | tri 1200→700 exp .12 ×2, .15 s apart | .12 | new | yes | effects | P6 | the fox, from trust 3 |
 | `camp.slime.blorp` | sweep | = `alert.blob` .12 | .12 | new | yes | effects | P6 | Sugar |
@@ -336,64 +336,116 @@ Beds (`amb.*` with an island or dungeon key) are specified in §2.5 and listed h
 | `dlg.blip.elm` / `.quartz` / `.neve` / `.fern` / `.sol` | blip | tri 220 / sine 520 / tri 340 / sine 300 / tri 260, d .03 | .06 | new | 2D | dialogue | P4 | Quartz is glass |
 | `dlg.blip.witch` / `.nomad` | blip | tri 240 / tri 280, d .03 | .06 | new | 2D | dialogue | P4 | — |
 | `dlg.advance` | sweep | sine 700→1050 exp .05 ×.3 | .12 | new | 2D | dialogue | P3 | a line completes or advances |
-| `dlg.skip` | sweep | = `ui.back` | .12 | new | 2D | dialogue | P3 | hold-to-skip confirmed |
+| `dlg.skip` | sweep | = `ui.cancel` | .12 | new | 2D | dialogue | P3 | hold-to-skip confirmed |
 
 Guides' proximity bubbles, Ed's hangar shouts and `Character-building weather.` are bubbles: they play `dlg.blip.<who>` × 3 like an emote, never the full typewriter (they do not freeze the sim, npcs §2.11).
 
-#### 2.2.8 Reserved families for files not yet landed
+#### 2.2.8 The `ui.*`, dungeon and `cs.*` families (names reconciled 2026-09-07 with the files that own them)
 
-**`ui.*` (for `ui-ux.md`).** Defined here so the scrapbook has a sound the day it is built; `ui-ux.md` may rename members but not the family or the bus.
+`ui-ux.md`, `dungeons.md` and `cutscenes.md` were written in the same wave as this file and landed first; each named its own cues. The rule this file set for itself (§5.3 item 8) is applied here: **their names win**, this file's families and parameters stay, and `cues.ts` carries one name per cue. Where a file named a cue this file had not sketched, the family and sketch below are new.
 
-| Cue | Family | Parameters | vol | v27 | Bus | Pri | Note |
-|---|---|---|---|---|---|---|---|
-| `ui.click` | blip + impact | blip tri 1200 d .025 ×.5; impact d .02 hp 4000 amp .3 (paper) | .15 | new | effects | P3 | every button |
-| `ui.hover` | blip | sine 1600 d .015 ×.2 | .06 | new | effects | P5 | gamepad focus moves only; never on mouse hover (too frequent) |
-| `ui.confirm` | sweep | = `equip` .3 | .30 | site | effects | P3 | v27's menu confirm (skill bought, quest accepted, room cleared) |
-| `ui.back` | sweep | tri 900→600 exp .08 ×.3 | .12 | new | effects | P3 | close, cancel |
-| `ui.error` | blip | square 220 d .06 ×2 at 90 ms ×.35 | .15 | new | effects | P3 | stash full, not enough gold, wrong hero (v27 silent) |
-| `ui.pageTurn` | whoosh | d .28 p1.5 amp .5, bp 1500→3500 Q .7, hp 800 | .20 | new | effects | P3 | the one orchestrated page-turn; `ui.close` is the same reversed (3500→1500) |
-| `ui.titleCard` | pair | sine 440→880 exp 1.2 · tri 660 held 1.2, ×.15 | .15 | new | effects | P2 | location cards and the two camp cards (a quiet swell); dungeon entry cards too |
-| `ui.levelCard` | arpeggio | = `levelup` .4 | .40 | site | effects | P1 | — |
-| `ui.save` | sweep | = `achieve` .2 | .20 | site | effects | P3 | — |
-| `ui.tutorialStep` | sweep | = `achieve` .15 | .15 | site | effects | P3 | — |
-| `ui.heroSwitch` | arpeggio | = `hero.swap.<hero>` | .18 | new | effects | P3 | the portrait strip (was `hit` .15) |
-| `ui.photo.shutter` | impact + blip | impact d .03 hp 3500 amp .6; blip sine 2400 d .02 | .20 | new | effects | P3 | photo mode |
-| `ui.crest.grow` | arpeggio | tri [392,523,659,784,1047] step .12 atk .03 dec .35 ×.6 | .30 | new | effects | P1 | the crest levels |
-| `ui.announce` | — | silent | — | — | — | — | announces carry their own cue; the channel itself makes no sound |
+**`ui.*`, `card.*`, `photo.*` (names from `ui-ux.md` §5.2; the `dlg.*` cues are §2.2.7's).** All 2D on the `effects` bus. `ui-ux.md`'s silence rules stand: no sound on the HUD's idle fade, on chip changes, on compass pips.
 
-**`dng.*` (for `dungeons.md`).** The v27 dungeon recipes (AU §13) are in §2.2.1 and stay at their v27 volumes: `bars_slam` .3, `door_unlock` .4, `lever_pull` .3, `plate_click` .3 / .2, `puzzle_solve` .4, `rock_slide` .25, `destroy_pot` / `destroy_crate` .25 (via the `sd` field, which stays the only data-driven lookup and now points into this map), `chest_open` .4 / .3, `equip` .4 (key) and .3 (room cleared), `boom` .4 (Liam's cracked wall), `magic` .2 (Collette's seal ticks). Reserved names, each with a family so `dungeons.md` picks them up or renames them in one place:
+| Cue | Family | Parameters | vol | v27 | Pri | Note |
+|---|---|---|---|---|---|---|
+| `ui.page` | whoosh | d .28 p1.5 amp .5, bp 1500→3500 Q .7, hp 800 | .20 | new | P3 | the one page-turn (`ui-ux.md` §2.2.3); every tab change |
+| `ui.open` / `ui.close` | whoosh + impact | `ui.page`, the sweep reversed for close (3500→1500); + impact d .02 hp 4000 amp .3 (the cover) | .20 | new | P3 | the book opens and closes |
+| `ui.tab` | blip + impact | blip tri 1200 d .025 ×.5; impact d .02 hp 4000 amp .3 (paper) | .15 | new | P3 | a tab, or any button that is neither a confirm nor a cancel (was `ui.click`) |
+| `ui.focus` | blip | sine 1600 d .015 ×.2 | .06 | new | P5 | focus moves on pad and keyboard only; never on mouse hover (was `ui.hover`) |
+| `ui.confirm` | sweep | = `equip` .3 | .30 | site | P3 | v27's menu confirm (skill bought, quest accepted, room cleared) |
+| `ui.cancel` | sweep | tri 900→600 exp .08 ×.3 | .12 | new | P3 | close, cancel, back (was `ui.back`); `dlg.skip` aliases it |
+| `ui.error` | blip | square 220 d .06 ×2 at 90 ms ×.35 | .15 | new | P3 | `Not enough gold`, stash full, wrong hero (v27 silent); also the dev build's unknown-cue tell (§2.3) |
+| `ui.toast` | sweep | = `achieve` .3 | .30 | site | P3 | achievement toasts (v27's site) |
+| `ui.announce.hurt` / `ui.announce.alarm` | blip / siren | hurt: square 180 d .08 ×.35, ×2 at 90 ms; alarm: tri [660,0]→[880,.1]→[660,.2] ×.3 | .15 / .20 | new | P2 | the two optional announce stingers `ui-ux.md` §5.2 asks for; the channel looks the stinger up by the string's colour token, so the cue is named for the token on purpose; every other announce colour is silent and the channel itself makes no sound (each string's own cue carries it) |
+| `ui.prompt.show` | blip | sine 1400 d .02 ×.2 | .06 | new | P5 | once per prompt appearance, never per frame |
+| `ui.swap` | arpeggio | = `hero.swap.<hero>` | .18 | new | P3 | the portrait strip (was `hit` .15 in v27; §2.2.2) |
+| `ui.wheel.open` / `ui.wheel.pick` | whoosh / blip | open: d .15 bp 1500→3000 amp .3; pick: tri 1000 d .03 ×.4 | .12 | new | P3 | the emote wheel; the pick is followed by `hero.emote.<hero>` |
+| `ui.radial.open` / `ui.radial.pick` | whoosh / blip | = the wheel pair at −3 dB | .10 | new | P3 | the combo radial |
+| `ui.cooldownReady` | sweep | sine 900→1350 exp .06 ×.3 | .10 | new | P4 | once per icon per cooldown |
+| `ui.lowHp` | blip | sine 220 d .06 ×.25 on each ring pulse (1 Hz) | .08 | new | P4 | active hero only, under 25 %, ≤ 1 voice |
+| `ui.tutorial.step` | sweep | = `achieve` .15 | .15 | site | P3 | (was `ui.tutorialStep`) |
+| `ui.save` / `ui.load` | sweep | = `achieve` .2 | .20 | site | P3 | save and load (v27's save site) |
+| `ui.export` | sweep | = `equip` .3 | .30 | site | P3 | the export card |
+| `ui.crest.grow` | arpeggio | tri [392,523,659,784,1047] step .12 atk .03 dec .35 ×.6 | .30 | new | P1 | the crest levels (`ui-ux.md` §2.10 names no cue; this name stands until it does) |
+| `card.title` | pair | sine 440→880 exp 1.2 · tri 660 held 1.2, ×.15 | .15 | new | P2 | the quiet swell on every location, camp and dungeon-entry card (was `ui.titleCard`); `dng.nameCard` aliases it |
+| `card.catch` | arpeggio + whoosh | = `fish.catch` | .35 | new | P1 | the catch card |
+| `card.constellation` | pair + arpeggio | `card.title` at −6 dB; + the bells' first three motif notes on the night table, step .3 | .15 | new | P2 | each constellation card at deep night (camp §2.7.3) |
+| `photo.shutter` | impact + blip | impact d .03 hp 3500 amp .6; blip sine 2400 d .02 | .20 | new | P3 | photo mode (was `ui.photo.shutter`) |
+| (the level card) | arpeggio | = `levelup` .4 | .40 | kept | P1 | the card plays v27's cue; there is no separate `ui.levelCard` |
 
-| Reserved cue | Family | Sketch | Dungeon |
+**Dungeons (names from `dungeons.md` §2.1.11 and §5.2).** The v27 dungeon recipes (AU §13) are in §2.2.1 and stay at their v27 volumes: `bars_slam` .3, `door_unlock` .4, `lever_pull` .3, `plate_click` .3 / .2, `puzzle_solve` .4, `rock_slide` .25, `destroy_pot` / `destroy_crate` .25 (via the `sd` field, which stays the only data-driven lookup and now points into this map), `chest_open` .4 / .3, `equip` .4 (key) and .3 (room cleared: no separate cue), `boom` .4 (Liam's cracked wall), `magic` .2 (Collette's seal ticks), `boss` .5 (the entry card), `victory` .5 (the clear). The beds are §2.5.6. Every cue below is positional at its object in the `mid` class unless marked.
+
+| Cue | Family | Sketch | Where |
 |---|---|---|---|
-| `amb.dng.hollowGrove` · `.buriedTomb` · `.sunkenTemple` · `.iceCitadel` · `.homeWrong` · `.crystalDepths` · `.volcanicRift` | bed | §2.5.6 | all |
-| `dng.root.grow` / `dng.root.retract` | siren + whoosh | saw [60,0]→[110,1.2] with a creak, whoosh bp 300→900 (grow) and reversed (retract) | Hollow Grove |
-| `dng.moss.light` | pair | sine 990→1980 exp .4 · tri 1485 held .4 ×.25 | Hollow Grove |
-| `dng.sand.flow` | bed | white noise bp 1200 Q .5 + brown lp 150, gain ∝ flow rate; start/stop with a `lever_pull` | Buried Tomb |
-| `dng.mirror.turn` | siren + impact | saw [140,0]→[180,.3] creak; impact d .06 bp 2000 at the detent | Buried Tomb |
-| `dng.sunbeam.lock` | pair | sine 880→1760 exp .5 · tri 1320 held .6, ring .8 ×.3 | Buried Tomb |
-| `dng.lantern.place` | pair | = `lantern.light` | Sunken Temple |
-| `dng.lilypad.sink` | whoosh + chirp | whoosh d .6 bp 400→150 amp .4; 3 bubble plops | Sunken Temple |
-| `dng.mist.rise` / `dng.mist.fall` | bed | `amb.fogDrip` ramped in over 2 s with a hp 300 hiss; reversed on fall | Sunken Temple |
-| `dng.ice.slide` | bed | white noise bp 3000 Q .8, gain ∝ hero slide speed, r 4 m at the hero | Ice Citadel |
-| `dng.crystal.strike.<1–5>` | arpeggio | one note each from the frozen scale [329.6, 370, 392, 440, 493.9] ×2, sine + 2nd harmonic, decay 1.6 s (the bell instrument of §2.6.3) | Ice Citadel |
-| `dng.rope.grab` / `dng.rope.release` | impact + siren | impact d .08 bp 800; `camp.rope.creak` | Ice Citadel |
-| `dng.aurora.power` | hum | `amb.aurora` × 40 at the mechanism, LFO .5 Hz | Ice Citadel |
-| `dng.entryCard` | pair | = `ui.titleCard` | all |
-| `dng.roomClear` | sweep | = `equip` .3 (v27) | all |
-| `dng.floorBanner` | growl | = `boss` at .25 (the Citadel floor banners) | Home, Wrong |
+| `dng.enter` | bed + whoosh | the island bed fades over 2 s (§2.5.4 item 5) under a low whoosh d 2.0 bp 300→150 amp .3; the `boss` .5 on the card is v27 | the threshold walk, every dungeon |
+| `dng.nameCard` | pair | = `card.title` | every entry card; the quiet name cards of rest and set-piece rooms at −6 dB |
+| `dng.hearthLight` | crackle + pair | crackle burst .8 s density 20/s; pair sine 440→880 exp .5 · tri 660 held .5 ×.25 (the flame taking); then `amb.camp.fire` at size class S1 from the hearth's oscillator | the mid-dungeon rest room (`dungeons.md` §2.1.6) |
+| `dng.checkpoint` | sweep | = `ui.save` | rest rooms and boss antechambers |
+| `dng.backDoor` | boom + whoosh | `door_unlock` .4; + whoosh d .6 bp 400→1200 amp .3 (daylight in); the island bed returns over 2 s | the back door |
+| `grove.heartbeat` | hum | sine 55 + saw 110, lp 300, two pulses 0.12 s apart on every beat of the `cave` table's 56 BPM, gain .06 | the Hollow Grove's bed (§2.5.6), rising to .10 in the Well |
+| `grove.rootRise` / `grove.rootFall` | siren + whoosh | saw [60,0]→[110,1.2] with a creak ×.3; whoosh bp 300→900 amp .4 (rise) and reversed (fall) | root walls |
+| `grove.mossWake` | pair | sine 990→1980 exp .4 · tri 1485 held .4 ×.25 | glow moss lighting |
+| `grove.saplingSprout` | chirp + whoosh | 3 blips sine 700→1400 d .05 at 8 Hz ×.3; whoosh d .3 bp 800→2000 amp .3 | saplings |
+| `grove.boughLift` | siren + whoosh | saw [50,0]→[80,2.0] creak ×.25; whoosh d 2.0 bp 200→600 amp .3 | the Heartwood Well's lift |
+| `grove.canopyOpen` | whoosh + chirp | whoosh d 1.5 bp 400→3000 amp .4 (light in); the birds layer ×3 for 4 s | the canopy opening |
+| `tomb.sandFlow` / `tomb.sandDrain` | bed | white bp 1200 Q .5 + brown lp 150, gain ∝ flow rate; the drain is the same bed with playbackRate 1 → .6 over 2 s as the level falls; start and stop with a `lever_pull` | sand rooms |
+| `tomb.leverGreat` | sweep + impact | `lever_pull` at playbackRate .75 (−5 st); impact d .2 bp 300 amp .8 | the great lever |
+| `tomb.drainRumble` | boom | d 2.5 p .5 amp 1, lp 120→60, tail .8 (the `quake.rumble` shape at half gain) | the drain |
+| `tomb.mirrorTurn` | siren + impact | saw [140,0]→[180,.3] creak ×.3; impact d .06 bp 2000 at the detent | mirror pedestals |
+| `tomb.sunmarkLit` | pair | sine 880→1760 exp .5 · tri 1320 held .6, ring .8 ×.3 | a sunbeam finds its mark |
+| `tomb.scarabSwarm` | chirp | 12 grains square 3200→2400 d .02 at 20 Hz ×.2, looped while the swarm lives, ≤ 2 voices | scarab swarms |
+| `tomb.sandWind` | bed | `amb.sandstorm` at .5 through lp 1500 (indoors) | the Storm Chamber |
+| `tomb.slide` | bed | white bp 1000 Q .5, gain ∝ hero slide speed, r 4 m at the hero | the sand ride |
+| `temple.sconceLight` | pair | = `lantern.light` | sconces |
+| `temple.lanternSet` | pair + impact | `lantern.light`; + impact d .08 bp 900 amp .5 (the hook) | the Rusted Lantern set down |
+| `temple.padSink` | whoosh + chirp | whoosh d .6 bp 400→150 amp .4; 3 bubble plops | lily pads |
+| `temple.mistRise` / `temple.mistFall` | bed | `amb.fogDrip` ramped in over 2 s with a hp 300 hiss; reversed on fall | the mist |
+| `temple.wispHum` | hum | sine 1320 + 1980 at −40 dB, shimmer .3 Hz, r 5 m, ≤ 3 | the wisps |
+| `temple.wraithCondense` | pair | = `enemy.wraith.blinkIn` .2 through lp 1200 | a wraith forming from mist |
+| `temple.naveLit` | arpeggio + pair | `camp.build.done`'s five notes on the `swamp` table; `lantern.light` ×N staggered .15 s | the Nave set piece |
+| `ice.slide` | bed | white bp 3000 Q .8, gain ∝ hero slide speed, r 4 m at the hero | ice floors |
+| `ice.bellPlate` | blip + arpeggio | `plate_click`; + one `ice.crystal` note | bell plates |
+| `ice.crystal.<C4\|E4\|G4\|A4\|C5>` | arpeggio | one note each at 261.6 / 329.6 / 392 / 440 / 523.3 Hz, sine + second harmonic at −12 dB, decay 1.6 s (the bell instrument of §2.6.3); `dungeons.md` names the notes, and over the `frozen` mode's E drone the set reads as E minor's ♭6 colour, so the puzzle stays in tune with the room | the crystal-resonance puzzle |
+| `ice.crystalWrong` | pair | sine 400→200 exp .3 · tri 600→300 exp .3, lp 1000 ×.3 (a dull note, never a buzzer) | a wrong strike |
+| `ice.frostGate` | pair + impact | `boss.fieldOn` at .25; + impact grains 4 hp 4000 | frost gates |
+| `ice.lift` | bed + siren | brown lp 150 gain .06 while moving; `camp.rope.creak` every 1.2 s | the lift |
+| `ice.rope` | impact + siren | impact d .08 bp 800 amp .5 on grab and on release; `camp.rope.creak` while held | ropes |
+| `ice.orreryStart` | boom + siren | boom d .6 lp 400→80 amp .8; saw [40,0]→[80,2.0] ×.3 (gears taking up) | the Orrery starts |
+| `ice.orrery` | hum + blip | saw 55 + sine 110, lp 500, trem .5 Hz, gain .08; a tick (square 1200 d .02 ×.3) every .75 s (the bed's gear tick) | the Orrery running (loop) |
+| `ice.domeOpen` | whoosh + hum | whoosh d 3.0 bp 300→2500 amp .5; `amb.aurora` ×4 fading in over 3 s (was `dng.aurora.power`) | the dome opens |
+| `shard.banner` | growl | = `boss` .25 | the three floor banners (was `dng.floorBanner`) |
+| `shard.lockSeal` | pair + impact | sine 300→75 exp .8 · tri 450→112 exp .8, lp 900 ×.4; impact d .2 bp 1500 amp .7 | an ash gate seals |
+| `shard.deadSconce` | crackle + blip | a crackle burst .3 s dying to 0; blip sine 220 d .08 ×.3 | a sconce that will not take a flame |
+| `shard.ashRise` | bed + whoosh | `amb.ashfall` ×1.5 for 4 s; whoosh d 2.0 bp 200→400 amp .3 | ash rising |
 
-**`cs.*` (for `cutscenes.md`).** The cutscene system gets a duck API and an anchor namespace; the two v27 cutscene audio moments are defined now so CS-03 can be shot against real numbers.
+The far light has no sound of its own (`dungeons.md` §5.2: it is too far); its warmth after the ending is `amb.crater`'s (`cs.ending.dawn`, below).
 
-| Reserved cue | Family | Sketch | Anchor |
+**`cs.*` (names from `cutscenes.md` §2.0 and §2.14).** Cutscene cues are 2D unless the shot table places them; the listener is where the shot's subject is (§2.7.1). The one music API is `music.duck(level, s)`; the numbers are `cutscenes.md` §2.14's: CS-03 keeps AU §18 verbatim (music to 0 over 2.5 s at scene 1, back over 2.0 s at scene 7), **every other cutscene ducks the music to 0.5 over 1.0 s and restores over 1.5 s**, effects are never ducked, ambience continues.
+
+| Cue | Family | Sketch | Where |
 |---|---|---|---|
-| `cs.duck.out` / `cs.duck.in` | (music API) | `music.duck(−∞ dB, 2.5 s)` at CS-03 scene 1 `onStart`; `music.duck(0 dB, 2.0 s)` at scene 7 `onStart` (AU §18 verbatim); every other cutscene defaults to `music.duck(−9 dB, 1.0 s)` in and `(0, 1.5 s)` out | CS-03 scenes 1 and 7 |
-| `cs.meteor.whistle` | siren | sine [4000,0]→[400,3.0], noiseMix .5, panned across the dome | CS-03 scenes 2–5 (the descent) |
-| `cs.meteor.impact` | boom | `boom` .6 (v27 L4917) + `cs.meteor.sub` (boom d 2.0 p1 amp 1, lp 120→30, tail 2.5) + impact grains 8 | CS-03 scene 6 |
-| `cs.portal.open` | pair + stinger | `portal` .4 (v27 L5716) + `music.stinger.portal` (§2.6.7) | CS-07 |
-| `cs.crash.*` | (plane cues) | `plane.engine.*` at roughness 1.0, `plane.crash.impact`, the `crash_landing` captions on `dlg.blip.<who>` | CS-01 |
-| `cs.flight.*` | (plane cues + music) | `plane.prop.spinup`, the engine, `plane.wind.trick`, `plane.touchdown` ×2–3, `plane.prop.spindown`; `music.travel` (§2.6.5) | CS-04 |
-| `cs.ending.*` | stinger + music | `music.ending` (§2.6.5), the wing-rock, `ui.titleCard` on the title | CS-10 |
-| `cs.<id>.<beat>` | any | the namespace `cutscenes.md` fills per shot table; every member must name its family here | all |
+| `cs.crash.wind` | bed + whoosh | the sky-leg wind layer (§2.5.4 item 4) at the shot's level (low .3 → rising → full 1.0) with a cloth flutter (whoosh d .4 bp 1200→2400 amp .2 every .6–1.1 s: the scarf); it sits under the engine at roughness 1.0 | CS-01 shots 1–4 (the eight rotations) |
+| `cs.crash.skid` | whoosh | d 3.5 bp 500→200 amp .5 (the skid `plane.crash.impact` describes, at the shot's length) | CS-01 touchdown |
+| `cs.crash.gearSnap` | impact + sweep | impact d .12 bp 1400 Q3 amp .8; sweep square 300→120 exp .1 ×.3 | a strut breaking |
+| `cs.crash.wingFold` | impact + whoosh | impact d .3 bp 600 Q1.5 amp .8 grains 3; whoosh d .6 bp 1200→400 amp .4 (canvas and spar) | the wing folds |
+| `cs.crash.propSplinter` | impact | d .2 hp 2500 amp .7, grains 6 over .4 s | the propeller |
+| `cs.crash.nightFalls` | bed | the `amb.forest.dusk` → `.night` crossfade compressed to the shot: crickets rising, the wind dropping (§2.5.4 item 2, run scripted) | CS-01, the fire at dusk |
+| `cs.crash.raidDistant` | growl + impact | `enemy.idle.runt` at −7 st and −18 dB from the north; a drum: impact d .15 lp 200 amp .8 every 1.2 s | the goblins on the ridge |
+| `cs.crash.cartWheels` | chirp + step | = `amb.caravan.cart` at each of the three carts, panned, fading with distance | the carts leaving |
+| `cs.crash.cageChain` | impact + blip | 4 impacts d .04 bp 2600 Q3 amp .5 at 60 ms; blip sine 1800 d .02 | the cage on the cart |
+| `cs.crash.dawn` | bed | the `amb.forest.dawn` birds layer ×1.5 in over 3 s; `amb.camp.fire` under it | CS-01's last shot |
+| `cs.meteor.roar` | siren + boom | sine [4000,0]→[400,12.0] with noiseMix .5 (the whistle) over brown lp 200 rising; detune from the meteor's radial velocity (§2.7.3's formula, ×3), pan following the meteor across the frame; hard cut to silence for the last 0.35 s (the flash) | CS-03 scenes 2–5 |
+| `cs.meteor.rumble` | boom | d 2.0 p1 amp 1, lp 120→30, tail 2.5 s, after `boom` .6 (v27) | CS-03 scene 6 |
+| `cs.meteor.settle` | crackle + hum | a crackle burst 2 s (the ember rain); `amb.crater` fading in over 3 s (the crater's first hum) | CS-03, the settle |
+| `cs.flight.cloudHush` | (bus) | every layer through lp 600 and −9 dB for the white-out's 0.6 s, the engine included | CS-04, the cloud curtain |
+| `cs.flight.wind` | bed | wind .12 at altitude, nothing else under the engine (§2.5.4 item 4) | CS-04, the sky leg |
+| `cs.crater.bed` | hum | = `amb.crater` ×1.5 for the scene | CS-06 |
+| `cs.crater.pulse` | pair | sine 110→220 exp .8 · tri 165 held .8 ×.25 on each ring; the "distant" call in CS-07 at −12 dB | CS-06 and CS-07 |
+| `cs.portal.pushWind` | whoosh | d 3.0 bp 200→800 amp .4 | CS-07, the camera's push |
+| `cs.portal.rise` | siren + stinger | sine [100,0]→[800,4.0] noiseMix .3 ×.3 under `portal` .4 (v27, on spawn); `music.stinger.portal` (§2.6.7) | CS-07 |
+| `cs.shard.arrive` | pair | `portal` reversed: tri 100→300 exp .8 · sine 600→200 exp .6 ×.5; then the `amb.rift` bed starts | CS-08 |
+| `cs.ending.dawn` | bed + hum | `amb.forest.dawn` in over 3 s with the birds ×1.5; `amb.crater` with its partials a fourth up (110 → 146.8, 165 → 220 Hz): the hum gone warm | CS-10 |
+| `music.ending` | music | §2.6.4 | CS-10 |
 
 ### 2.3 The port: dispatcher, bootstrap, the rule
 
@@ -529,7 +581,7 @@ Parameters: `density`, `hp`, `base`, `follower` (which oscillator id, or none), 
 n oscillators at fixed frequencies (2–6) → [Biquad lowpass] → gHum;  LFO Oscillator(sine, lfoHz) → gLfo(depth) → gHum.gain
 start: gHum 0 → gain over attack (1–3 s); stop: → 0 over release (1–2 s); loopUntil token
 ```
-Parameters: `partials[] {wave, f, dB}`, `lp`, `lfoHz`, `depth`, `gain`, `attack`, `release`. Members: the shard, the crater, the portal, the aurora, the snail, `amb.bloodMoon`, `amb.rift`'s tonal core, `boss.tetherLoop`, `boss.beamLoop`, `boss.channelLoop`, `dng.aurora.power`.
+Parameters: `partials[] {wave, f, dB}`, `lp`, `lfoHz`, `depth`, `gain`, `attack`, `release`. Members: the shard, the crater, the portal, the aurora, the snail, `amb.bloodMoon`, `amb.rift`'s tonal core, `boss.tetherLoop`, `boss.beamLoop`, `boss.channelLoop`, `ice.orrery`, `ice.domeOpen`'s aurora swell.
 
 #### 2.4.14 `bed`
 
@@ -628,17 +680,18 @@ Weather layers cross-fade on the weather system's own 6 s fade (world-events §2
 
 While the active hero stands under the tent, the cabin porch, the hangar or the Nomad's awning (world-events §2.7.3's shelter volumes) in `rain` or `storm`: the rain layer goes through a lowpass at 800 Hz and −6 dB over 1.0 s (rain on a roof, not on you), the wind −3 dB, `thunder` unchanged (it is outside and it is loud), the fire crackle +2 dB if a fire is within 6 m (you are nearer to it than the rain), and the drip layer switches to a roof-edge drip (interval 0.4–0.9 s, hp click). The 5 s caption (`Grandpa Ed says this kind of rain is 'character-building weather.'`, canon tip 2) or Ed's own bubble plays on top. Leaving reverses it over 1.0 s.
 
-#### 2.5.6 Dungeon beds (reserved for `dungeons.md`; the layer sets are decided here so the tokens exist)
+#### 2.5.6 Dungeon beds (keys from `dungeons.md` §2.1.7 and §5.2; the layer sets are this file's)
 
 | Bed | Layers | Note |
 |---|---|---|
-| `amb.dng.hollowGrove` | wind .03 through a lowpass 400 (through wood), foliage .02, `drip` .02, root creaks (siren saw [50,0]→[70,2.0] at −24 dB every 6–12 s, positional at the nearest root wall), bogMurk-class low pressure .02 | the walls breathe |
-| `amb.dng.buriedTomb` | hush .05 with a 1.2 s convolution-free "size" (a 90 ms feedback delay on the bed at −18 dB, the cheapest room), sandHiss .02, `dng.sand.flow` when running | dry and large |
-| `amb.dng.sunkenTemple` | water .06, drip .05, frogs .02 (far), bogMurk .05, the frog's croak when escorted | wet and close |
-| `amb.dng.iceCitadel` | wind .04 through a highpass 800 (through cracks), iceShimmer .05, hush .04, `dng.ice.slide` at the hero, the aurora hum when `world.aurora.intensity` > 0.5 | brittle |
-| `amb.dng.crystalDepths` | drip .04, iceShimmer .03 pitched −5 st (crystal, not ice), a hum sine 165 + 247.5 at −40 dB that brightens within 4 m of a crystal (the proximity-brightening emissives, bosses §2.11) | dark; the crystals sing when you are near |
-| `amb.dng.homeWrong` | the Shadow bed (§2.5.2) plus, per region: Outer Ward root creaks reversed (pitch up), Inner Sanctum the mirror stream running *uphill* (the water layer with its LFOs run backwards: rising, not falling, pitch bends), Throne of Shadows the mirror fire (§2.2.6) and the far real fire | the shard's three floors escalate exactly as the DNG_ATMO counts did (AR §8.1): rift .06 / .08 / .10 |
-| `amb.dng.volcanicRift` | brown lowpass 80 magma .08 with a 0.2 Hz LFO, embers .06, crackle from the four braziers, a hiss band 3 kHz .03 | the lake is the bed |
+| `amb.dng.grove` | wind .03 through a lowpass 400 (through wood), foliage .02, `drip` .02, root creaks (siren saw [50,0]→[70,2.0] at −24 dB every 6–12 s, positional at the nearest root wall), `grove.heartbeat` .06 (the slow heartbeat under the beat) | the Hollow Grove: the walls breathe |
+| `amb.dng.tomb` | hush .05 with a 1.2 s convolution-free "size" (a 90 ms feedback delay on the bed at −18 dB, the cheapest room), sandHiss .02, `tomb.sandFlow` when running | the Buried Tomb: dry and large |
+| `amb.dng.temple` | water .06, drip .05, frogs .02 (far), bogMurk .05, the frog's croak when escorted | the Sunken Temple: wet and close |
+| `amb.dng.citadel` | wind .04 through a highpass 800 (through cracks), iceShimmer .05, hush .04, `ice.orrery`'s tick once it runs, `ice.slide` at the hero, the aurora hum when `world.aurora.intensity` > 0.5 | the Ice Citadel: brittle |
+| `amb.dng.shard.f1` / `.f2` / `.f3` | the Shadow bed (§2.5.2) with the rift layer at .06 / .08 / .10, escalating exactly as the DNG_ATMO counts did (AR §8.1); per region: Outer Ward root creaks reversed (pitch up), Inner Sanctum the mirror stream running *uphill* (the water layer with its LFOs run backwards: rising, not falling, pitch bends), Throne of Shadows the far real fire | Home, Wrong's three floors |
+| `amb.dng.hearth` | `amb.dng.shard.f3` plus the mirror fire (`amb.camp.fire.mirror`, §2.2.6) and the far real fire from the window's direction | the hearth interior (`dungeons.md` §2.6.6) |
+| `amb.dng.crystalDepths` | drip .04, iceShimmer .03 pitched −5 st (crystal, not ice), a hum sine 165 + 247.5 at −40 dB that brightens within 4 m of a crystal (the proximity-brightening emissives, bosses §2.11); the `cave` music table | the Crystal Depths lair (`bosses.md` §2.11 owns the lair; this key stands until it names one) |
+| `amb.dng.volcanicRift` | brown lowpass 80 magma .08 with a 0.2 Hz LFO, embers .06, crackle from the four braziers, a hiss band 3 kHz .03; the `volcanic` music table | the Volcanic Rift lair (`bosses.md` §2.12): the lake is the bed |
 
 #### 2.5.7 Budget
 
@@ -660,7 +713,7 @@ The three tables (AU §20.1) port as content data, every number unchanged, with 
 | `volcanic` | 196, 233.1, 261.6, 311.1, 370 | triangle | 88 | v27; the Rift lair |
 | `shadow` **[new]** | 261.6, 311.1, 349.2, 392, 466.2 (C4 E♭4 F4 G4 B♭4: the Forest's root, the Forest's tune, in minor) | triangle | 60 | new; Home, Wrong is the Forest, wrong |
 
-The drone at `root/2` (gain 0.15, 2 s fade-in), the layer v27 called the fifth at `root × 0.75` (gain 0.08; renamed `fourth` in code, the interval unchanged, AU §25.9), and the drift melody (`tickMelody9`: uniform pick from the five notes, coin-flip octave, sine, instant attack, exponential decay to 0.001 over 1.2 s, gain 0.1 or 0.06 in the desert) all port exactly. The music master default stays `bgm.vol` 0.15 (now the `music` bus at slider 6 of 10 ≈ 0.15). The 2 s fade-out / 500 ms restart transition (AU §20.5) becomes a true crossfade: new layers ramp in over 2 s while old ramp out over 2 s, starting together.
+The drone at `root/2` (gain 0.15, 2 s fade-in), the layer v27 called the fifth at `root × 0.75` (gain 0.08; renamed `fourth` in code, the interval unchanged, AU §25.9), and the drift melody (`tickMelody9`: uniform pick from the five notes, coin-flip octave, sine, instant attack, exponential decay to 0.001 over 1.2 s, gain 0.1 or 0.06 in the desert) all port exactly. The music master default stays `bgm.vol` 0.15 (now the `music` bus with the `Music` slider at its 60 % default ≈ 0.15, §2.8.2). The 2 s fade-out / 500 ms restart transition (AU §20.5) becomes a true crossfade: new layers ramp in over 2 s while old ramp out over 2 s, starting together.
 
 #### 2.6.2 What changes: a grid, layers, modes
 
@@ -703,7 +756,7 @@ In the Forest that is C5 E5 G5 A5 | G5 E5 D5 C5 | D5 E5 G5 E5 | D5 – C5 –: s
 | `music.dungeon.<key>` | the dungeon's island table (cave for the Caves and the Depths, volcanic for the Rift, shadow for Home, Wrong) | table × 0.8 | drone (triangle), fourth, drift at half density, pad; the dungeon bed carries the rest | inside a dungeon or lair, not in a boss room |
 | `music.boss` | island table, root = last scale note / 2 (the relative-minor trick: forest A3 220, desert A3 220, swamp G3 196, frozen B3 246.9, cave G3 196, volcanic F#3 185, shadow B♭3 233.1) | table × 1.25 | P1 drone, fourth, heartbeat, pad · P2 + drift ×1.5 density · P3 + bells inverted at ×2 density · enrage: heartbeat ×1.5 and a 0.5 Hz ±30 cent wobble on the drone | from the intro's 4.10 s to the death beat |
 | `music.finale` | shadow | 88 (volcanic's tempo, the fastest v27 ever went) | boss layers plus `shadow` at −24 st; P3 (kidnap): drift and bells out, heartbeat and the rift hum only; P4 everything | the Shadow Queen |
-| `music.travel` | destination island | 60 | takeoff: pad only over 2 s; sky leg: bells motif on the *destination's* scale over the pad; descent: the destination's drift begins; touchdown: `ui.titleCard` | CS-04 |
+| `music.travel` | destination island | 60 | takeoff: pad only over 2 s; sky leg: bells motif on the *destination's* scale over the pad; descent: the destination's drift begins; touchdown: `card.title` | CS-04 |
 | `music.ending` | forest | 60 | camp mode with bells twice through and the pad held; then `music.title` | CS-10 |
 | `music.gameOver` | (stinger) | — | §2.6.7 | party wipe outside the King's arena |
 
@@ -725,7 +778,7 @@ Transitions are 2 s crossfades except: island → camp and back (4 s, the pulse 
 | Mute key `M` | `Music: OFF` / `Music: ON` (§2.8.4) |
 | Party wipe (game over) | `music.gameOver` stinger, then silence until Continue |
 | Return to title | 1 s fade, `music.title` |
-| Cutscenes | `cs.duck.*` per §2.2.8; the meteor's 2.5 s / 2.0 s verbatim |
+| Cutscenes | `music.duck` per `cutscenes.md` §2.14: to 0.5 over 1.0 s and back over 1.5 s; the meteor's 2.5 s / 2.0 s to 0 verbatim |
 | Weather | none (weather is the beds' job; music stays out of the way) |
 | Blood moon | drone detune −100 cents over 3 s, back over 5 s (the world goes flat) |
 
@@ -737,7 +790,7 @@ Transitions are 2 s crossfades except: island → camp and back (4 s, the pulse 
 
 | Stinger | Recipe | When |
 |---|---|---|
-| `music.stinger.meteor` | AU §18 verbatim: `music.duck(−∞, 2.5 s)` at scene 1, `boom` .6 at scene 6 (plus `cs.meteor.sub`), `music.duck(0, 2.0 s)` at scene 7; nothing else musical: the cutscene's music is the silence | CS-03 |
+| `music.stinger.meteor` | AU §18 verbatim: `music.duck(−∞, 2.5 s)` at scene 1, `boom` .6 at scene 6 (plus `cs.meteor.rumble`), `music.duck(0, 2.0 s)` at scene 7; nothing else musical: the cutscene's music is the silence | CS-03 |
 | `music.stinger.portal` | a held tritone pad: degrees [0, 3] of the forest scale and their octaves, C and F#-equivalent (392 → 370 slid over 4 s: the fifth going wrong), triangle, attack 1.5 s, release 3 s, lowpass 1200 → 400; ducks −6 dB | `A mysterious portal appears...` (CS-07) and on stepping in |
 | `music.stinger.gameOver` | the drone `root/2 → root/4` over 2.5 s, the fourth to a minor third (`root × 0.6`), the pad's lowpass closing 900 → 120; then nothing | party wipe (v27: silence) |
 | `music.stinger.actCard` | bells motif's first four notes, pad under, 3 s | the three act cards (story-beats §2.1) |
@@ -806,15 +859,15 @@ limiter: threshold −12 dB, knee 6, ratio 4, attack 3 ms, release 250 ms; then 
 ```
 Bus defaults (linear, before the user sliders): effects 1.0, ambient 0.8, dialogue 0.9, music 0.15 (v27's `bgm.vol`). The user sliders multiply these. The limiter is why the boss-death double hit (AU §24) and the `boom` 0.5 + `victory` 0.5 line no longer clip, and why a kid on headphones is safe from any stacking accident: nothing can exceed the ceiling.
 
-#### 2.8.2 Settings (strings for `ui-ux.md`, all **[new text]** except the two canon ones)
+#### 2.8.2 Settings (labels are `ui-ux.md` §2.7's, all **[new text]** except the two canon ones; the set of seven and the keys are this file's)
 
 | Setting | Type | Default | Persisted key | Note |
 |---|---|---|---|---|
-| `Master volume` | slider 0–10 | 8 | `audio.master` | — |
-| `Music` | slider 0–10 | 6 | `audio.music` | 6 ≈ v27's 0.15 |
-| `Effects` | slider 0–10 | 8 | `audio.effects` | — |
-| `Ambience` | slider 0–10 | 7 | `audio.ambience` | — |
-| `Dialogue` | slider 0–10 | 7 | `audio.dialogue` | — |
+| `Master` | slider 0–100 % | 80 | `audio.master` | sliders are squared (perceptual); each bus's default percentage lands on its §2.8.1 bus default, and 100 % is headroom the limiter absorbs |
+| `Music` | slider 0–100 % | 60 | `audio.music` | 60 % ≈ v27's 0.15 |
+| `Effects` | slider 0–100 % | 80 | `audio.effects` | — |
+| `Ambient` | slider 0–100 % | 70 | `audio.ambience` | the label is `ui-ux.md`'s; the key keeps this file's spelling |
+| `Dialogue` | slider 0–100 % | 70 | `audio.dialogue` | — |
 | `Dialogue blips` | ON / OFF | ON | `audio.dialogueBlips` | some players find typewriter blips wearing; `dlg.advance` stays |
 | `Mute music` (key `M`) | toggle | OFF | `audio.musicMuted` | announces **`Music: OFF`** / **`Music: ON`** (canon) |
 
@@ -827,7 +880,7 @@ Persisted in the settings schema beside v27's eight keys (SI Part 2 §16.5), nev
 | Dialogue box open | −6 dB | −3 dB | — | 0.3 s in, 0.8 s out |
 | Boss intro (0.0–4.10 s) | −∞ | −6 dB | — (the growl and the shake are the sound) | 0.3 s in; `music.boss` at 4.10 s over 1 s |
 | Combo beat (1.4 s) | −4 dB | −6 dB | — | 0.15 s in, 0.5 s out; `hero.combo.rise` under it |
-| Cutscenes | default −9 dB; CS-03 the verbatim 2.5 s / 2.0 s to silence | −3 dB | — | `cs.duck.*` |
+| Cutscenes | to 0.5 (−6 dB) over 1.0 s, back over 1.5 s (`cutscenes.md` §2.14); CS-03 the verbatim 2.5 s / 2.0 s to silence | none: ambience continues (`cutscenes.md` §2.14) | — | `music.duck(level, s)` from the shot's `onStart` |
 | Stingers | −6 dB under a stinger | — | — | the stinger's length |
 | Blood moon | detune, no duck | island bed −8 dB | — | 3 s / 5 s |
 | Snow / blizzard / sandstorm | — | island bed −6 / −12 / −9 dB | — | the 6 s weather fade |
@@ -959,10 +1012,10 @@ src/dev/console                        the hooks of §4.5
 
 | Phase | Ships |
 |---|---|
-| **1 Pilot** | `AudioEngine`, buses, limiter, unlock; `amb.forest.*` four beds with the phase crossfade; `amb.camp.fire` with the follower; `amb.stream`; `amb.rain` / `amb.storm` / `thunder` for the weather toggle; `ui.click`. The pilot's stations are silent PNGs, but the pilot's weather and day/night toggles should be heard by whoever runs it, and the follower rule is cheapest to prove while the campfire is being built. Brief §8 puts the audio port in Phase 5; this slice is the engine skeleton the port lands on. |
-| **2 Vertical slice** | the 29 + 3 v27 recipes; every `hero.*`, `dodge.*`, `alert.*`, `windup.*`, `death.*`, Forest enemy cues, `horde.*`, `cage.*`; the Goblin King's and Treant's `boss.*` cues; `music` Forest day/night, camp, dungeon, boss, the death beat; `dlg.*`, `ui.*`; `questComplete`, `shield`, `heal`; the Forest animals; `amb.dng.hollowGrove`; steps |
+| **1 Pilot** | `AudioEngine`, buses, limiter, unlock; `amb.forest.*` four beds with the phase crossfade; `amb.camp.fire` with the follower; `amb.stream`; `amb.rain` / `amb.storm` / `thunder` for the weather toggle; `ui.tab`, `ui.confirm`, `ui.cancel`. The pilot's stations are silent PNGs, but the pilot's weather and day/night toggles should be heard by whoever runs it, and the follower rule is cheapest to prove while the campfire is being built. Brief §8 puts the audio port in Phase 5; this slice is the engine skeleton the port lands on. |
+| **2 Vertical slice** | the 29 + 3 v27 recipes; every `hero.*`, `dodge.*`, `alert.*`, `windup.*`, `death.*`, Forest enemy cues, `horde.*`, `cage.*`; the Goblin King's and Treant's `boss.*` cues; `music` Forest day/night, camp, dungeon, boss, the death beat; `dlg.*`, `ui.*`; `questComplete`, `shield`, `heal`; the Forest animals; `amb.dng.grove`; steps |
 | **3 The world** | the other islands' beds and weather layers; the `engine` family and every `plane.*`; `music.travel`; the remaining `boss.*`; `treasure.jingle`, fish, the 19 animals; `merchant.chime`; `frog.*`, `lantern.*` |
-| **4 Lights in the Dark** | `amb.shadow.*`, `amb.dng.homeWrong`, `amb.shard` by act, `amb.crater`, `amb.portal`; `music.finale`, `music.ending`, the stingers; the `cs.*` anchors; photo mode's shutter; `ui.crest.grow` |
+| **4 Lights in the Dark** | `amb.shadow.*`, `amb.dng.shard.f1–f3`, `amb.dng.hearth`, `amb.shard` by act, `amb.crater`, `amb.portal`; `music.finale`, `music.ending`, the stingers; the `cs.*` anchors; photo mode's shutter; `ui.crest.grow` |
 | **5 Polish** | the mix pass on real speakers and phones; multiplayer replication; the mobile voice caps; the settings persistence; the `Dialogue blips` toggle; `npm run check` coverage tests below; Brief §8's "audio inventory fully ported" gate |
 
 ### 4.5 Test hooks
@@ -1015,9 +1068,9 @@ Verify with a real call, and record the shape in the task notes: `new AudioConte
 
 | File | Must pick up |
 |---|---|
-| **`ui-ux.md`** | the four bus names and the seven settings rows of §2.8.2 with their strings (all new text except `Music: OFF` / `Music: ON`); the `M` key in the remappable list and the announce in `#6B8EC8` for 1.5 s; `M: Mute` if a hint strip exists; every `ui.*` cue of §2.2.8 (rename members, keep the family and bus); the level card and scrapbook page duck (§2.8.3); `ui.titleCard` on every location, camp, dungeon-entry and constellation card; the announce channel is silent by itself; the portrait strip plays `hero.swap.<hero>`; the emote wheel plays `hero.emote.<hero>` (three blips); the dialogue log page makes no sound; the catch card plays `fish.catch`; the photo shutter; the `Dialogue blips` toggle |
-| **`cutscenes.md`** | the `cs.*` namespace and every reserved member of §2.2.8; `music.duck(dB, s)` as the one API, with CS-03's 2.5 s / 2.0 s verbatim and the −9 dB default; the listener rule per shot (§2.7.1); `cs.meteor.whistle` across scenes 2–5, `cs.meteor.impact` at scene 6 with `boom` .6; the crash's engine roughness and `plane.crash.impact`; CS-04 on `music.travel` and the plane cues per state; CS-10 on `music.ending`; the caption blips per speaker; boss intros use §2.8.3's intro duck exactly as bosses §2.3 times it |
-| **`dungeons.md`** | the v27 dungeon recipes at their volumes and the `sd` field as the lookup; the seven `amb.dng.*` beds of §2.5.6 (rename keys, keep the layer sets); every `dng.*` reservation of §2.2.8 with its family (pick up or rename in one place); the torch rule (two nearest torches crackle, followers on the room's oscillators); the Bog's `lantern.light` / `lantern.gutter` as the darkness dungeon's sound; the Depths' crystal hum brightening with the emissives; Home, Wrong's three-floor escalation of the rift layer; `music.dungeon.<key>` and the boss-room hand-off to `music.boss`; the entry card on `ui.titleCard`; the island bed fading at the arch; the crystal-resonance puzzle's five notes are the frozen scale |
+| **`ui-ux.md`** | the four bus names and the seven settings of §2.8.2 under its own labels (`Master`, `Music`, `Effects`, `Ambient`, `Dialogue`, `Dialogue blips`, the `M` mute) as 0–100 % sliders; the `M` key in the remappable list and the announce in `#6B8EC8` for 1.5 s; `M: Mute` if a hint strip exists; the `ui.*` / `card.*` / `photo.shutter` names of §2.2.8 are its own §5.2 names (reconciled 2026-09-07); the level card, scrapbook page and pause ducks (§2.8.3); the announce channel is silent by itself except the two token-keyed stingers; the portrait strip plays `ui.swap` = `hero.swap.<hero>`; the emote wheel plays `hero.emote.<hero>` (three blips); the dialogue log page makes no sound; the catch card plays `card.catch`; the `Dialogue blips` toggle |
+| **`cutscenes.md`** | its `cs.*` names (§2.0 and §2.14) are the rows of §2.2.8 (reconciled 2026-09-07); `music.duck(level, s)` as the one API with its §2.14 numbers (CS-03's 2.5 s / 2.0 s verbatim; every other cutscene to 0.5 over 1.0 s and back over 1.5 s; effects never ducked; ambience continues); the listener rule per shot (§2.7.1); `cs.meteor.roar` with doppler and pan across scenes 2–5, `cs.meteor.rumble` after `boom` .6 at scene 6; the crash's engine roughness and `plane.crash.impact`; CS-04 on `music.travel` and the plane cues per state; the plane's engine dopplering in CS-10 shot 11 (§2.7.3); CS-10 on `music.ending`; `dlg.blip.<who>` on captions; boss intros use §2.8.3's intro duck exactly as bosses §2.3 times it |
+| **`dungeons.md`** | the v27 dungeon recipes at their volumes and the `sd` field as the lookup; its bed keys (`amb.dng.grove` / `tomb` / `temple` / `citadel` / `shard.f1–f3` / `hearth`) and its shared and per-dungeon cue names (§2.1.11, §5.2) are the rows of §2.2.8 and §2.5.6 (reconciled 2026-09-07; the layer sets and families are this file's); the torch rule (two nearest torches crackle, followers on the room's oscillators); the Bog's `lantern.light` / `lantern.gutter` as the darkness dungeon's sound; the Depths' crystal hum brightening with the emissives; Home, Wrong's three-floor escalation of the rift layer; `music.dungeon.<key>` selecting the island's table and the boss-room hand-off to `music.boss`; `dng.nameCard` = `card.title`; the island bed fading at the arch; `ice.crystal.<C4\|E4\|G4\|A4\|C5>` are its notes (C major pentatonic over the `frozen` drone) |
 | **`heroes.md` addendum (collected by the orchestrator)** | footfall events from the walk and run clips' contact poses (the `step` family needs them); the swap chime's four note pairs; the `snapShot` cue at the window's open; `hero.combo.rise` under the two-shot |
 | **`world-builder` / `systems-engineer`** | surface tags on ground materials for `step.<surface>`; the stream polyline for `amb.stream`'s nearest point; the shelter volumes; `flVal` arrays published for every lit fire; `world.aurora.intensity` for `amb.aurora`; `story.act` for `amb.shard`; the plane's world velocity for the doppler |
 | **`net-engineer`** | the `sfx` array shape `{ name, vol, pos?, seq }[]`, cap 12, drained per snapshot; the `replicate` flag on cue rows |
@@ -1031,7 +1084,9 @@ Verify with a real call, and record the shape in the task notes: `new AudioConte
 5. **`crate.land` = `equip` .15** (npcs §5.2, the v27 site) gains a thud layer; the v27 call and volume are kept, the layer is additive. Not a conflict once written that way, noted so nobody reads it as a rename.
 6. **Brief §8 phases audio in Phase 5** while every other design file ships cues in Phases 2–4. Resolved in §4.4: the engine skeleton and the Forest beds land in Phase 1 with the campfire (the follower is cheapest to prove there), the port lands with the systems that call it, and Phase 5 keeps the mix pass, replication and the gate. The Brief's gate sentence ("audio inventory fully ported") is unchanged.
 7. **Endless mode** (story-beats: cut) leaves two v27 call sites (`event_start` .4, `boss` .5) dead; the recipes are shared and lose nothing (§2.10).
-8. **Reserved families** for `dungeons.md`, `cutscenes.md` and `ui-ux.md` (§2.2.8), none of which had landed when this was written. Each reservation names a family so those files add rows, not code; if one of them renames a reserved cue, the rename happens in `cues.ts` and in that file's §2, and this file's §2.2.8 is updated in the end-of-phase consistency pass.
+8. **Reserved families** for `dungeons.md`, `cutscenes.md` and `ui-ux.md` (§2.2.8) were written before those files landed. **Resolved 2026-09-07:** their names win (`ui-ux.md` §5.2's `ui.*` / `card.*` / `photo.shutter`; `dungeons.md` §2.1.11 and §5.2's shared, per-dungeon and bed keys; `cutscenes.md` §2.0's `cs.*`); the families, parameters and layer sets stay this file's. Renamed here: `ui.titleCard` → `card.title`, `ui.pageTurn` → `ui.page`, `ui.click` → `ui.tab`, `ui.hover` → `ui.focus`, `ui.back` → `ui.cancel`, `ui.tutorialStep` → `ui.tutorial.step`, `ui.heroSwitch` → `ui.swap`, `ui.photo.shutter` → `photo.shutter`, `ui.levelCard` dropped (the card plays v27's `levelup`), the silent `ui.announce` row → the two token-keyed stingers, `dng.entryCard` → `dng.nameCard`, `dng.roomClear` dropped (v27's `equip` .3), `dng.floorBanner` → `shard.banner`, `dng.aurora.power` → `ice.domeOpen`, the `dng.<object>.*` sketches → `grove.*` / `tomb.*` / `temple.*` / `ice.*` / `shard.*`, `amb.dng.hollowGrove` / `buriedTomb` / `sunkenTemple` / `iceCitadel` / `homeWrong` → `amb.dng.grove` / `tomb` / `temple` / `citadel` / `shard.f1–f3` + `hearth`, `cs.meteor.whistle` / `cs.meteor.impact` + `cs.meteor.sub` → `cs.meteor.roar` / `boom` .6 + `cs.meteor.rumble`, `cs.duck.*` → `music.duck(level, s)` with `cutscenes.md` §2.14's numbers. `cues.ts` carries one name per cue; no recipe changed.
+9. **Settings labels and ranges.** `ui-ux.md` §2.7 had already written `Master` / `Music` / `Effects` / `Ambient` / `Dialogue` as 0–100 % sliders; this file's `Master volume`, `Ambience` and 0–10 are gone (§2.8.2). The set of seven and the persisted keys are this file's, and `ui-ux.md` picks up `Dialogue blips`.
+10. **The `ui.*` prefix** is shared by `ui-ux.md`'s style tokens (`src/style/ui.ts`) and this file's cue names (`CueName`); the tables are different types and never meet in one lookup. The one deliberate overlap is `ui.announce.hurt` / `ui.announce.alarm`: the announce channel looks its stinger up by the string's colour token, so the cue is named for the token. No other full name may appear in both tables.
 
 ## 6. Decisions logged
 
@@ -1069,6 +1124,11 @@ Verify with a real call, and record the shape in the task notes: `new AudioConte
 - 2026-09-06 · phase-0.5/audio · The engine skeleton, the Forest beds and the campfire crackle ship in Phase 1 with the pilot; the port lands with the systems that call it in Phases 2–4; Phase 5 keeps the mix pass, replication and the "fully ported" gate · the follower is cheapest to prove while the campfire is built; Brief §8's gate sentence is unchanged · rejected: all audio in Phase 5 (three phases of silent systems).
 - 2026-09-06 · phase-0.5/audio · No `AudioWorklet`, no `ConvolverNode`; the one room is a 90 ms feedback delay · the single-file archive and the budget; nothing here needs sample-accurate DSP · rejected: a worklet synth.
 - 2026-09-06 · phase-0.5/audio · The `sd` field on destroyable decor stays the one data-driven lookup and now indexes the cue map · AU §13: it is how v27 said "sound is data" · rejected: folding it into the enemy or prop type.
+- 2026-09-07 · phase-0.5/audio · Consistency pass: the cue names of the three wave-mates that landed first are adopted (ui-ux.md §5.2's `ui.*` / `card.*` / `photo.shutter`; dungeons.md §2.1.11 and §5.2's shared, per-dungeon and bed keys, including `amb.dng.shard.f1–f3` and `amb.dng.hearth`; cutscenes.md §2.0's `cs.*`); the families, parameters and layer sets stay this file's; §5.3 item 8 lists every rename · why: those files own their names and this file promised to follow them · rejected: none (reconciliation).
+- 2026-09-07 · phase-0.5/audio · Settings take ui-ux.md §2.7's labels and 0–100 % sliders (`Master` 80, `Music` 60, `Effects` 80, `Ambient` 70, `Dialogue` 70; sliders are squared, and each bus's default percentage lands on its §2.8.1 bus default); the set of seven and the persisted keys stay this file's, and `Dialogue blips` goes to ui-ux.md · why: ui-ux.md owns strings and had already written the row · rejected: this file's 0–10 sliders and the `Ambience` label.
+- 2026-09-07 · phase-0.5/audio · Cutscene ducking takes cutscenes.md §2.14's numbers: CS-03 verbatim; every other cutscene ducks music to 0.5 over 1.0 s and restores over 1.5 s; ambience continues; effects never ducked · why: cutscenes.md owns the cinematic contract, and the −9 dB default and −3 dB ambient duck here were written before it landed · rejected: keeping them.
+- 2026-09-07 · phase-0.5/audio · The crystal-resonance notes are dungeons.md's C4 E4 G4 A4 C5 (`ice.crystal.<note>`), not the frozen scale; over the `frozen` mode's E drone they read as E minor's ♭6 colour and stay in tune · why: dungeons.md owns the puzzle, and a kid knows C major · rejected: the frozen-scale bells.
+- 2026-09-07 · phase-0.5/audio · The `ui.*` prefix is shared by ui-ux.md's style-token table and this file's cue table; the two are different types and never meet in one lookup; the one deliberate overlap is `ui.announce.hurt` / `ui.announce.alarm`, looked up by the announce's colour token; the silent `ui.announce` row is gone · why: ui-ux.md asked for token-keyed stingers, and a shared name is the cheapest lookup · rejected: renaming the stingers, renaming the cue family to `sfx.*`.
 
 ## 7. Reconcile when the brainstorm doc lands
 

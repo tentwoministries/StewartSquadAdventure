@@ -20,7 +20,7 @@
 | `dungeons.md` | The five dungeons, expanded from Brief §5.3: core mechanic, traversal, puzzle language, set piece, boss arena | bosses, enemies, story-beats, world-events-weather | reviewed 2026-09-06 |
 | `cutscenes.md` | Every shot table reshot for the 3D cinematic camera: meteor, crash landing, boss intros, biplane travel, ending | heroes, story-beats, npcs, bosses, camp | reviewed 2026-09-06 |
 | `ui-ux.md` | Scrapbook menus, HUD, title cards, boss bar, captured-hero overlay, input, accessibility, onboarding | heroes, camp, bosses, enemies, story-beats | reviewed 2026-09-06 (three edits in the consistency pass) |
-| `audio.md` | The procedural `snd()` port, music, ambient loops, per-system cue map | everything above | not started |
+| `audio.md` | The procedural `snd()` port, music, ambient loops, per-system cue map | everything above | reviewed 2026-09-07; consistency pass applied 2026-09-07 |
 
 **Decided in `heroes.md` (2026-09-06):** Liam sapphire `#2A62CF` · Noah fox orange `#EE7F24` (v27 green `#2DB86A` as accent) · Collette amethyst `#9D4FD8` · Isabella ruby `#D6294E` (v27 gold `#F0C040` as accent). Role labels: Tank · Ranger · Mage · Whirlwind. World scale: **40 px = 1 m** (1 px = 0.025 m) for every v27 distance. Hero heights 1.52 / 1.40 / 1.30 / 1.14 m.
 
