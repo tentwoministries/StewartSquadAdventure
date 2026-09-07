@@ -141,3 +141,20 @@ Reconciled to 40 px = 1 m and the final heroes: 124 replacements; hero facts rep
 | 8 | Eight items surfaced, all designed around: the Witch and Nomad hue conflict (bodies darker, story-beats hexes as tokens — accepted; no exception to the hue rule needed); "wisps" resolved as Wraiths from wisp hollows plus `pt.wisp` particles; destination weather rolled at takeoff and committed at touchdown; Ed at the fire and the plane's last pass in CS-10 separated by the time skip. The plane envelope (6.0 × 7.2 × 2.5 m) fits camp.md's assumed ≤ 6.5 × 8.0 × 2.6 m and the hangar's 9 m × 3.6 m opening. Consistency pass: camp.md's Ed spots (§2.3.3) defer to npcs.md §2.1.6 and §2.3.1 (the Ed mark at (20, −2.2), the parking mark at (16, 0)). Heroes addendum: a `hat` socket (aviator goggles), four seated bench clips, a reach-up clip for lighting a post. |
 | 9 | 30 lines merged into `DECISIONS.md`. |
 | 10 | One optional item for Andrew (Ed's likeness), non-blocking; carried into `NEXT_SESSION.md`. |
+
+## cutscenes.md — 605 lines — PASS
+
+| # | Result |
+|---|---|
+| 1 | Pass. Cutscene roster opens §2; nine cutscenes plus the four rig modes that share the camera. |
+| 2 | Pass. Spot-checked `Any landing you walk away from, am I right?`, `Don't worry! That's a CONTROLLED descent! ...mostly.`, `...Ten out of ten landing, Grandpa. Very dramatic.`, `What is that...?`, `A strange light glows in the distance...`, `Grandpa... are you okay?` — verbatim. No new spoken lines anywhere; the only new strings are the pad/touch skip variants and the ` · N/M` vote suffix. The dedication slot is reserved and empty (Andrew's). Ed is kept off-frame during the raid so nothing is claimed about a real person beyond the canon lines. |
+| 3 | Pass. The boss-intro grammar is lifted whole; the meteor keeps its seven scenes, beats, numbers, flags and both ducks; the crater's pulse is phase-aligned to Gran's lines; the shake ladder is verbatim; every shot row lists its active layers (none below five); the shared oscillators run on the presentation clock through every cutscene. |
+| 4 | Pass. A lens rule (24–50°, gameplay 35°) with the reasons the diorama needs it; the Ridge silhouettes shot from 34 m because a long lens from camp could not read a 0.9 m goblin. |
+| 5 | Pass. Cutscene bars move from v27's pure `#000` to `#0B0E1A`; `cs.*` sky sets named; the portal keeps `#A862C4` as a light, not a body. |
+| 6 | Pass. Scene 4's island from 420 m runs with shadows, curved world, fog and scatter off; 1,200 embers and 400 smoke billboards in pooled draws; lights per cutscene counted against the pool. |
+| 7 | Pass. Shot tables with camera poses in metres and degrees, moves, eases, actions, captions, sounds and flags; the shot shape as a typed data contract; a screenshot station per shot for the art director. |
+| 8 | Six items designed around, none needing a decision: Ed in CS-10 follows npcs.md (four kids and an empty stump in the last frame, which is also the title scene's state); two letterbox heights are two presets; CS-11 lands at 44 s not 40 (the eight captions set the floor); the meteor's "pan right" re-aimed at the crater's bearing; CS-08 designed without dungeons.md and handed to it; CS-06 forced to dusk by sky override. |
+| 9 | 30 lines merged into `DECISIONS.md`. |
+| 10 | Empty. |
+
+**Consistency-pass additions from cutscenes.md:** heroes.md addendum — a `wave` clip per kid (0.8 s; Isabella both arms), a standalone `rise` segment, a first-person head-layer mask; enemies.md addendum — the goblin cart prop (1.8 × 1.0 m, rust timber) as the way cages travel; story-beats.md — CS-11 at 44 s, CS-03's `onEnd` sets the clock to night, the shard's three lights off from CS-10 on (a post-game sky rule), the two announces now fire on skip; world-events-weather.md — `cs.meteorSky` and `cs.void` sky sets, the crater's `warm` state after the ending, the shared meteor shader; camp.md — CS-10's last frame is S5 with four kids seated and Ed's stump empty.
