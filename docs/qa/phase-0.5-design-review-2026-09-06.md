@@ -207,3 +207,31 @@ Reconciled to 40 px = 1 m and the final heroes: 124 replacements; hero facts rep
 | 10 | Empty. |
 
 **Process note.** `audio.md` was committed unreviewed inside the ui-ux commit (bc7c9e1) by an over-broad `git add`; the review and the merge landed on 2026-09-07 (DECISIONS orchestrator line, same date).
+
+## Consistency pass (2026-09-07) — PASS
+
+**How it ran.** The two Fable `design-lead` agents launched for the pass died on the session limit mid-read with no output, so the pass re-ran on two Opus `general-purpose` agents with the Edit tool (A: `enemies.md`, `world-events-weather.md`, `camp.md`, `bosses.md`; B: `heroes.md`, `story-beats.md`, `ui-ux.md`), each applying only decisions already recorded above and in `DECISIONS.md`. The orchestrator reconciled `audio.md` (its entry above) and made the tidy-ups in the last row. Every edit was a targeted replacement; no canon string changed; UTF-8 and emoji verified by both agents; markdown table column counts unchanged.
+
+**Resolved (item → owning file → where it was patched).**
+
+| Item | Owner | Patched |
+|---|---|---|
+| Island footprints (Forest 360 × 300 m, `island.layoutScale`); fog and event distances camera-relative; "80 m island" retired | `story-beats.md` | `heroes.md` §2.5.1; `world-events-weather.md` §2.0 and seven residual mentions |
+| North is `−z` (`+x` east, `+z` south) | `story-beats.md` | `world-events-weather.md` §2.1.2 |
+| Fire family: primary home the Volcanic Rift, secondary Home, Wrong's ember zones; nests there never re-arm | `bosses.md`, `dungeons.md` | `enemies.md` §2.1, §2.5, §2.8, §5 |
+| Endless mode cut | `story-beats.md` | `enemies.md` §1, §2.5, §2.7, §4, §5; `world-events-weather.md` §2.5.1, §2.5.3, §4, §7 |
+| Camp counts (Forest 4, Caves 2, Frozen 2, Bog 2, Desert 2); cages at camps A–C with dormant totems; the goblin cart | `story-beats.md`, `cutscenes.md`, orchestrator | `enemies.md` §2.8 |
+| Shadow clones on the hero rig in the Shadow skin, cap 4 | `bosses.md` | `enemies.md` §2.9; `bosses.md` §5.3 |
+| `Mini-Boss Slayer` counts the four guardians and the two floor mini-bosses | `bosses.md` | `enemies.md` §5 |
+| `light.lantern` 1.0 · 4 m placed and 1.2 · 6 m at camp; below-rim cloud geometry; `cs.meteorSky`, `cs.void`, `crater.core.warm`, the shared meteor shader | `camp.md`, `cutscenes.md` | `world-events-weather.md` §2.8.2, §2.6 |
+| The plane's envelope 6.0 × 7.2 × 2.5 m; Ed's marks deferred; fliers clear 0.5 m; the rest prompt at hearths; CS-10's last frame (four kids, Ed flying) | `npcs.md`, `enemies.md`, `dungeons.md`, `cutscenes.md` | `camp.md` §2.2, §2.3.3, §2.4, §2.7.3, §2.12, §5 |
+| The hearth's window looks south (the interior is yawed 180°) | `dungeons.md` | `bosses.md` §2.16 |
+| Rig addendum §2.4.7 (sockets `carry.L`, `hat`; clips fish / watch / sit / bench / wave / rise / reach-up / ride / slide / ropeHold; head-layer mask; footfall events); the ice-block companion preference; Noah 4.375 m/s; emote wheel on View-hold; camera on `Z` / `C` | every later file, `ui-ux.md` | `heroes.md` §2.0, §2.4.7, §2.5.3, §2.5.11, §2.7.3, §5 |
+| CS-11 44 s; CS-03 sets `world.clock.p = 0.70`; the two announces fire on skip; the shard's lights out from CS-10; the far light at −37° | `cutscenes.md`, `dungeons.md` | `story-beats.md` §2.2, §2.10, §5 |
+| Room strip in the HUD, the paper map on the map page, the iris cut; captions, letterbox, skip (armed 1.0 s) and photo limits from `cutscenes.md`; seven audio settings under this file's labels; the cue contract both ways | `dungeons.md`, `cutscenes.md`, `audio.md` | `ui-ux.md` §2.0, §2.4.1, §2.4.11, §2.4.13, §2.5.3, §2.7, §2.11, §5.2, §5.3 |
+| Cue names (`ui.*` / `card.*` / `photo.shutter`, the dungeon and bed keys, `cs.*`); cutscene duck to 0.5 over 1.0 s and back over 1.5 s; crystal notes C4 E4 G4 A4 C5; the `ui.*` prefix rule with the announce-stinger exception | `ui-ux.md`, `dungeons.md`, `cutscenes.md` | `audio.md` §2.2.8, §2.5.6, §2.8.2, §2.8.3, §5; `ui-ux.md` §5.2 |
+| Orchestrator tidy-ups: CS-10 is 52 s in `story-beats.md`; `npcs.md`'s `wave` note points at `cutscenes.md`'s request; the plane's parking mark (16, 0) and apron mark (24, 0) are both owned by `npcs.md` §2.3.1 | orchestrator | `story-beats.md` §2.2, §2.10; `npcs.md` §2.3.1, §2.3.4, §2.11, §5, §6; `world-events-weather.md` header and §5.3 |
+
+**Left as history.** §6 lines dated 2026-09-06 that still say "80 m island", "Shadow Realm source", "Endless-only" or "the dungeon paper minimap" stay verbatim; the 2026-09-07 lines supersede them (`DECISIONS.md` orchestrator line, 2026-09-07). `cutscenes.md` and `dungeons.md` needed no edits (they were the sources); their headers say so.
+
+**Decisions merged.** 10 consistency lines from the seven patched files, 5 from `audio.md`'s reconciliation, 1 from `npcs.md`, and the orchestrator's process lines; `DECISIONS.md` holds 389 dated lines at the gate. Every row of `docs/design/README.md` reads `consistency pass applied 2026-09-07`.

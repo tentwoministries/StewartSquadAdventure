@@ -1,6 +1,6 @@
 # NPCs and Grandpa Ed — Design Bible
 
-**Status:** draft for orchestrator review · **Written:** 2026-09-06 · **Author:** design-lead (Fable, xhigh)
+**Status:** reviewed by orchestrator 2026-09-06; consistency pass applied 2026-09-07 · **Written:** 2026-09-06 · **Author:** design-lead (Fable, xhigh)
 **Sources read:** `docs/BRIEF.md` in full (§2, §4.1–4.7, §5.1–5.2, §6, §7.4, §8) · `ATMOSPHERE_RECIPES.md` §19, §11.1–11.6, §12.1–12.4, §9.2 (crate dust), §10 · `SYSTEMS_INVENTORY.md` Part 2 §7.1–7.7, §8.1–8.7, §6.4, §3.3, §21 #1–2; Part 1 §24.1, §25.1–25.2 · `FAMILY_CANON.md` §1.2–1.5, §2.1–2.2, §3.1–3.6, §4.1–4.2, §5.1–5.5, §9 (Ed's four achievements), §10.1, §11.8, §12.3, §13.1–13.5 · `AUDIO_INVENTORY.md` §12, §15 · `CONTROL_MODEL.md` §3, §9 · `docs/DECISIONS.md` in full · legacy HTML L634, L713–715, L727, L809, L8277, L8351–8353, L8455–8463, L9309, L1659–1683 (grep-verified) · **Depends on:** `heroes.md` (§2.0, §2.1.3, §2.3.2, §2.4.6, §2.5.1, §2.5.11, §2.7.3, §5), `story-beats.md` (§2.1–2.10, §5), `world-events-weather.md` (§2.0, §2.2.2, §2.5.1–2.5.3, §2.6, §2.7.3, §2.8.2, §5.2), `enemies.md` (§2.1, §2.2, §2.8, §2.9, §5) · **Feeds:** `camp.md`, `cutscenes.md`, `ui-ux.md`, `audio.md`, `dungeons.md`, `bosses.md`
 **Brainstorm doc:** not available at time of writing — reconcile on arrival.
 
@@ -349,11 +349,11 @@ All flight sounds pan and doppler with the plane's world position relative to th
 
 #### 2.3.1 The strips
 
-Positions are `story-beats.md` §2.2's. Every strip runs along `+x`; takeoffs roll toward `+x`, landings come in from `+x`. The parking mark is 6 m from the strip's west end on its axis, the plane facing `+x`; the Ed mark is 2.2 m north of the nose (the pilot's left); the cockpit step is on the fuselage's north side at mid-length.
+Positions are `story-beats.md` §2.2's. Every strip runs along `+x`; takeoffs roll toward `+x`, landings come in from `+x`. Each strip has two marks on its axis, the plane facing `+x` at both. The **parking mark**, 6 m from the strip's west end, is where the plane lives while it is not `repaired` (on the Forest island that is under the hangar's roof from C4, the nose just inside the mouth at `x` 19.5, `camp.md` §2.2 #44). The **apron mark**, 4 m east of the hangar's mouth on the Forest island and 8 m east of the parking mark elsewhere, is where every landing rolls out and where the plane stands from `repaired` on: turn-ins, CS-05, supply runs and the CS-10 landing (`camp.md` §2.12, `cutscenes.md` §2.11). The Ed mark is 2.2 m north of the nose (the pilot's left) and the cockpit step is on the fuselage's north side at mid-length, wherever the plane stands.
 
 | Island | Strip (m) | Parking mark (plane centre) | Nose | Ed mark | Cockpit step (`Fly` prompt) | Surface and notes |
 |---|---|---|---|---|---|---|
-| `forest` | Ed's Landing (10, 0)–(70, 0), 60 × 12 m | (16, 0) | (19, 0) | (20, −2.2) | (16, −0.9) | the scorched furrow; the hangar's mouth at the west end (`camp.md`); the wreck sits at (13, 0) until C4 |
+| `forest` | Ed's Landing (10, 0)–(70, 0), 60 × 12 m | (16, 0) | (19, 0) | (20, −2.2) | (16, −0.9) | the scorched furrow; the hangar (footprint `x` 8.5–19.5, mouth at 19.5, `camp.md` §2.2 #44) over the west end; the wreck sits at (13, 0) until C4; **apron mark (24, 0)**, nose (27, 0), Ed mark (28, −2.2), step (24, −0.9) |
 | `frozen` | the snowfield (−10, 20)–(50, 20) | (−4, 20) | (−1, 20) | (0, 17.8) | (−4, 19.1) | packed snow; ski-tracks decal instead of a furrow; Neve's hut 20 m north |
 | `swamp` | the Long Causeway boards (−30, 0)–(30, 0) | (−24, 0) | (−21, 0) | (−20, −2.2) | (−24, −0.9) | the plane lands **on the boardwalk**; wheels rumble on planks (`plane.taxi.rumble` variant); Fern's jetty at the east end |
 | `desert` | Sol's hard-pan (−40, 30)–(40, 30) | (−34, 30) | (−31, 30) | (−30, 27.8) | (−34, 29.1) | cracked clay; the Oasis 30 m north |
@@ -400,7 +400,7 @@ CS-04 is `cutscenes.md`'s shot list; this is what the plane does under it. Nomin
 | Descent | 1.2 s | down through the destination's cloud layer; the real island appears below | — | — | — | — |
 | Circuit | 2.6 s | a 60° arc at radius 40 m and 20 m altitude around the hub: the establishing shot that teaches the island's layout | bank 35° | 30° | wide and crabbing, 20° | wobbling, 15° |
 | Approach and landing | 2.5 s | 12 m/s, 3.5 m/s descent, flare at 2 m | two hops (1.0 m, 0.35 m at 0.6 s intervals) | two hops | three hops (1.2, 0.6, 0.25 m) | three hops and a 3 m swerve |
-| Roll-out and park | 1.0 s | decelerates to the parking mark; the tail drops; `plane.prop.spindown`; the kids climb out; Ed to the Ed mark | — | — | — | — |
+| Roll-out and park | 1.0 s | decelerates to the apron mark (§2.3.1); the tail drops; `plane.prop.spindown`; the kids climb out; Ed to the Ed mark | — | — | — | — |
 
 Every landing bounces, including the repaired plane's: the landing record is canon (`Tip: Don't ask Grandpa Ed about his landing record. Just don't.`) and the achievement `Ed's Landing` is named for it. The kids are in the plane for the whole flight; the camera may cut to their faces (goggles on, scarf streaming past them). The title card fires at touchdown on every landing (`story-beats.md` §2.1).
 
@@ -409,7 +409,7 @@ Every landing bounces, including the repaired plane's: the landing record is can
 There is no geometry between islands. The sky leg is the sky dome, the cloud layer, and the two island silhouettes from `world-events-weather.md` §2.6, so the origin island can be unloaded and the destination loaded behind the clouds.
 
 1. On `Fly`: freeze the sim; `events.reserve('travel', flightLength + 10)`; the weather for the destination is **rolled now** from the destination's pool and held.
-2. During the roll and climb (about 6.5 s): begin loading the destination (layout, scatter, NPCs at their spots, enemies at spawn state, the Ed mark and parking mark).
+2. During the roll and climb (about 6.5 s): begin loading the destination (layout, scatter, NPCs at their spots, enemies at spawn state, the Ed mark, the parking mark and the apron mark).
 3. Sky leg: minimum 3 s; while `!dest.ready`, the leg loops (the silhouettes drift, the clouds pass, no visible seam) up to a total flight of 30 s; a dev warning logs any overrun. Weather shown: the origin's type for the first half of the leg, the held destination type for the second half (`world-events-weather.md` §2.2.2).
 4. Inside the destination's cloud layer (the descent's first 0.6 s): swap. Unload the origin, activate the destination.
 5. Circuit and landing on the live island. At touchdown: commit the held weather as the island's current weather (this is the "arriving island rolls fresh weather at touchdown" of `world-events-weather.md`, rolled early so the leg can show it), set `world.currentIsland`, fire the title card, place the party beside the step, Ed at the Ed mark, the plane at the mark.
@@ -503,7 +503,7 @@ Turn-ins happen at the plane on whichever island it is on: `phase1_return` on th
 | `ground_ed_2` | `Ed-ible x3 + 100 Gold` | +100 gold, 100 XP; `story.edEdibles = 3` → three **Ed-ible** consumables in the stash (name from the canon reward text; description `Grandpa's snack. Heals every hero.` **[new text]**): each heals every unlocked, living hero 40 % of max HP; potions heal a flat 15 (SI Part 1 §24.1), so `Tip: Ed-ible snacks heal more than regular potions. Grandpa knows best.` is literally true; never sold, never dropped; Isabella's `snack_reward` fires on the award |
 | `ground_ed_3` | `Better supply drops + 150 Gold` | +150 gold, 150 XP; `edQuestComplete`, `betterDrops` (6–10 crates, 60 % heal, 40–80 gold) |
 
-**The hangar from Ed's side.** `camp.md` owns the hangar prop, the bench, the tools and the whittled propeller on the wall. From this file's side the hangar is: the plane's parking mark 4 m east of its mouth; Ed's tinkering mark at the nose; the two hangar shouts at 12 m and 8 m as the squad first approaches with `goblinKingDefeated`; the 6 s tinkering tier while the plane is not `repaired`; and the parts swapping in place. If `camp.md` places the hangar's mouth elsewhere on the strip, the parking mark follows it and the Ed mark follows the nose.
+**The hangar from Ed's side.** `camp.md` owns the hangar prop, the bench, the tools and the whittled propeller on the wall. From this file's side the hangar is: the plane's parking mark under its roof at (16, 0) while it is not `repaired`, and the apron mark 4 m east of its mouth at (24, 0) from `repaired` on (§2.3.1); Ed's tinkering mark at the nose; the two hangar shouts at 12 m and 8 m as the squad first approaches with `goblinKingDefeated`; the 6 s tinkering tier while the plane is not `repaired`; and the parts swapping in place. If `camp.md` places the hangar's mouth elsewhere on the strip, both marks follow it and the Ed mark follows the nose.
 
 ### 2.6 The five guides
 
@@ -877,7 +877,7 @@ The green name plate that says `Grandpa Ed`; the goggles; the red scarf; the yel
 | **`bosses.md`** | the Rift and the Depths are lairs Ed never flies to; the plane is parked and Ed is hidden from no boss fight (bosses happen away from strips); the Kid Snatch's caged heroes still count as "present" for Ed's party lines only when freed |
 | **`enemies.md`** | the frog as a valid target with the 2 m / 4 m preference rule and 30 % damage; Wraiths from wisp hollows target the frog first; the camel and the guides are never targets |
 | **`world-events-weather.md`** | the weather pre-roll at takeoff (conflict 3); the Nomad's awning as a shelter and the camel as an animal prop, both designed here; `beam.crate` at 10 m as a smaller event marker; the `merchantArrival` reserve is used once, at C2 |
-| **`heroes.md` (addendum requests, collected by the orchestrator)** | a `hat` socket on each hero rig for the aviator goggles (cosmetic, flights only); four seated clips for the plane's bench (§2.3.7); the reach-up clip for lighting a post; a `wave` reaction is not requested (emotes already exist) |
+| **`heroes.md` (addendum requests, collected by the orchestrator)** | a `hat` socket on each hero rig for the aviator goggles (cosmetic, flights only); four seated clips for the plane's bench (§2.3.7); the reach-up clip for lighting a post; a `wave` reaction was not requested here (emotes already exist); `cutscenes.md` later asked for one for CS-05, CS-10 and photo mode, and `heroes.md` §2.4.7 carries it |
 
 ### 5.3 Conflicts found, and how this file designs around them
 
@@ -928,6 +928,7 @@ Merged into `docs/DECISIONS.md` by the orchestrator after review.
 - 2026-09-06 · phase-0.5/npcs · The Nomad's camel (dun-grey `#8E8A80`, static idle, never targetable) and awning are designed here · `world-events-weather.md` §5.2 declined them · rejected: no camel (story-beats' silhouette read needs it).
 
 ---
+- 2026-09-07 · phase-0.5/npcs · Consistency pass: the plane has two marks per strip, both owned here (§2.3.1): the parking mark (Forest (16, 0), under the hangar roof from C4) while the plane is not `repaired`, and the apron mark (Forest (24, 0), 4 m east of the hangar's mouth) where every landing rolls out and where the plane stands from `repaired` on; CS-04's roll-out and the destination preload name both; the `wave` clip note in §5 now points at `cutscenes.md`'s request and `heroes.md` §2.4.7 · why: `camp.md` §2.12 and `cutscenes.md` CS-10 already parked the plane on an apron at (24, 0) that this file never named, and one file must own Ed's marks · rejected: moving the apron into the hangar, leaving the apron without a coordinate.
 
 ## 7. Reconcile when the brainstorm doc lands
 

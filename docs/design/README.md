@@ -10,16 +10,16 @@
 
 | File | System | Depends on | Status |
 |---|---|---|---|
-| `heroes.md` | The four kids: color, role, silhouette, props, animation personality, kit as data, pilot Liam spec | — | reviewed 2026-09-06 |
-| `enemies.md` | All 17 v27 enemy types + elites + overworld mini-bosses, each readable at gameplay distance | heroes (colors) | reviewed 2026-09-06; reconciled to heroes.md |
-| `story-beats.md` | The *Lights in the Dark* spine, quest graph, world map across the islands, where every canon line is delivered | — | reviewed 2026-09-06 |
-| `world-events-weather.md` | Day/night keyframes, weather, aurora, ambient layers, world events, the peaceful layer | — | reviewed 2026-09-06; reconciled to 40 px = 1 m |
-| `bosses.md` | Goblin King (Kid Snatch), Ancient Treant, Pharaoh Wraith, the Bog and Frozen bosses, Citadel Warden, Shadow Queen, the shadow squad; `BOSS_BLOCKS` in 3D | heroes, enemies, story-beats | reviewed 2026-09-06 |
-| `npcs.md` | Grandpa Ed (character, biplane as travel system, repair chain, supply drops), Gran, biome guides, merchant, Bog Witch, Sand Nomad | heroes, story-beats | reviewed 2026-09-06 |
-| `camp.md` | The Fernwood-style camp and its growth stages | story-beats, world-events-weather | reviewed 2026-09-06 |
-| `dungeons.md` | The five dungeons, expanded from Brief §5.3: core mechanic, traversal, puzzle language, set piece, boss arena | bosses, enemies, story-beats, world-events-weather | reviewed 2026-09-06 |
-| `cutscenes.md` | Every shot table reshot for the 3D cinematic camera: meteor, crash landing, boss intros, biplane travel, ending | heroes, story-beats, npcs, bosses, camp | reviewed 2026-09-06 |
-| `ui-ux.md` | Scrapbook menus, HUD, title cards, boss bar, captured-hero overlay, input, accessibility, onboarding | heroes, camp, bosses, enemies, story-beats | reviewed 2026-09-06 (three edits in the consistency pass) |
+| `heroes.md` | The four kids: color, role, silhouette, props, animation personality, kit as data, pilot Liam spec | — | reviewed 2026-09-06; consistency pass applied 2026-09-07 |
+| `enemies.md` | All 17 v27 enemy types + elites + overworld mini-bosses, each readable at gameplay distance | heroes (colors) | reviewed 2026-09-06; consistency pass applied 2026-09-07 |
+| `story-beats.md` | The *Lights in the Dark* spine, quest graph, world map across the islands, where every canon line is delivered | — | reviewed 2026-09-06; consistency pass applied 2026-09-07 |
+| `world-events-weather.md` | Day/night keyframes, weather, aurora, ambient layers, world events, the peaceful layer | — | reviewed 2026-09-06; consistency pass applied 2026-09-07 |
+| `bosses.md` | Goblin King (Kid Snatch), Ancient Treant, Pharaoh Wraith, the Bog and Frozen bosses, Citadel Warden, Shadow Queen, the shadow squad; `BOSS_BLOCKS` in 3D | heroes, enemies, story-beats | reviewed 2026-09-06; consistency pass applied 2026-09-07 |
+| `npcs.md` | Grandpa Ed (character, biplane as travel system, repair chain, supply drops), Gran, biome guides, merchant, Bog Witch, Sand Nomad | heroes, story-beats | reviewed 2026-09-06; consistency pass applied 2026-09-07 |
+| `camp.md` | The Fernwood-style camp and its growth stages | story-beats, world-events-weather | reviewed 2026-09-06; consistency pass applied 2026-09-07 |
+| `dungeons.md` | The five dungeons, expanded from Brief §5.3: core mechanic, traversal, puzzle language, set piece, boss arena | bosses, enemies, story-beats, world-events-weather | reviewed 2026-09-06; consistency pass applied 2026-09-07 |
+| `cutscenes.md` | Every shot table reshot for the 3D cinematic camera: meteor, crash landing, boss intros, biplane travel, ending | heroes, story-beats, npcs, bosses, camp | reviewed 2026-09-06; consistency pass applied 2026-09-07 |
+| `ui-ux.md` | Scrapbook menus, HUD, title cards, boss bar, captured-hero overlay, input, accessibility, onboarding | heroes, camp, bosses, enemies, story-beats | reviewed 2026-09-06; consistency pass applied 2026-09-07 |
 | `audio.md` | The procedural `snd()` port, music, ambient loops, per-system cue map | everything above | reviewed 2026-09-07; consistency pass applied 2026-09-07 |
 
 **Decided in `heroes.md` (2026-09-06):** Liam sapphire `#2A62CF` · Noah fox orange `#EE7F24` (v27 green `#2DB86A` as accent) · Collette amethyst `#9D4FD8` · Isabella ruby `#D6294E` (v27 gold `#F0C040` as accent). Role labels: Tank · Ranger · Mage · Whirlwind. World scale: **40 px = 1 m** (1 px = 0.025 m) for every v27 distance. Hero heights 1.52 / 1.40 / 1.30 / 1.14 m.
