@@ -16,4 +16,16 @@ export default tseslint.config(
     },
   },
   { files: ['**/*.js'], ...tseslint.configs.disableTypeChecked },
+  // scripts/*.cjs are plain Node build helpers outside tsconfig's project service (added with
+  // `npm run build:demo`); type-aware linting cannot see them, so they lint untyped.
+  { files: ['**/*.cjs'], ...tseslint.configs.disableTypeChecked },
+  {
+    files: ['**/*.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      parserOptions: { projectService: false, project: false },
+      globals: { require: 'readonly', module: 'writable', __dirname: 'readonly', process: 'readonly', console: 'readonly' },
+    },
+    rules: { '@typescript-eslint/no-require-imports': 'off', 'no-console': 'off' },
+  },
 );
