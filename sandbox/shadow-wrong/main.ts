@@ -17,7 +17,7 @@ import { makeProps as makeForestProps } from '../forest-dusk/props';
 import { makeScatter, makeTrees } from '../forest-dusk/scatter';
 import { groundY, makeTerrain } from '../forest-dusk/terrain';
 import { makeCreatures } from './creatures';
-import { clearNear, clearSight, makeProps, thinScatter, voidify } from './props';
+import { clearNear, clearSight, makeProps, SCATTER_TINT, thinScatter, voidify } from './props';
 import { makeShadowSky, VOID } from './sky';
 
 // The sky clock is locked: one keyframe, with a 40 s breathing on fog density (±15 %) and rift
@@ -44,8 +44,8 @@ const STATIONS: Record<string, Station> = {
   S4: { name: 'The mirror stream', target: [-14, 1.0, 17.5], yaw: 72, pitch: 12, d: 8.5, note: 'across the stream instead of along it: the broken step in silhouette, the sheet of water climbing its face with the bands travelling up, the drops carrying on over the lip, and Collette on the far bank for the scale of it' },
   W1: { name: 'The shard, wide', target: [-2, 0, 2], yaw: 320, pitch: 40, d: 44, note: 'the whole quadrant: the cabin, the fire, the torn tent, the void clouds below drifting in' },
   L1: { name: 'The fire, lower', target: [0, 0.9, 0], yaw: 315, pitch: 26, d: 20, note: 'the gameplay read: the cold pool on the ground, the cabin behind, the black moon over it' },
-  CU: { name: 'Isabella by the cold fire', target: [-3.4, 0.98, -5.2], yaw: 330, pitch: 8, d: 3.0, note: 'the ruby dress at portrait distance: she stands a step back from the fire for this one so the camera is 3.3 m from the ring and not inside the falling embers (at 0.8 m one of them is a 138 px bokeh disc), with the citadel\'s ember windows 11 m behind her and the cold fire\'s cyan on her left' },
-  SW: { name: 'The swing', target: [4.8, 0.9, -11.5], yaw: 237, pitch: 14, d: 7, note: 'the swing that swings by itself, ±25° on a 3.1 s period: the seat crosses a quarter of the frame in half a second. The citadel\'s ember windows are the back light, a cracked lantern leaking rift cyan is the near one, and Isabella stands at the left for the scale' },
+  CU: { name: 'Isabella by the cold fire', target: [-3.4, 1.05, -5.2], yaw: 300, pitch: 6, d: 3.4, note: 'read off the frame: the ruby dress at portrait distance with the citadel\'s ember-lit wall in the right third as the key and, in the left two thirds, the far plain going into the fog, the pines on its edge and the void sky over them — the yaw turned 330 → 300 in round 2 because at 330 the wall filled the whole frame and the close-up had no air in it. The falling embers of the cold fire are back at a fifth of the ambient sprite size, and the camera\'s near plane is 1.8 m here (see below)' },
+  SW: { name: 'The swing', target: [4.8, 1.9, -11.5], yaw: 245, pitch: 7, d: 7.5, note: 'read off the frame: the swing that swings by itself, ±25° on a 3.1 s period, hung from the bough of a dead pine with the rift open in the ground under it; Isabella at the left for the scale, the citadel\'s ember windows in the right third, the cold fire\'s pool at the left edge, and the mirrored constellations in the top third. Round 2 dropped the pitch 14 → 7 and turned the yaw 237 → 245: at pitch 14 the frame was ground from edge to edge and the living pine\'s canopy skirt (it starts at 1.4 m) was an unlit slab over the right third' },
   DE: { name: 'The shadow deer', target: [-9.5, 1.0, 9.5], yaw: 225, pitch: 16, d: 9.5, note: 'the deer at its parked spot with the cold fire behind the camera: press 0 and it dissolves into the mote column over 1.6 s' },
 };
 
@@ -70,7 +70,10 @@ runScene({
       // Isabella stood at (1.5, 1.4) with her legs inside the stump behind her and her back to S1.
       // She now stands clear of the seats on the *far* side of the fire, facing it and the camera:
       // the four seats stay empty, which is the whole point of them (camp.md §2.8)
-      if (shot === 'SW') { kid.root.position.set(6.5, gy(6.5, -9.5), -9.5); kid.face(355); return; }
+      // round 2: at (6.5, −9.5) she stood 7 m from the lens, in the frame's corner with the title card
+      // over her feet and her ring. She now stands two paces from the swing, a third of the way in,
+      // her body three-quarters to the lens and her head on the seat through the look hook
+      if (shot === 'SW') { kid.root.position.set(4.92, gy(4.92, -9.66), -9.66); kid.face(295); return; }
       // the close-up moves her a step back from the ring, so the lens is clear of the fire's embers
       const [ix, iz] = shot === 'CU' ? [-3.4, -5.2] : [-1.9, -2.9];
       kid.root.position.set(ix, gy(ix, iz), iz); kid.face(147);
@@ -107,6 +110,13 @@ runScene({
       const [cx, cz] = camXZ(s);
       lensCleared += clearNear(trees.group, cx, cz, 5.5);
     }
+    // Round 2 (the audit's item 2): a Forest pine's canopy skirt starts at 1.4 m and is 4.9 m
+    // across, so a pine 8 m from a low camera is an unlit slab over a third of the frame however
+    // far it is from the lens — 5.5 m of clearance is not enough for a station at pitch 7. The two
+    // that stand in `SW`'s cone go, and `props.ts` builds the swing a dead pine in place of the
+    // one it hung on. Both are well outside S1's cone (33° and 38° off its axis), so the frame the
+    // family is being shown does not move.
+    const swCleared = clearNear(trees.group, 3.5, -13.5, 1.2) + clearNear(trees.group, 6, -8, 1.2);
     // T-09, the confetti re-made: the Forest's tufts were recoloured and never thinned. Half of
     // them go, in whole cells so what is left is clustered, and none is left inside the fire's pool
     const [tuftsBefore, tuftsAfter] = thinScatter(scatter.group, 0.5, { x: 0, z: 0, r: 5.2 });
@@ -140,6 +150,10 @@ runScene({
     // 90 px bokeh disc: the close-up drops the weather and keeps the fire's own embers
     ash.pts.visible = shot !== 'CU';
     embers.pts.visible = shot !== 'CU';
+    // ... and gets a set of its own instead, at under half the size and inside the fire's reach,
+    // because the scores file's change 3 wants the embers *in* the close-up and not hidden from it
+    const cuEmbers = shot === 'CU' ? drifters(80, VOID.ember, 1.1, 1.4, { x: -3.4, z: -5.2, w: 12, d: 12, y0: 0.3, y1: 5 }, 0.9, 11) : null;
+    if (cuEmbers) scene.add(cuEmbers.pts);
 
     // what each station's heads are for: the runtime owns every kid's lookAt, so this is the hook
     const seat = new THREE.Vector3(), poiV = new THREE.Vector3();
@@ -161,7 +175,54 @@ runScene({
         const v = props.seatWorld(new THREE.Vector3()).project(lastCam);
         return { px: Number(((v.x * 0.5 + 0.5) * 1600).toFixed(1)), py: Number(((-v.y * 0.5 + 0.5) * 1000).toFixed(1)) };
       },
-      tufts: () => ({ before: tuftsBefore, after: tuftsAfter, sightCleared, lensCleared }),
+      tufts: () => ({
+        before: tuftsBefore, after: tuftsAfter, sightCleared, lensCleared, swCleared,
+        // the colour half of T-09, measured on the tints themselves
+        tintSatBefore: Number((SCATTER_TINT.satBefore / Math.max(1, SCATTER_TINT.n)).toFixed(4)),
+        tintSatAfter: Number((SCATTER_TINT.satAfter / Math.max(1, SCATTER_TINT.n)).toFixed(4)),
+        tintSatMaxBefore: Number(SCATTER_TINT.maxBefore.toFixed(4)),
+        tintSatMaxAfter: Number(SCATTER_TINT.maxAfter.toFixed(4)),
+      }),
+      // which pines are still standing near a point, with their distance and bearing from it: the
+      // way an occluder in a station's frame is *identified* instead of guessed at (round 2, SW)
+      treesNear: (x = 0, z = 0, rad = 20) => {
+        const out: { x: number; z: number; s: number; d: number; b: number }[] = [];
+        const m = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
+        trees.group.traverse((o) => {
+          const im = o as THREE.InstancedMesh;
+          if (!im.isInstancedMesh) return;
+          for (let i = 0; i < im.count; i++) {
+            im.getMatrixAt(i, m); m.decompose(p, q, sc);
+            if (sc.x === 0) continue;
+            const d = Math.hypot(p.x - x, p.z - z);
+            if (d > rad) continue;
+            out.push({
+              x: Number(p.x.toFixed(2)), z: Number(p.z.toFixed(2)), s: Number(sc.x.toFixed(2)), d: Number(d.toFixed(2)),
+              b: Number((((Math.atan2(p.x - x, -(p.z - z)) * 180) / Math.PI + 360) % 360).toFixed(1)),
+            });
+          }
+        });
+        return out.sort((a, b) => a.d - b.d);
+      },
+      /** A station's camera in the ground plane, so a probe can ask about its line of sight. */
+      camAt: (s: string) => (STATIONS[s] ? camXZ(STATIONS[s]) : null),
+      // what is under a pixel of the 1600 x 1000 frame, every hit along the ray and not only the
+      // first: the way an artefact in a saved frame is *named* (round 2, the CU's dashed lines)
+      pick: (px: number, py: number) => {
+        if (!lastCam) return null;
+        const ray = new THREE.Raycaster();
+        ray.setFromCamera(new THREE.Vector2((px / 1600) * 2 - 1, -((py / 1000) * 2 - 1)), lastCam);
+        const root = scene;
+        return ray.intersectObject(root, true).slice(0, 8).map((h) => {
+          const chain: string[] = [];
+          for (let p: THREE.Object3D | null = h.object; p; p = p.parent) if (p.name) chain.unshift(p.name);
+          return {
+            d: Number(h.distance.toFixed(3)), type: h.object.type, name: h.object.name || chain.join('/') || '(unnamed)',
+            verts: ((h.object as THREE.Mesh).geometry?.getAttribute('position') as THREE.BufferAttribute | undefined)?.count ?? 0,
+            at: [h.point.x, h.point.y, h.point.z].map((v) => Number(v.toFixed(2))),
+          };
+        });
+      },
       farFill: () => (props.group.children.find((c) => (c as THREE.DirectionalLight).isDirectionalLight) as THREE.DirectionalLight | undefined)?.intensity ?? null,
     };
     return {
@@ -172,11 +233,22 @@ runScene({
         WORLD_U.uFogMax.value = kf.fog.max * (1 + 0.15 * b);
         breathe = 1 + 0.25 * b;
         lastCam = ctx.camera;
+        // The close-up's near plane. Isabella's hair volume and her head sphere interpenetrate (a
+        // 0.235 m dome centred 0.209 m off a 0.19 m head), and the seam between two opaque meshes
+        // is drawn as a dashed line — which at portrait distance reads as the circlet and the
+        // fringe showing *through* the cap. It is not a material: every mesh in the rig is opaque,
+        // `depthWrite` true, `transparent` false, and the rigs are never voidified (probe
+        // `scripts/probes/shadow-hair.cjs`); it is depth precision in the composer's buffer, which
+        // goes as `z²·(1/near − 1/far)`. The station is 3.0 m out and nothing is inside 2.6 m of
+        // the lens, so the near plane goes 0.5 → 1.8 here and the seam closes. The real fix is the
+        // rig's (the dome wants to sit *on* the head, not through it) and is owed in `_shared`.
+        if (shot === 'CU' && ctx.camera.near !== 1.8) { ctx.camera.near = 1.8; ctx.camera.updateProjectionMatrix(); }
         sky.update(t, ctx.camera, breathe);
         props.update(t, dt, breathe, ctx.active.root.position);
         creatures.update(t, dt, ctx.active.root.position);
         embers.update(t, 1);
         ash.update(t, 1);
+        cuEmbers?.update(t, 1);
       },
       poi: () => stationPoi() ?? creatures.poi() ?? props.fireSeat,
       look: (kid) => (kid !== isabella ? null : shot === 'SW' ? props.seatWorld(seat) : shot === 'CU' ? props.fireSeat : null),
@@ -184,7 +256,7 @@ runScene({
         props.hud(),
         ...creatures.hud(),
         `breathing ${breathe.toFixed(2)} on a 40 s cycle (fog ±15 %, rift ±25 %) · one keyframe, no clock`,
-        `scatter ${tuftsBefore} → ${tuftsAfter} tufts (T-09, thinned in this folder on the imported instances) · S3 corridor cleared of ${sightCleared} · station lenses cleared of ${lensCleared}`,
+        `scatter ${tuftsBefore} → ${tuftsAfter} tufts (T-09: thinned and, round 2, the instance tint desaturated to 15 % — voidify never sees a tint) · S3 corridor cleared of ${sightCleared} · station lenses cleared of ${lensCleared} · SW's two near pines cleared of ${swCleared}`,
       ],
       keys: {
         '0': { help: 'the deer goes', run: () => creatures.dissolveNow() },

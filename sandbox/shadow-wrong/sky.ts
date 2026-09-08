@@ -14,7 +14,11 @@ import { rng } from '../_shared/rng';
 export const VOID = {
   void: '#1A1030', ember: '#FF6A2A', rift: '#3AF0FF', riftMid: '#2ABDD8', riftPale: '#BFFAFF', ash: '#86829A',
   zenith: '#1C1235', horizon: '#5A3480', ground: '#382156', fog: '#1E1030',
-  charcoal: '#241F30', cabinRoof: '#241F30', cyanDim: '#1A4A58', cyanLight: '#2FA6D8',
+  // the roof's paint went `#241F30` → `#3A3348` in round 2: at the old value the two roof slabs
+  // rendered at p50 0.018 (98 % of them under 5 %), because a face that sees neither the key nor
+  // the hemisphere's sky is dark whatever its albedo. The paint is half the fix; the other half is
+  // the ambient floor `roofFloor` below, a small emissive at 0.2 gain (T-39 (b))
+  charcoal: '#241F30', cabinRoof: '#3A3348', roofFloor: '#A99BD0', cyanDim: '#1A4A58', cyanLight: '#2FA6D8',
 } as const;
 
 export interface ShadowSky {

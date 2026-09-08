@@ -19,6 +19,22 @@ import { VOID } from './sky';
 const B = (w: number, h: number, d: number, hex: string) => colorize(new THREE.BoxGeometry(w, h, d), hex);
 const CY = (rt: number, rb: number, h: number, seg: number, hex: string) => colorize(new THREE.CylinderGeometry(rt, rb, h, seg), hex);
 const emis = (hex: string, gain: number) => ({ color: new THREE.Color(hex).multiplyScalar(gain).getStyle(), glow: 1 });
+/** A cabin-roof slab: the lifted paint plus the ambient floor a face with no light needs (T-39 b). */
+const RB = (w: number, h: number, d: number) => colorize(new THREE.BoxGeometry(w, h, d), VOID.cabinRoof, emis(VOID.roofFloor, 0.10));
+
+/**
+ * Per-face jitter on the ambient floor. `jitterColor` varies the albedo, which does nothing on a
+ * face that receives no light: without this the lifted roof and walls are flat slabs of one value.
+ * Non-indexed geometry, three vertices to a face.
+ */
+function jitterEmissive(g: THREE.BufferGeometry, r: () => number, amount: number): void {
+  const a = g.getAttribute('aEmissive') as THREE.BufferAttribute;
+  for (let i = 0; i < a.count; i += 3) {
+    const k = 1 + (r() * 2 - 1) * amount;
+    for (let j = 0; j < 3; j++) a.setXYZ(i + j, a.getX(i + j) * k, a.getY(i + j) * k, a.getZ(i + j) * k);
+  }
+  a.needsUpdate = true;
+}
 
 /** The swing's amplitude (±25°) and the climb's face normal, read by the per-frame update. */
 const SWING_A = deg(25);
@@ -118,6 +134,13 @@ export function clearNear(root: THREE.Object3D, x: number, z: number, radius: nu
  * survivors are also lifted a step toward the ground's violet so they read as grass, not thorns.
  * Returns [before, after].
  */
+/**
+ * What `thinScatter` did to the instance tints, so the colour half of T-09 is a number and not a
+ * claim: the mean and the maximum HSV saturation of the surviving tints before and after the
+ * desaturation. Read through `ssProbe.tufts()`.
+ */
+export const SCATTER_TINT = { satBefore: 0, satAfter: 0, maxBefore: 0, maxAfter: 0, n: 0 };
+
 export function thinScatter(root: THREE.Object3D, keep: number, poolAt: { x: number; z: number; r: number }): [number, number] {
   const m = new THREE.Matrix4(), pos = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
   const rr = rng(917);
@@ -125,7 +148,7 @@ export function thinScatter(root: THREE.Object3D, keep: number, poolAt: { x: num
   // the instance colour is a tint *multiplier* on the vertex colour, so a step toward the ground's
   // own violet is a gain above 1 on r and b, not a lerp toward a violet (which would darken it)
   const lift = new THREE.Color(1.20, 1.06, 1.34);
-  const col = new THREE.Color();
+  const col = new THREE.Color(), grey = new THREE.Color();
   let before = 0, after = 0;
   root.traverse((o) => {
     const im = o as THREE.InstancedMesh;
@@ -147,7 +170,20 @@ export function thinScatter(root: THREE.Object3D, keep: number, poolAt: { x: num
       if (inPool || !cell || rr() > Math.sqrt(keep) * 0.95 * far) { im.setMatrixAt(i, m.makeScale(0, 0, 0)); continue; }
       after++;
       if (im.instanceColor) {
-        col.fromArray(im.instanceColor.array, i * 3).multiply(lift);
+        col.fromArray(im.instanceColor.array, i * 3);
+        // T-09's colour half, round 2. `voidify()` drains every *vertex* colour to ash-violet, but
+        // an instance tint is a multiplier it never sees: the Forest's autumn litter kept its
+        // `#B03828`/`#D87828` and read as red-orange flecks over violet ground. Every survivor's
+        // tint is desaturated to 15 % of its own hue before the violet lift, which is "within a
+        // step of the ground's own colour" without moving one instance — S1's composition, its
+        // count and its clusters are untouched.
+        const sat0 = Math.max(col.r, col.g, col.b) > 0 ? 1 - Math.min(col.r, col.g, col.b) / Math.max(col.r, col.g, col.b) : 0;
+        const gy = 0.2126 * col.r + 0.7152 * col.g + 0.0722 * col.b;
+        col.lerp(grey.setRGB(gy, gy, gy), 0.85).multiply(lift);
+        const sat1 = Math.max(col.r, col.g, col.b) > 0 ? 1 - Math.min(col.r, col.g, col.b) / Math.max(col.r, col.g, col.b) : 0;
+        SCATTER_TINT.n++; SCATTER_TINT.satBefore += sat0; SCATTER_TINT.satAfter += sat1;
+        SCATTER_TINT.maxBefore = Math.max(SCATTER_TINT.maxBefore, sat0);
+        SCATTER_TINT.maxAfter = Math.max(SCATTER_TINT.maxAfter, sat1);
         im.setColorAt(i, col);
       }
     }
@@ -165,6 +201,7 @@ export function makeProps(): Props {
   const clothMat = makeWorldMaterial({ roughness: 1, side: THREE.DoubleSide });
   const opaque: THREE.BufferGeometry[] = [], glow: THREE.BufferGeometry[] = [], cloth: THREE.BufferGeometry[] = [];
   const footprints: Circle[] = [];
+  let swingWash: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
   const fp = (x: number, z: number, rad: number) => footprints.push({ x, z, r: rad });
   const at = (g: THREE.BufferGeometry, x: number, z: number, ry = 0, dy = 0) => xf(g, x, groundY(x, z) + dy, z, ry);
 
@@ -223,14 +260,26 @@ export function makeProps(): Props {
   {
     const cx = -8, cz = -11.5, ry = deg(180 - 145), cy = groundY(cx, cz); // the porch faces the fire (bearing 145)
     const w = 5.6, dpt = 4.4, wallH = 5.0;
+    // the walls carry the same ambient floor as the roof at half its gain: three of the citadel's
+    // four faces see neither the key at azimuth 300 nor the porch light, and at `SW` the east wall
+    // was 10 % of the frame at 2 % luminance (round 2, T-39 (b)). It is still the darkest mass in
+    // any frame it is in; it is no longer a hole in the picture
+    const wallGeo = colorize(new THREE.BoxGeometry(w, wallH, dpt), '#2A2436', emis(VOID.roofFloor, 0.08)).translate(0, wallH / 2, 0);
+    jitterColor(wallGeo, r, 0.05); jitterEmissive(wallGeo, r, 0.22);
     const parts: THREE.BufferGeometry[] = [
-      B(w, wallH, dpt, '#2A2436').translate(0, wallH / 2, 0),
       B(w + 0.5, 0.35, dpt + 0.5, '#1E1A2A').translate(0, 0.18, 0),
     ];
-    // the roof: two pitched slabs, rotated about their own centres and then moved (LESSONS.md)
+    glow.push(xf(wallGeo, cx, cy, cz, ry));
+    // the roof: two pitched slabs, rotated about their own centres and then moved (LESSONS.md).
+    // Round 2, T-39 (b): these two slabs and the porch's are the frame's black mass at S2 (p50
+    // 0.018, 98 % of them under 5 %) because they face neither the key at elevation 12 nor the
+    // hemisphere's sky. Paint alone cannot lift a face that receives no light, so they carry a
+    // small ambient floor as well — an emissive at 0.2 gain, which is a fifth of T-10's ceiling
+    // for a large face and a quarter of the bloom threshold, so nothing blooms.
     const th = 0.72, half = 2.0;
+    const roofParts: THREE.BufferGeometry[] = [];
     for (const s of [-1, 1]) {
-      parts.push(B(w + 1.0, 0.22, half * 2, VOID.cabinRoof).applyMatrix4(new THREE.Matrix4().makeRotationX(-s * th)).translate(0, wallH + half * Math.sin(th), s * half * Math.cos(th)));
+      roofParts.push(RB(w + 1.0, 0.22, half * 2).applyMatrix4(new THREE.Matrix4().makeRotationX(-s * th)).translate(0, wallH + half * Math.sin(th), s * half * Math.cos(th)));
     }
     parts.push(B(0.9, 2.4, 0.9, '#231F2E').translate(1.7, wallH + 2.2, -1.0));
     // the door: the Citadel Warden's post, a black slot
@@ -239,10 +288,13 @@ export function makeProps(): Props {
     // the porch: posts and a roof, the shelf empty
     parts.push(B(w + 0.8, 0.14, 2.2, '#231F2E').translate(0, 0.1, dpt / 2 + 1.1));
     for (const ox of [-w / 2 - 0.2, w / 2 + 0.2]) parts.push(CY(0.11, 0.13, 2.9, 6, '#1E1A2A').translate(ox, 1.45, dpt / 2 + 1.9));
-    parts.push(B(w + 1.0, 0.16, 2.4, VOID.cabinRoof).applyMatrix4(new THREE.Matrix4().makeRotationX(0.26)).translate(0, 3.05, dpt / 2 + 1.1));
+    roofParts.push(RB(w + 1.0, 0.16, 2.4).applyMatrix4(new THREE.Matrix4().makeRotationX(0.26)).translate(0, 3.05, dpt / 2 + 1.1));
     parts.push(B(2.0, 0.1, 0.4, '#231F2E').translate(1.6, 1.0, dpt / 2 + 0.28));
     const cabin = mergeGeos(parts); jitterColor(cabin, r, 0.05);
     opaque.push(xf(cabin, cx, cy, cz, ry));
+    // the three roof slabs ride the emissive material, so they go in `glow`, not `opaque`
+    const roof = mergeGeos(roofParts); jitterColor(roof, r, 0.07); jitterEmissive(roof, r, 0.18);
+    glow.push(xf(roof, cx, cy, cz, ry));
     // four ember windows, two floors, and the frames
     for (const [ox, oy, oz, rot] of [[1.4, 1.6, dpt / 2 + 0.05, 0], [1.4, 3.6, dpt / 2 + 0.05, 0], [-1.8, 3.6, dpt / 2 + 0.05, 0], [w / 2 + 0.05, 2.6, -0.8, Math.PI / 2]] as [number, number, number, number][]) {
       const win = colorize(new THREE.BoxGeometry(1.1, 1.4, 0.08), VOID.ember, emis(VOID.ember, 1.8));
@@ -388,10 +440,104 @@ export function makeProps(): Props {
     ]), lx, ly + 0.09, lz, 0.7, Math.PI / 2.2));
     // small quads may glow at 1.6 (T-10); the broken glass is 0.2 × 0.14 m
     glow.push(xf(colorize(new THREE.BoxGeometry(0.2, 0.14, 0.13), VOID.rift, emis(VOID.rift, 1.6)), lx, ly + 0.10, lz, 0.7));
-    const lampLight = new THREE.PointLight(VOID.cyanLight, 13, 7, 2);
+    // round 2: 13 cd over 7 m lit the seat and left the rest of the station's frame under the
+    // 12 % floor, so the leak reaches further and dimmer (the crack is the same size)
+    const lampLight = new THREE.PointLight(VOID.cyanLight, 26, 13, 2);
     lampLight.position.set(lx, ly + 0.25, lz);
     group.add(lampLight);
     fp(lx, lz, 0.25);
+  }
+
+  // ---- the swing's dead pine, and the rift under it (round 2) -------------------------------------
+  // The swing hung on the Forest's pine at (3.5, −13.5). A Forest pine's canopy skirt starts at
+  // 1.4 m and is 4.9 m across, so from a station 8 m away it is an unlit slab over the right third
+  // of the frame (measured: p50 0.023 over 20 % of `shadow-wrong-sw-02-01`, the audit's item 2).
+  // That pine and its neighbour at (6, −8) are cleared in `main.ts` with the scene's own
+  // `clearNear`, and this dead one stands in its place: a bare trunk and one bough, so the swing
+  // still hangs on something, the silhouette reads against the sky, and the station's top third is
+  // sky instead of black. Neither cleared pine is in S1's cone (33° and 38° off its axis).
+  // It stands north-east of the swing, not on the pine's old spot: from the station the old spot is
+  // on the same bearing as the citadel (261° against 261°) and the trunk stood on its windows.
+  // It stands 3.8 m from the seat and not beside it: at 1 m the trunk and the ropes were one mast in
+  // the station's projection (two cuts of this read as a telephone pole with a crossarm), and a
+  // bough reaching in over the swing is the shape the picture wants.
+  const deadAt: [number, number] = [2.4, -8.6];
+  {
+    const dy = groundY(deadAt[0], deadAt[1]);
+    // 4.6 m and leaning 14° over the swing, so the broken top is inside the station's frame and the
+    // bough carries the trunk's line on. The paint is a step above the void's ash so the snag reads
+    // pale against the sky instead of as a black bar.
+    const lean = deg(14), lx2 = Math.cos(lean), ly2 = Math.sin(lean);
+    const top = new THREE.Vector3(deadAt[0] + 0.638 * 4.6 * ly2, dy + 4.6 * lx2, deadAt[1] - 0.771 * 4.6 * ly2);
+    const trunk = CY(0.11, 0.26, 4.6, 6, '#6E6688');
+    jitterColor(trunk, r, 0.08);
+    {
+      const t0 = new THREE.Vector3(deadAt[0], dy, deadAt[1]);
+      const tq = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), top.clone().sub(t0).normalize());
+      trunk.applyMatrix4(new THREE.Matrix4().compose(t0.clone().lerp(top, 0.5), tq, new THREE.Vector3(1, 1, 1)));
+      opaque.push(trunk);
+    }
+    // the snapped top: a short splintered cone, off-axis
+    opaque.push(xf(colorize(new THREE.ConeGeometry(0.11, 0.5, 5), '#7A7294'), top.x + 0.06, top.y + 0.2, top.z + 0.04, 0.8, deg(7), deg(15)));
+    // the bough the swing hangs from: it carries on from the snapped top and droops past the seat's
+    // pivot at (4.8, +3.4, −11.5), 0.06 m over it, in two segments so it is not a straight bar
+    const knee = new THREE.Vector3(4.23, dy + 3.89, -10.74);
+    for (const [a2, b2, r0, r1] of [
+      [top.clone(), knee, 0.13, 0.10],
+      [knee, new THREE.Vector3(5.6, groundY(5.6, -12.3) + 3.2, -12.3), 0.10, 0.045],
+    ] as [THREE.Vector3, THREE.Vector3, number, number][]) {
+      const seg = CY(r1, r0, a2.distanceTo(b2), 5, '#4E4860');
+      jitterColor(seg, r, 0.08);
+      const bq = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), b2.clone().sub(a2).normalize());
+      seg.applyMatrix4(new THREE.Matrix4().compose(a2.clone().lerp(b2, 0.5), bq, new THREE.Vector3(1, 1, 1)));
+      opaque.push(seg);
+    }
+    // seven dead limbs at seven angles: one trunk and one bough is a telephone pole however it is
+    // painted, and a bare tree is read from its branching (the third cut of this)
+    const base = new THREE.Vector3(deadAt[0], dy, deadAt[1]);
+    for (const [u, ang, ln, rise] of [
+      [0.33, 2.2, 0.85, 0.32], [0.47, 4.7, 1.35, 0.55], [0.60, 0.6, 0.72, 0.26],
+      [0.71, 3.5, 1.15, 0.48], [0.84, 5.6, 0.95, 0.42], [0.90, 1.5, 0.62, 0.30],
+      [0.55, 5.9, 0.55, 0.22],
+    ] as [number, number, number, number][]) {
+      const s0 = base.clone().lerp(top, u);
+      const s1 = new THREE.Vector3(s0.x + Math.cos(ang) * ln, s0.y + rise, s0.z + Math.sin(ang) * ln);
+      const stub = CY(0.025, 0.075, s0.distanceTo(s1), 4, '#5E5878');
+      const sq = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), s1.clone().sub(s0).normalize());
+      stub.applyMatrix4(new THREE.Matrix4().compose(s0.clone().lerp(s1, 0.5), sq, new THREE.Vector3(1, 1, 1)));
+      opaque.push(stub);
+    }
+    fp(deadAt[0], deadAt[1], 0.5);
+    // the rift comes up through the ground here, which is what lights the station's foreground:
+    // nine hairline cracks (small quads, so 1.6 gain is allowed — T-10) and two dim cyan lights on
+    // them, plus one feathered wash on the ground so the plain between them is not a black field
+    const rr = rng(71);
+    for (let i = 0; i < 9; i++) {
+      // the cracks, the two lights and the wash all sit on the camera's side of the swing: S1's
+      // own cone passes within 3.1 m of the seat on its right edge, and anything centred on the seat
+      // lifts S1's right third as well (measured: its mean 0.065 → 0.130 on the first cut)
+      const a = rr() * 6.283, rad = 1.4 + rr() * 2.8;
+      const x = 6.2 + Math.cos(a) * rad, z = -12.8 + Math.sin(a) * rad;
+      const ln = 0.5 + rr() * 1.0;
+      // dimmer and thinner than the south lip's (1.6 on `rift`): at 5 m from the lens those read as
+      // fluorescent tubes lying in the grass, and a crack in the ground is a hairline
+      glow.push(at(colorize(new THREE.PlaneGeometry(ln, 0.035 + rr() * 0.04), VOID.riftMid, emis(VOID.riftMid, 1.0)).rotateX(-Math.PI / 2), x, z, rr() * 3.14, 0.03));
+      if (rr() < 0.6) opaque.push(at(colorize(new THREE.IcosahedronGeometry(0.13 + rr() * 0.2, 0), '#3A3448'), x + 0.4, z + 0.3, 0, 0.08));
+    }
+    for (const [gx, gz] of [[7.6, -13.4], [5.4, -14.8]] as [number, number][]) {
+      const l = new THREE.PointLight(VOID.cyanLight, 15, 12, 2);
+      l.position.set(gx, groundY(gx, gz) + 0.5, gz);
+      group.add(l);
+    }
+    swingWash = new THREE.Mesh(new THREE.CircleGeometry(12, 28), new THREE.MeshBasicMaterial({
+      // violet, not rift cyan: the wash's job is the ground's *value*, and a cyan wash over violet
+      // ground is a hue a step away from it (T-09 measured the cyan in this band at 630 per mille
+      // when the wash was rift-coloured, against 177 before the pass). The cracks stay cyan
+      map: softDisc(), color: new THREE.Color('#8A72E0').multiplyScalar(0.95), transparent: true, opacity: 0.15, depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    swingWash.rotation.x = -Math.PI / 2;
+    swingWash.position.set(7.2, groundY(7.2, -14.2) + 0.07, -14.2);
+    group.add(swingWash);
   }
 
   // ---- the stream climbs its own step: the one thing a still frame can show ----------------------
@@ -535,6 +681,8 @@ export function makeProps(): Props {
     climbDrops.commit();
     // the swing swings by itself: ±25° on a 3.1 s period, with a second incommensurate rate (T-06)
     swing.rotation.x = SWING_A * Math.sin((t * 6.283) / 3.1) + 0.04 * Math.sin((t * 6.283) / 7.3 + 1);
+    // the rift's wash under it breathes on the scene's 40 s cycle and on a 27 s one of its own
+    swingWash.material.opacity = 0.12 * breathe + 0.03 + 0.015 * Math.sin(t * 0.23);
     tornFlap.rotation.x = 0.3 + 0.28 * Math.sin(t * 0.8) * Math.sin(t * 0.31 + 2);
     farHolder.lookAt(hero.x, hero.y + 1.4, hero.z);
     void dt;
