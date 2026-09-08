@@ -14,7 +14,7 @@ import { BLOOM_LAYER } from '../_shared/post';
 import { deg, rng } from '../_shared/rng';
 import { C, type Keyframe } from '../_shared/style';
 import type { Circle } from '../_shared/walk';
-import { ICEFALL, OBSERVATORY, SHELF, terrainY } from './terrain';
+import { ICEFALL, OBSERVATORY, POOL, SHELF, terrainY } from './terrain';
 
 const B = (w: number, h: number, d: number, hex: string) => colorize(new THREE.BoxGeometry(w, h, d), hex);
 const CY = (rt: number, rb: number, h: number, seg: number, hex: string) => colorize(new THREE.CylinderGeometry(rt, rb, h, seg), hex);
@@ -140,7 +140,9 @@ export function makeProps(): Props {
   // ---- the ice-fall: a frozen waterfall on the north cliff over a frozen pool --------------------
   {
     const fx = ICEFALL.x, fz = ICEFALL.z;
-    const top = terrainY(fx, fz - 6), base = terrainY(fx, fz + 8);
+    // the fall's foot is the pool's own level (T-53): sampling the terrain at (fx, fz + 8) now reads
+    // the pool's bed, which would make the columns chase their own basin
+    const top = terrainY(fx, fz - 6), base = POOL.y;
     const hgt = top - base + 1.5;
     for (let row = 0; row < 2; row++) for (let i = 0; i < 16; i++) {
       const u = ((i + row * 0.5) / 15.5 - 0.5) * ICEFALL.w * 0.9;
@@ -156,9 +158,21 @@ export function makeProps(): Props {
     glow.push(xf(colorize(new THREE.BoxGeometry(ICEFALL.w * 0.95, 1.2, 3.2), '#E4F6FF', emis(F.ice, 0.1)), fx, top + 0.3, fz - 3.2, 0, 0.12, 0));
     for (let i = 0; i < 8; i++) { const g = colorize(new THREE.IcosahedronGeometry(1.0 + r() * 1.2, 1), '#DCEFFB'); g.scale(1.4, 0.7, 1.2); opaque.push(xf(g, fx + (r() - 0.5) * ICEFALL.w * 0.8, base + 0.2, fz + 3.5 + r() * 2.5, r() * 6)); }
     for (let i = 0; i < 22; i++) { const u = (r() - 0.5) * ICEFALL.w; const h = 0.8 + r() * 2.4; ice.push(xf(colorize(new THREE.ConeGeometry(0.16 + r() * 0.12, h, 5), '#E0F4FF').rotateX(Math.PI), fx + u, top + 0.6 - h / 2, fz - 4 + r() * 2)); }
-    // the frozen pool at the base: a pale disc with a rim of snow humps
-    opaque.push(xf(colorize(new THREE.CircleGeometry(7, 12), '#C8E4F4').rotateX(-Math.PI / 2), fx, base + 0.05, fz + 10));
-    for (let i = 0; i < 10; i++) { const a = (i / 10) * 6.283; const g = colorize(new THREE.IcosahedronGeometry(0.6 + r() * 0.5, 1), F.snow); g.scale(1.3, 0.6, 1.1); opaque.push(xf(g, fx + Math.cos(a) * 7.2, base + 0.1, fz + 10 + Math.sin(a) * 7.2 * 0.8)); }
+    // the frozen pool: a sheet of *ice* lying in the terrain's basin (T-53), its rim buried in the
+    // shore (the sheet's waterline falls at 6.9 m, the disc reaches 7.1, the shore stands 0.1 m proud
+    // of the sheet from 7.05 m out) so no edge and no underside can be seen from the walk-up.
+    // The pale snow colour it had made it one field with the shore at every angle on the approach:
+    // it is now cooled and darkened 55 % of the way to `F.iceDeep` and carries the fall's own low
+    // emissive (0.14, the columns' number — no new light, and far under the 0.5 large-face cap),
+    // so the waterline is a material change and not a height the eye cannot see
+    glow.push(xf(colorize(new THREE.CircleGeometry(POOL.r, 24), '#83BBDC', emis(F.ice, 0.14)).rotateX(-Math.PI / 2), POOL.x, POOL.y, POOL.z));
+    // the ten snow humps sit on that shore, each on the ground it actually stands on
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * 6.283 + 0.15, rad = 7.7 + (r() - 0.5) * 0.5;
+      const bx = POOL.x + Math.cos(a) * rad, bz = POOL.z + Math.sin(a) * rad;
+      const g = colorize(new THREE.IcosahedronGeometry(0.6 + r() * 0.5, 1), F.snow); g.scale(1.3, 0.6, 1.1);
+      opaque.push(xf(g, bx, terrainY(bx, bz) + 0.1, bz, r() * 6));
+    }
     fp(fx, fz + 4, 12);
   }
   // ---- a cairn with a flag, the Observatory on its summit ----------------------------------------

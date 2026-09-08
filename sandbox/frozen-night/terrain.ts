@@ -19,7 +19,16 @@ export const ICE_Y = -0.12;
 export const SHELF = { x: 31, z: -22, r: 10, h: 2.6 };
 export const ICEFALL = { x: -8, z: -40, w: 24 };
 export const OBSERVATORY = { x: 48, z: -44 };
-export const DRIFT = { x0: -33, z0: 1, x1: -39, z1: -3 }; // the penguins' slide: top → bottom
+// The penguins' slide: top → bottom. The top must sit clear of the lake basin's smoothing (T-51:
+// the old top at (−33, 1) had lakeD 1.01, so terrainY pulled it *below* the foot and the colony
+// slid uphill); it now sits at lakeD ≈ 1.5 and the foot meets the lake shore at lakeD ≈ 1.05.
+// Asserted by sampling in scripts/probes/frozen-drift.cjs, never by arithmetic on a radius.
+export const DRIFT = { x0: -40.5, z0: -3, x1: -35, z1: 1.5 };
+// The ice-fall's frozen pool (T-53): `y` is the sheet's level, and terrainY digs a bed under it and
+// holds a shore at or above it. Moved 4.5 m south of the old disc centre (−8, −30) so the whole
+// basin lies on the flat: the cliff's toe climbs ~0.9 m per metre north of z = −31, and a 7 m dish
+// centred there would have had to cut a 4.5 m scarp out of it (sampled, docs/design/mockups/LOG.md).
+export const POOL = { x: -8, z: -25.5, r: 7.1, y: -0.1 };
 
 export function inside(x: number, z: number): boolean {
   const ex = 3 * noise(z / 14, 100), ez = 3 * noise(x / 14, 200);
@@ -49,11 +58,25 @@ export function terrainY(x: number, z: number): number {
   // the lake basin, ice over it
   const ld = lakeD(x, z);
   if (ld < 1.3) h = lerp(h, Math.min(h, 0) - 0.8 * (1 - clamp(ld, 0, 1) ** 2), smoothstep(1.3, 1.0, ld));
+  // the ice-fall's pool lies in a basin (T-53): a bed 0.25 m under the sheet inside 6.5 m, a shore
+  // at or above the sheet from 7.05 to 8.8 m, then the natural ground again by 10.4 m. The bed only
+  // ever *lowers* the ground and the shore only ever *raises* it, so the cliff's toe behind the
+  // pool keeps its own height instead of being quarried into a scarp.
+  const pd = Math.hypot(x - POOL.x, z - POOL.z);
+  if (pd < 10.4) {
+    const bed = Math.min(h, POOL.y - 0.25);
+    const shore = Math.max(h, POOL.y + 0.1);
+    h = lerp(bed, lerp(shore, h, smoothstep(8.8, 10.4, pd)), smoothstep(6.5, 7.05, pd));
+  }
   return h;
 }
 export function groundY(x: number, z: number): number {
   const ld = lakeD(x, z);
   const t = terrainY(x, z);
+  // the ice-fall's pool is frozen too: inside its waterline the sheet is what a kid or a creature
+  // stands on, exactly as the lake's ice is (T-53; without this the S4 kid stands in the bed, 0.25 m
+  // under the sheet, and reads as sunk to the knees)
+  if (t < POOL.y && Math.hypot(x - POOL.x, z - POOL.z) < POOL.r - 0.2) return POOL.y;
   return ld < 1.02 && t < ICE_Y ? ICE_Y : t;
 }
 export function onIce(x: number, z: number): boolean { return lakeD(x, z) < 1.0 && terrainY(x, z) < ICE_Y; }
