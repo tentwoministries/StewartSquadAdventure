@@ -4,7 +4,7 @@
 // system, one walk and one idle base, and each kid file adds hair, prop, cloth and personality.
 import * as THREE from 'three';
 import { BLOOM_LAYER } from './post';
-import { colorize, makeWorldMaterial, xf } from './material';
+import { colorize, makeWorldMaterial, WORLD_U, xf } from './material';
 
 export interface KidColours { base: string; dark: string; accent: string; glow: string; hair: string; skin: string; pupil: string }
 export interface KidSpec {
@@ -38,7 +38,20 @@ export interface Helpers {
   ball: (r: number, hex: string, detail?: number) => THREE.BufferGeometry;
   glowBall: (r: number, hex: string, gain: number) => THREE.Mesh;
 }
-export interface KidCtx { t: number; dt: number; idle: number; blend: number; w: number; fl: number; look: THREE.Vector3 }
+export interface KidCtx {
+  t: number; dt: number; idle: number; blend: number; w: number; fl: number; look: THREE.Vector3;
+  /** The kid's own ground speed (m/s), measured from the root's travel and eased at 6/s. The walk
+   *  clip is authored for ≤ 2.0 m/s (heroes.md §2.7.4), so a hook reads this for the speed class —
+   *  Isabella's hammer goes from the drag to the shoulder carry above 2.0 (T-45). Measured here so
+   *  no scene has to plumb its walker's speed into the rigs. */
+  speed: number;
+  /** The scene's ground at a point given in the kid's own frame (x right, z forward, metres),
+   *  returned *relative to the root's own y* and clamped to ±0.15 m: what a solved prop's contact
+   *  point has to sit on when the ground under it is not the ground under her feet. 0 when the
+   *  scene has set no sampler. The clamp keeps a prop on the surface she is standing on rather than
+   *  letting it fall down the Bog causeway's edge 0.3 m to her right. */
+  groundRel: (x: number, z: number) => number;
+}
 export interface KidHooks { update: (c: KidCtx) => void; flourishLen: number }
 export interface Kid {
   name: string; colours: KidColours;
@@ -46,8 +59,65 @@ export interface Kid {
   lookAt: THREE.Vector3;
   update: (t: number, dt: number, walking: boolean) => void;
   flourish: () => void;
+  /** The runtime hands the rigs the scene's ground so a solved prop (Collette's staff, Isabella's
+   *  hammer) can rest on it where it touches down, which is not where her feet are (T-42, T-45). */
+  setGround: (fn: (x: number, z: number) => number) => void;
   /** Sets rotation.y from a compass bearing (eyes on local +z: 180° − b). */
   face: (bearing: number) => void;
+}
+
+/** A stepped probe's window into the rigs (LESSONS §0 rule 8: a mechanic is shown running in a
+ *  probe, not reasoned about). `ssRigProbe.world()` reads the shared curved-world uniforms; each kid
+ *  registers its own solved prop under `<name>.<prop>`. Read-only: it never drives the scene.
+ *  Its own global, not `ssProbe`: a scene owns `globalThis.ssProbe` and several assign it wholesale
+ *  after the kids are built (frozen-night does), which would drop the rigs' entries. */
+export function ssProbeReg(): Record<string, () => unknown> {
+  const w = globalThis as unknown as { ssRigProbe?: Record<string, () => unknown> };
+  if (!w.ssRigProbe) w.ssRigProbe = {};
+  return w.ssRigProbe;
+}
+
+const IK_TMP = { p: new THREE.Vector3(), e: new THREE.Vector3(), q: new THREE.Quaternion() };
+
+/**
+ * Two-bone IK for one arm (T-42, T-45: a planted prop is solved and the hands are posed *onto* it —
+ * LESSONS Rigs row 2). Poses `limb.sh` and `limb.fa` so the hand's centre — the `hand` node plus
+ * (0, −0.055·wf, 0) in hand space, which is where the palm block's middle sits — lands on the world
+ * point `target`. The pose is *set* from the solve and blended in with `w` (LESSONS Rigs row 1: set
+ * from a tracked number, never add an offset onto an eased bone). Returns how far short of the
+ * target the hand ends (m): 0 when the target is in reach.
+ * The caller must have refreshed the kid's world matrices this frame (`root.updateMatrixWorld(true)`)
+ * — the shoulder's parent transform is read from them.
+ */
+export function ikArm(limb: Limb, b: Bones, target: THREE.Vector3, w = 1): number {
+  const L1 = 0.20 * b.tf;                     // shoulder → elbow
+  const L2 = 0.19 * b.tf + 0.055 * b.wf;      // elbow → the hand's centre
+  const parent = limb.sh.parent;
+  if (!parent || w <= 0) return 0;
+  const p = parent.worldToLocal(IK_TMP.p.copy(target)).sub(limb.sh.position);
+  const reach = p.length();
+  const D = THREE.MathUtils.clamp(reach, Math.abs(L1 - L2) + 1e-3, L1 + L2 - 1e-3);
+  // the elbow's interior angle, then the forearm's own bend (negative takes the hand forward)
+  const elbow = Math.acos(THREE.MathUtils.clamp((L1 * L1 + L2 * L2 - D * D) / (2 * L1 * L2), -1, 1));
+  const bend = -(Math.PI - elbow);
+  // where that bend puts the hand in the shoulder's own frame, and the rotation that swings it onto p
+  const e = IK_TMP.e.set(0, -L1 - L2 * Math.cos(bend), -L2 * Math.sin(bend));
+  if (reach > 1e-4) {
+    IK_TMP.q.setFromUnitVectors(e.normalize(), p.divideScalar(reach));
+    limb.sh.quaternion.slerp(IK_TMP.q, w);
+  }
+  limb.ua.rotation.x = 0;
+  limb.fa.rotation.x += (bend - limb.fa.rotation.x) * w;
+  return Math.max(0, reach - (L1 + L2));
+}
+
+/** The lowest point a box of half-extents `h` reaches below its own centre once `q` has turned it:
+ *  |m10|·hx + |m11|·hy + |m12|·hz. Used to stand a solved prop's head *on* the ground rather than
+ *  through it whatever angle the shaft is at (T-45). */
+export function lowestDrop(q: THREE.Quaternion, hx: number, hy: number, hz: number): number {
+  const m = new THREE.Matrix4().makeRotationFromQuaternion(q).elements;
+  // column-major: the world-y row is elements 1, 5, 9
+  return Math.abs(m[1]) * hx + Math.abs(m[5]) * hy + Math.abs(m[9]) * hz;
 }
 
 export function makeHelpers(): Helpers {
@@ -139,20 +209,33 @@ export function makeKid(spec: KidSpec, extras: (b: Bones, h: Helpers) => KidHook
   const LL = leg(-1), RL = leg(1);
   const bones: Bones = { root, spin, hips, spine, chest, neck, head, L, R, LL, RL, eyes, pupils, brows, mouth, tongue, tf, lf, wf, hr };
 
-  // selection ring (§2.7.5): soft gradient + crisp rim, additive, bloom layer
-  const ringU = { uColor: { value: new THREE.Color(c.glow) }, uAlpha: { value: 0.35 } };
+  // selection ring (§2.7.5): soft gradient + crisp rim, additive, bloom layer.
+  // T-41: the ring sits *in* the world, so it takes the world's bend. Its vertex shader repeats
+  // material.ts's two lines (world y −= uCurve · d² from uCurveCenter) on the same shared uniform
+  // objects — passed by reference, never copied, so the ring follows when a scene re-centres the
+  // curve or K steps it. Without this the body bends and the ring does not, and the ring climbs the
+  // kid's legs as they walk away from the station (0.54 m at 30 m).
+  const ringU = {
+    uColor: { value: new THREE.Color(c.glow) }, uAlpha: { value: 0.35 },
+    uCurve: WORLD_U.uCurve, uCurveCenter: WORLD_U.uCurveCenter,
+  };
   const ring = new THREE.Mesh(
     new THREE.RingGeometry(0.45, 0.84, 48),
     new THREE.ShaderMaterial({
       uniforms: ringU, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -2,
-      vertexShader: 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      vertexShader: `varying vec2 vP; uniform float uCurve; uniform vec2 uCurveCenter;
+        void main(){ vP = position.xy;
+          vec4 ssW = modelMatrix * vec4(position, 1.0);
+          float ssD = length(ssW.xz - uCurveCenter);
+          ssW.y -= uCurve * ssD * ssD;
+          gl_Position = projectionMatrix * viewMatrix * ssW; }`,
       fragmentShader: `uniform vec3 uColor; uniform float uAlpha; varying vec2 vP; void main(){ float r = length(vP);
         float soft = uAlpha * (1.0 - smoothstep(0.55, 0.80, r)) * smoothstep(0.45, 0.55, r);
         float rim = 0.7 * (1.0 - smoothstep(0.02, 0.035, abs(r - 0.62)));
         gl_FragColor = vec4(uColor * 1.4, max(soft, rim)); }`,
     }),
   );
-  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.02; ring.layers.enable(BLOOM_LAYER);
+  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.04; ring.layers.enable(BLOOM_LAYER); // T-56: the ring sits at +0.04, above a stepped tier's column-top tolerance (0.05 m), with the polygon offset
   const ringScale = 0.7 + 0.3 * (spec.legs / 0.78);
   root.add(ring);
   const ringLight = new THREE.PointLight(c.glow, 3, 3, 2);
@@ -164,8 +247,24 @@ export function makeKid(spec: KidSpec, extras: (b: Bones, h: Helpers) => KidHook
   let blend = 0, flT = -100, armed = false, lookYaw = 0, lookPitch = 0;
   const tmp = new THREE.Vector3();
   const seedPh = spec.name.length * 0.9;
+  // the kid's own ground speed, from the root's travel (T-45 needs the speed class and the rig is
+  // only told `walking`); eased at 6/s so the class change is never a pop (Tier-0 rule 3)
+  let speed = 0, tracked = false;
+  const lastPos = new THREE.Vector3();
+  let ground: ((x: number, z: number) => number) | null = null;
+  const groundRel = (lx: number, lz: number): number => {
+    if (!ground) return 0;
+    const s = Math.sin(root.rotation.y), c = Math.cos(root.rotation.y);
+    return THREE.MathUtils.clamp(ground(root.position.x + lx * c + lz * s, root.position.z - lx * s + lz * c) - root.position.y, -0.15, 0.15);
+  };
   const update = (t: number, dt: number, walking: boolean) => {
     if (armed) { armed = false; flT = t; } // the flourish starts on the scene clock, not wall time
+    if (dt > 0) {
+      const inst = tracked ? Math.hypot(root.position.x - lastPos.x, root.position.z - lastPos.z) / dt : 0;
+      if (inst < 12) speed += (inst - speed) * Math.min(1, dt * 6); // 12 m/s is a station placement, not a step
+      lastPos.copy(root.position);
+      tracked = true;
+    }
     blend += ((walking ? 1 : 0) - blend) * Math.min(1, dt * 5);
     const idle = 1 - blend;
     const breath = Math.sin(t * 1.5 + seedPh);
@@ -201,11 +300,19 @@ export function makeKid(spec: KidSpec, extras: (b: Bones, h: Helpers) => KidHook
     const rs = 1 + 0.06 * Math.sin(t * 5.236);
     ring.scale.setScalar(rs * ringScale);
     const fl = t - flT;
-    hooks.update({ t, dt, idle, blend, w, fl: fl >= 0 && fl < hooks.flourishLen ? fl : -1, look: tmp });
+    hooks.update({ t, dt, idle, blend, w, fl: fl >= 0 && fl < hooks.flourishLen ? fl : -1, look: tmp, speed, groundRel });
   };
+  const probe = ssProbeReg();
+  probe['world'] = () => ({ curve: WORLD_U.uCurve.value, center: [WORLD_U.uCurveCenter.value.x, WORLD_U.uCurveCenter.value.y] });
+  probe[`${spec.name.toLowerCase()}.rig`] = () => ({
+    speed, blend, ring: { y: ring.position.y, scale: ring.scale.x, visible: ring.visible },
+    root: [root.position.x, root.position.y, root.position.z],
+    armSwing: { r: R.sh.rotation.x, l: L.sh.rotation.x },
+  });
   return {
     name: spec.name, colours: c, root, bones, ring, ringLight, lookAt, update,
     flourish: () => { armed = true; },
+    setGround: (fn) => { ground = fn; },
     face: (bearing) => { root.rotation.y = ((180 - bearing) * Math.PI) / 180; },
   };
 }

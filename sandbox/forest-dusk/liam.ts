@@ -2,7 +2,7 @@
 // §2.1.1 colours, the idle and walk clips of §2.7.4, and the selection ring of §2.7.5.
 import * as THREE from 'three';
 import { BLOOM_LAYER } from '../_shared/post';
-import { colorize, makeWorldMaterial, mergeGeos, xf } from '../_shared/material';
+import { colorize, makeWorldMaterial, mergeGeos, WORLD_U, xf } from '../_shared/material';
 import { C, LIGHT } from '../_shared/style';
 
 const mat = makeWorldMaterial({ roughness: 0.85 });
@@ -110,12 +110,22 @@ export function makeLiam(): Liam {
   cape0.add(mesh(xf(colorize(new THREE.IcosahedronGeometry(0.03, 0), C.liamAccent), 0.14, 0, 0.02)));
 
   // selection ring (§2.7.5): soft gradient + crisp rim, additive, on the bloom layer
-  const ringU = { uColor: { value: new THREE.Color(C.liamGlow) }, uAlpha: { value: 0.35 } };
+  // T-41: the ring takes the world's bend (the same two lines as _shared/rig.ts, on the same shared
+  // uniform objects), or it climbs Liam's legs as he walks away from the station
+  const ringU = {
+    uColor: { value: new THREE.Color(C.liamGlow) }, uAlpha: { value: 0.35 },
+    uCurve: WORLD_U.uCurve, uCurveCenter: WORLD_U.uCurveCenter,
+  };
   const ring = new THREE.Mesh(
     new THREE.RingGeometry(0.45, 0.84, 48),
     new THREE.ShaderMaterial({
       uniforms: ringU, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -2,
-      vertexShader: 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      vertexShader: `varying vec2 vP; uniform float uCurve; uniform vec2 uCurveCenter;
+        void main(){ vP = position.xy;
+          vec4 ssW = modelMatrix * vec4(position, 1.0);
+          float ssD = length(ssW.xz - uCurveCenter);
+          ssW.y -= uCurve * ssD * ssD;
+          gl_Position = projectionMatrix * viewMatrix * ssW; }`,
       fragmentShader: `uniform vec3 uColor; uniform float uAlpha; varying vec2 vP; void main(){ float r = length(vP);
         float soft = uAlpha * (1.0 - smoothstep(0.55, 0.80, r)) * smoothstep(0.45, 0.55, r);
         float rim = 0.7 * (1.0 - smoothstep(0.02, 0.035, abs(r - 0.62)));
@@ -123,7 +133,7 @@ export function makeLiam(): Liam {
     }),
   );
   ring.rotation.x = -Math.PI / 2;
-  ring.position.y = 0.02;
+  ring.position.y = 0.04; // T-56: above a stepped tier's column-top tolerance (0.05 m), with the polygon offset
   ring.layers.enable(BLOOM_LAYER);
   root.add(ring);
   const ringLight = new THREE.PointLight(LIGHT.ring.color, LIGHT.ring.intensity, LIGHT.ring.range, LIGHT.ring.decay);

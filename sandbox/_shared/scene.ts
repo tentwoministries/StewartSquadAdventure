@@ -89,6 +89,9 @@ export function runScene(def: SceneDef): void {
   if (sky) scene.add(sky.group);
   else scene.background = new THREE.Color('#04030A');
   for (const k of def.kids) scene.add(k.root);
+  // the rigs solve their props onto the ground where the prop touches it, not where her feet are
+  // (T-42's staff, T-45's hammer head): hand them the scene's own ground
+  for (const k of def.kids) k.setGround(world.groundY);
 
   const station = def.stations[params.shot] ?? def.stations[def.defaultShot]!;
   const shot = def.stations[params.shot] ? params.shot : def.defaultShot;
@@ -162,7 +165,7 @@ export function runScene(def: SceneDef): void {
       `fog ${kf.fog.color} ${kf.fog.near}/${kf.fog.far} m max ${kf.fog.max} h ${kf.fog.height} · sky ${kf.sky.zenith} ${kf.sky.horizon} ${kf.sky.ground}`,
       `exposure ${kf.exposure} · bloom thr ${POST_DRAFT.bloom.threshold} int ${POST_DRAFT.bloom.intensity} · tilt ${blur ? `${POST_DRAFT.tilt.focusArea}/${POST_DRAFT.tilt.feather}` : 'off'} · vignette ${POST_DRAFT.vignette.darkness} · curve ${WORLD_U.uCurve.value} · post ${usePost ? 'on' : 'off'}${freeze ? ' · FROZEN' : ''}`,
       ...(world.hud?.() ?? []),
-      `WASD walk · shift run · drag orbit · wheel zoom · R reset · B blur · X flourish${def.kids.length > 1 ? ' · Tab swap kid' : ''} · ${extra ? extra + ' · ' : ''}1-4 stations 5-9 ${def.extras.join('/')} · T time${def.variants ? ' · V variant' : ''} · K curve · P post · F freeze · U card · O this · , . scenes · H hub · Enter save`,
+      `WASD walk · ⇧ run · ⇧⇧ sprint · drag orbit · wheel zoom · R reset · B blur · X flourish${def.kids.length > 1 ? ' · Tab swap kid' : ''} · ${extra ? extra + ' · ' : ''}1-4 stations 5-9 ${def.extras.join('/')} · T time${def.variants ? ' · V variant' : ''} · K curve · P post · F freeze · U card · O this · , . scenes · H hub · Enter save`,
     ].join('\n');
   }
   function say(msg: string): void { toast.textContent = msg; toast.style.opacity = '1'; setTimeout(() => (toast.style.opacity = '0'), 2200); }
@@ -216,7 +219,7 @@ export function runScene(def: SceneDef): void {
       ctx.fillStyle = '#FFF5E6'; ctx.font = '800 15px ' + sans; ctx.fillText(k.name, x + 35, 46);
       panel(x + 35, 52, 100, 6, 0.55); ctx.fillStyle = '#FFF5E6'; ctx.fillRect(x + 35, 52, 100, 6);
     });
-    const hints: [string[], string][] = [[['W', 'A', 'S', 'D'], 'walk'], [['⇧'], 'run'], [['space'], 'dodge'], [['E'], 'interact'], [['Tab'], 'swap']];
+    const hints: [string[], string][] = [[['W', 'A', 'S', 'D'], 'walk'], [['⇧'], 'run'], [['⇧', '⇧'], 'sprint'], [['space'], 'dodge'], [['E'], 'interact'], [['Tab'], 'swap']];
     ctx.font = '700 12px ' + sans;
     let tw = 28; for (const [k, l] of hints) { for (const kk of k) tw += ctx.measureText(kk).width + 16; tw += ctx.measureText(l).width + 14; }
     let x = (W - tw) / 2; panel(x, H - 22 - 32, tw, 32); x += 14;

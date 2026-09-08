@@ -1,28 +1,49 @@
 // WASD walking for the demo (Andrew, 2026-09-07): camera-relative movement on the terrain, a smooth
 // turn toward the movement direction, a damped camera follow with a little look-ahead (Brief §4.5),
 // and a soft push out of prop footprints and trunks. Not the game's controller: no sim, no collision
-// mesh, no dodge. Shift runs. Speeds from heroes.md §2.0 (run 4.5 m/s) and §2.7.4 (walk ≤ 2.0 m/s).
+// mesh, no dodge. Shift runs, double-tap shift locks a sprint (T-44; the shared walk.ts has the same
+// lock). Speeds from heroes.md §2.0 (run 4.5 m/s, the sprint 1.2 × it) and §2.7.4 (walk ≤ 2.0 m/s).
 import * as THREE from 'three';
 import type { Orbit } from '../_shared/orbit';
 import type { Circle } from './scatter';
 
+const WALK_TOP = 2.0, RUN_TOP = 4.5, SPRINT_MULT = 1.2, SPRINT_TAP = 0.3, SPRINT_CLEAR = 0.4;
+
 export interface Walk {
   pressed: Set<string>;
   moving: boolean;
+  /** True while the double-tap sprint lock holds (T-44). */
+  sprint: boolean;
+  /** The top speed the walk is asking for this frame (m/s): 2.0 walk, 4.5 run, 5.4 sprint. */
+  top: number;
   update: (dt: number) => void;
 }
 
 export function makeWalk(hero: THREE.Object3D, orbit: Orbit, groundY: (x: number, z: number) => number, blockers: Circle[], ring?: THREE.Object3D): Walk {
   const pressed = new Set<string>();
-  window.addEventListener('keydown', (e) => { if (e.repeat) return; pressed.add(e.key.toLowerCase()); });
+  // the sprint lock's two windows are counted on the walk's own clock (the dt this scene hands
+  // update), never on performance.now() — the same rule as the shared walk (Tier-0 rule 9)
+  let simT = 0, lastTap = -10, idleFor = 0;
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat) return; // a held key's auto-repeat is not a second tap
+    const k = e.key.toLowerCase();
+    if (k === 'shift') {
+      if (walk.sprint) walk.sprint = false;              // the next single tap clears the lock
+      else if (simT - lastTap <= SPRINT_TAP) { walk.sprint = true; idleFor = 0; } // armed standing still: the
+      lastTap = simT;                                    // clear window starts again from the tap
+    }
+    pressed.add(k);
+  });
   window.addEventListener('keyup', (e) => pressed.delete(e.key.toLowerCase()));
-  window.addEventListener('blur', () => pressed.clear());
+  window.addEventListener('blur', () => { pressed.clear(); walk.sprint = false; });
   const vel = new THREE.Vector3();
   const follow = new THREE.Vector3(...orbit.current.target);
   let heading = hero.rotation.y; // rotation.y; the hero's eyes are on local +z
   const walk: Walk = {
     pressed,
     moving: false,
+    sprint: false,
+    top: WALK_TOP,
     update(dt) {
       // input in camera space: W is away from the camera, D is to its right
       const fwd = new THREE.Vector3(Math.sin((orbit.current.yaw * Math.PI) / 180), 0, -Math.cos((orbit.current.yaw * Math.PI) / 180));
@@ -33,7 +54,11 @@ export function makeWalk(hero: THREE.Object3D, orbit: Orbit, groundY: (x: number
       if (pressed.has('d') || pressed.has('arrowright')) dir.add(right);
       if (pressed.has('a') || pressed.has('arrowleft')) dir.sub(right);
       const wants = dir.lengthSq() > 0;
-      const top = pressed.has('shift') ? 4.5 : 2.0;
+      simT += dt;
+      idleFor = wants ? 0 : idleFor + dt;
+      if (idleFor >= SPRINT_CLEAR) walk.sprint = false; // he stops, the lock lets go
+      const top = walk.sprint ? RUN_TOP * SPRINT_MULT : pressed.has('shift') ? RUN_TOP : WALK_TOP;
+      walk.top = top;
       const target = wants ? dir.normalize().multiplyScalar(top) : new THREE.Vector3();
       // acceleration and braking are eased (nothing pops): 8/s toward the target velocity
       vel.lerp(target, Math.min(1, dt * 8));
