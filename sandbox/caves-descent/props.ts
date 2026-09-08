@@ -14,7 +14,7 @@ import { BLOOM_LAYER } from '../_shared/post';
 import { deg, rng } from '../_shared/rng';
 import { C, type Keyframe } from '../_shared/style';
 import type { Circle } from '../_shared/walk';
-import { FALL, FLOOR_Y, floorY, GALLERY, groundY, HEART, PLINTH, TIER1_Y } from './terrain';
+import { FALL, FLOOR_Y, floorY, GALLERY, groundY, HEART, PLINTH, stairY, TIER1_Y } from './terrain';
 
 const B = (w: number, h: number, d: number, hex: string) => colorize(new THREE.BoxGeometry(w, h, d), hex);
 const CY = (rt: number, rb: number, h: number, seg: number, hex: string) => colorize(new THREE.CylinderGeometry(rt, rb, h, seg), hex);
@@ -116,7 +116,9 @@ export function makeProps(): Props {
   // ---- rim crystals: instanced, three hues; each instance's glow = proximity × the heart's pulse -----
   const crystalGeo = mergeGeos([0, 1, 2].map((i) => { const h = 0.6 + i * 0.35, g = colorize(new THREE.CylinderGeometry(0.06, 0.16, h, 5), K.crystal, emis(K.crystalLight, 0.7)); g.translate(0, h / 2, 0); g.rotateX((i - 1) * 0.35); g.rotateY(i * 2.1); g.translate((i - 1) * 0.18, 0, (i % 2) * 0.15); return g; }));
   const crystalSpots: { x: number; y: number; z: number; s: number; nx: number; nz: number }[] = [];
-  const spot = (x: number, z: number, y: number, s: number, nx = 0, nz = 0) => crystalSpots.push({ x, y, z, s, nx, nz });
+  // nothing grows through a tread: a scattered spot inside a stair's band is dropped, never nudged
+  // (`stairY` returns null off the stair) — the same test the tier cut uses (T-55)
+  const spot = (x: number, z: number, y: number, s: number, nx = 0, nz = 0) => { if (stairY(x, z) !== null) return; crystalSpots.push({ x, y, z, s, nx, nz }); };
   for (let i = 0; i < 220; i++) { const a = r() * 6.28, d = 8 + r() * 44; const x = Math.cos(a) * d, z = Math.sin(a) * d * 0.85; const y = groundY(x, z); if (Math.hypot(x - HEART.x, z - HEART.z) < 12) continue; if (Math.abs(y - FLOOR_Y) < 2 || Math.abs(y - TIER1_Y) < 1 || Math.abs(y) < 1) spot(x, z, y, 0.5 + r() * 1.2); }
   for (let i = 0; i < 160; i++) { const a = r() * 6.28; const rr = 0.9 + r() * 0.06; const x = Math.cos(a) * 62 * rr, z = Math.sin(a) * 54 * rr; const y = FLOOR_Y + r() * 30; spot(x, z, y, 0.8 + r() * 1.8, -Math.cos(a), -Math.sin(a)); }
   for (let i = 0; i < 24; i++) { const a = r() * 6.28, d = 2 + r() * 5; spot(GALLERY.x + Math.cos(a) * d, GALLERY.z + Math.sin(a) * d, TIER1_Y, 1.0 + r() * 1.3); }
