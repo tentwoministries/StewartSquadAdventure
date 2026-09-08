@@ -8,10 +8,11 @@ import * as THREE from 'three';
 import { BOG as G } from '../_shared/biomes';
 import { colorize, makeWorldMaterial, mergeGeos, xf } from '../_shared/material';
 import { BLOOM_LAYER } from '../_shared/post';
-import { rng } from '../_shared/rng';
+import { clamp, rng } from '../_shared/rng';
 import type { Keyframe } from '../_shared/style';
 import type { Kid } from '../_shared/rig';
-import { HUT, SNAIL, terrainY, WATER_Y } from './terrain';
+import type { PadSpot } from './flora';
+import { CAUSEWAY, HUT, JETTY, SNAIL, terrainY, WATER_Y } from './terrain';
 
 const mat = makeWorldMaterial({ roughness: 0.95 });
 const B = (w: number, h: number, d: number, hex: string) => colorize(new THREE.BoxGeometry(w, h, d), hex);
@@ -26,16 +27,70 @@ export interface Creatures {
   hud: () => string[];
 }
 
-export function makeCreatures(): Creatures {
+export function makeCreatures(padSpots: PadSpot[]): Creatures {
   const group = new THREE.Group();
   const r = rng(17);
-  // ---- frogs on eight pads near the causeway and the jetty ------------------------------------
+  // ---- frogs on the *rendered* lily pads, near where the kid walks (T-49) -----------------------
+  // The pads come from flora.ts (plain and flowered). A frog sits on a pad, hops to a *free* pad
+  // within HOP metres, and never shares one: occupancy is claimed the moment it leaves the ground,
+  // so a pad another frog is mid-air toward is taken. The bible's Bog row (world-events §2.7.1)
+  // gives the silhouette (sit-and-jump), the 3 m flee radius and the landing bubble ring; the 20 s
+  // no-jump guarantee is the demo's reading of "idle 4–12 s, then move".
+  const FROG_N = 8;          // the demo's count; the bible's Bog row says 12
+  const HOP = 4.0;           // m: the longest hop
+  const NEAR_WALK = 12;      // m from the causeway/jetty: the frogs stay where the kid walks
+  const MIN_SEP = 0.9;       // m: two usable pads are never closer, so two seated frogs never are
+  const FLEE_R = 3;          // m (bible)
+  const IDLE_MAX = 20;       // s without a jump: the next tick jumps
+  const JUMP_T = 0.55;       // s of arc
+  const TURN = 7;            // rad/s: the frog turns onto its line during the hop
+  const PAD_TOP = 0.02;      // m above the pad's own surface
+  const dRect = (x: number, z: number, x0: number, x1: number, z0: number, z1: number) =>
+    Math.hypot(Math.max(x0 - x, 0, x - x1), Math.max(z0 - z, 0, z - z1));
+  const distToWalk = (x: number, z: number) => Math.min(
+    dRect(x, z, CAUSEWAY.x0, CAUSEWAY.x1, CAUSEWAY.z0, CAUSEWAY.z1),
+    dRect(x, z, JETTY.x - JETTY.w / 2, JETTY.x + JETTY.w / 2, JETTY.z0, JETTY.z1),
+  );
   const frogGeo = mergeGeos([xf(colorize(new THREE.IcosahedronGeometry(0.13, 1), G.frog).scale(1.3, 0.8, 1.1), 0, 0.1), xf(B(0.2, 0.06, 0.16, G.frogBelly), 0, 0.03), xf(colorize(new THREE.IcosahedronGeometry(0.035, 0), '#F0D060'), 0.09, 0.19, 0.06), xf(colorize(new THREE.IcosahedronGeometry(0.035, 0), '#F0D060'), 0.09, 0.19, -0.06), xf(B(0.08, 0.04, 0.05, G.frog), -0.12, 0.05, 0.1, 0, 0, 0.6), xf(B(0.08, 0.04, 0.05, G.frog), -0.12, 0.05, -0.1, 0, 0, 0.6)]);
-  const pads: [number, number][] = [[-29, 8], [-24, 5], [-8, 6], [6, 5], [-30, 16], [2, -6], [14, 8], [-36, -6]];
-  const frogs: { m: THREE.Mesh; pad: number; jumpT: number; from: THREE.Vector2; to: THREE.Vector2; next: number; throat: number }[] = [];
-  pads.forEach(([x, z], i) => {
-    const m = mesh(frogGeo); m.position.set(x, WATER_Y + 0.03, z); m.rotation.y = r() * 6; group.add(m);
-    frogs.push({ m, pad: i, jumpT: -10, from: new THREE.Vector2(x, z), to: new THREE.Vector2(x, z), next: 3 + r() * 6, throat: r() * 6 });
+  // the usable pads: near the boards, then thinned so no two sit within MIN_SEP
+  const pads: PadSpot[] = [];
+  for (const p of padSpots) {
+    if (distToWalk(p.x, p.z) > NEAR_WALK) continue;
+    if (pads.some((q) => Math.hypot(q.x - p.x, q.z - p.z) < MIN_SEP)) continue;
+    pads.push(p);
+  }
+  // the hop graph: who is within HOP of whom
+  const nbr: number[][] = pads.map((p, i) => {
+    const list: number[] = [];
+    pads.forEach((q, k) => { if (k !== i && Math.hypot(q.x - p.x, q.z - p.z) <= HOP) list.push(k); });
+    return list;
+  });
+  // seats: only pads with two or more neighbours in range (so a seated frog always has somewhere to
+  // go), spread as far apart as the graph allows
+  const seatOf = (): number[] => {
+    // nearest the boards first, so the frogs read from the causeway and the jetty
+    const cand = pads.map((_, i) => i).filter((i) => nbr[i]!.length >= 2)
+      .sort((a, b) => distToWalk(pads[a]!.x, pads[a]!.z) - distToWalk(pads[b]!.x, pads[b]!.z));
+    for (let sep = 10; sep >= 1; sep -= 0.5) {
+      const out: number[] = [];
+      for (const i of cand) {
+        if (out.every((s) => Math.hypot(pads[s]!.x - pads[i]!.x, pads[s]!.z - pads[i]!.z) >= sep)) out.push(i);
+        if (out.length === FROG_N) return out;
+      }
+    }
+    return cand.slice(0, FROG_N);
+  };
+  const seats = seatOf();
+  const owner = new Int32Array(pads.length).fill(-1);
+  interface Frog { m: THREE.Mesh; pad: number; jumpT: number; from: THREE.Vector2; to: THREE.Vector2; next: number; throat: number; heading: number; jumps: number }
+  const frogs: Frog[] = [];
+  seats.forEach((padIdx, i) => {
+    const p = pads[padIdx]!;
+    const m = mesh(frogGeo); m.position.set(p.x, p.y + PAD_TOP, p.z);
+    const heading = r() * 6.283 - 3.1415;
+    m.rotation.y = heading; group.add(m);
+    owner[padIdx] = i;
+    frogs.push({ m, pad: padIdx, jumpT: -10, from: new THREE.Vector2(p.x, p.z), to: new THREE.Vector2(p.x, p.z), next: 3 + r() * 6, throat: r() * 6, heading, jumps: 0 });
   });
   // ---- herons in the shallows -----------------------------------------------------------------
   const heronGeo = () => {
@@ -97,23 +152,49 @@ export function makeCreatures(): Creatures {
 
   const poiV = new THREE.Vector3(); let poiSet = false;
   const heroV = new THREE.Vector3(), tmp = new THREE.Vector3();
+  let now = 0, seeded = false;
   const update = (t: number, dt: number, kf: Keyframe, active: Kid, ripples: THREE.Vector2[]) => {
     heroV.copy(active.root.position);
+    now = t;
     poiSet = false;
-    // frogs: sit with a throat pulse; jump to a neighbour pad; the landing pad ripples
+    // frogs: sit with a throat pulse; hop to a *free* pad within HOP; the landing pad ripples
+    // (the ring is permanent per slot, so the eight slots start under the eight frogs, not at the
+    // coordinates terrain.ts seeded them with)
+    if (!seeded) { frogs.forEach((f, i) => ripples[i]?.set(f.from.x, f.from.y)); seeded = true; }
     frogs.forEach((f, i) => {
       f.m.scale.y = 1 + 0.08 * Math.max(0, Math.sin(t * 2.8 + f.throat));
-      const near = Math.hypot(f.from.x - heroV.x, f.from.y - heroV.z) < 3;
-      if (t > f.next || (near && f.jumpT < t - 1)) {
-        const others = pads.map((p, k) => ({ p, k, d: Math.hypot(p[0] - f.from.x, p[1] - f.from.y) })).filter((o) => o.k !== f.pad && o.d < 9).sort((a, b) => a.d - b.d).slice(0, 3);
-        const pick = others[Math.floor(r() * others.length)];
-        if (pick) { f.to.set(pick.p[0], pick.p[1]); f.pad = pick.k; f.jumpT = t; f.m.rotation.y = Math.atan2(f.to.x - f.from.x, f.to.y - f.from.y) + Math.PI / 2 - Math.PI / 2; }
-        f.next = t + 4 + r() * 8;
+      const airborne = t - f.jumpT < JUMP_T;
+      const dHero = Math.hypot(f.from.x - heroV.x, f.from.y - heroV.z);
+      const flee = dHero < FLEE_R && t - f.jumpT > 1;     // the bible's 3 m flee radius
+      const overdue = t - f.jumpT >= IDLE_MAX;            // nobody sits for twenty seconds
+      if (!airborne && (t > f.next || flee || overdue)) {
+        // a free neighbour that is itself connected: a frog never lands somewhere it cannot leave
+        const free = nbr[f.pad]!.filter((k) => owner[k]! < 0 && nbr[k]!.length >= 2);
+        let pick = -1;
+        if (free.length) {
+          // fleeing, take the pad that puts the most water between the frog and the kid
+          if (flee) pick = free.reduce((best, k) => (Math.hypot(pads[k]!.x - heroV.x, pads[k]!.z - heroV.z) > Math.hypot(pads[best]!.x - heroV.x, pads[best]!.z - heroV.z) ? k : best), free[0]!);
+          else pick = free[Math.min(free.length - 1, Math.floor(r() * free.length))]!;
+        }
+        if (pick >= 0) {
+          owner[f.pad] = -1; owner[pick] = i;             // the target is taken while the frog is in the air
+          f.pad = pick; f.to.set(pads[pick]!.x, pads[pick]!.z);
+          f.jumpT = t; f.jumps++;
+          f.next = t + 4 + r() * 8;
+        } else f.next = t + 0.4;                          // every neighbour taken: try again shortly
       }
-      const u = THREE.MathUtils.clamp((t - f.jumpT) / 0.55, 0, 1);
+      const u = clamp((t - f.jumpT) / JUMP_T, 0, 1);
       const x = THREE.MathUtils.lerp(f.from.x, f.to.x, u), z = THREE.MathUtils.lerp(f.from.y, f.to.y, u);
-      f.m.position.set(x, WATER_Y + 0.03 + Math.sin(u * Math.PI) * 0.7, z);
-      f.m.rotation.y = Math.atan2(f.to.x - f.from.x, f.to.y - f.from.y) - Math.PI / 2;
+      f.m.position.set(x, pads[f.pad]!.y + PAD_TOP + Math.sin(u * Math.PI) * 0.7, z);
+      // turn onto the line of the hop, the short way, wrapped to [−π, π] every step
+      if (f.from.distanceTo(f.to) > 0.01) {
+        const want = Math.atan2(f.to.x - f.from.x, f.to.y - f.from.y) - Math.PI / 2;  // a +x-built creature: 90° − bearing
+        let diff = want - f.heading;
+        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+        const step = Math.max(-TURN * dt, Math.min(TURN * dt, diff));
+        f.heading = Math.atan2(Math.sin(f.heading + step), Math.cos(f.heading + step));
+        f.m.rotation.y = f.heading;
+      }
       if (u >= 1 && f.from.distanceTo(f.to) > 0.01) { f.from.copy(f.to); const rp = ripples[i]; if (rp) rp.set(f.to.x, f.to.y); }
       if (!poiSet && u > 0 && u < 1 && Math.hypot(x - heroV.x, z - heroV.z) < 9) { poiV.set(x, WATER_Y + 0.4, z); poiSet = true; }
     });
@@ -184,9 +265,28 @@ export function makeCreatures(): Creatures {
       if (!poiSet && w.alpha > 0.3 && d < 10) { poiV.copy(w.m.position); poiSet = true; }
     }
   };
+  // the stepped probe's window on the frogs (LESSONS §0 rule 8: a mechanic is not built until a
+  // probe has shown every state). Merged onto any ssProbe another module already installed.
+  const gp = (globalThis as unknown as Record<string, Record<string, unknown>>);
+  gp['ssProbe'] ??= {};
+  gp['ssProbe']['frogs'] = () => frogs.map((f, i) => ({
+    i, x: f.m.position.x, y: f.m.position.y, z: f.m.position.z,
+    seatX: f.from.x, seatZ: f.from.y,
+    pad: f.pad, padX: pads[f.pad]!.x, padZ: pads[f.pad]!.z, flower: pads[f.pad]!.flower,
+    deg: nbr[f.pad]!.length, walk: distToWalk(f.from.x, f.from.y),
+    jumps: f.jumps, airborne: now - f.jumpT < JUMP_T, sinceJump: now - f.jumpT,
+    hop: Math.hypot(f.to.x - f.from.x, f.to.y - f.from.y), heading: f.heading,
+  }));
+  gp['ssProbe']['pads'] = () => ({
+    rendered: padSpots.length, usable: pads.length, seats,
+    minSep: MIN_SEP, hop: HOP, nearWalk: NEAR_WALK, fleeR: FLEE_R, idleMax: IDLE_MAX,
+    degrees: nbr.map((n) => n.length),
+    list: pads.map((p, i) => ({ i, x: p.x, z: p.z, y: p.y, flower: p.flower, deg: nbr[i]!.length, walk: distToWalk(p.x, p.z) })),
+    owner: Array.from(owner),
+  });
   return {
     group, update,
     poi: () => (poiSet ? poiV : null),
-    hud: () => [`frogs 8 · herons ${herons.map((h) => h.state).join('/')} · wisps ${wisps.map((w) => w.u.toFixed(1)).join(' ')} · the snail is watching`],
+    hud: () => [`frogs ${frogs.length} on ${pads.length} lily pads (hop ≤ ${HOP} m to a free pad) · herons ${herons.map((h) => h.state).join('/')} · wisps ${wisps.map((w) => w.u.toFixed(1)).join(' ')} · the snail is watching`],
   };
 }

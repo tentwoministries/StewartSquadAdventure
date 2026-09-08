@@ -38,11 +38,16 @@ function cypressGeo(h: number, r: () => number): { wood: THREE.BufferGeometry; m
   return { wood: mergeGeos(parts), moss: mergeGeos(mossParts) };
 }
 
+/** A rendered lily pad: where the instance actually sits, and whether it carries a flower (T-49). */
+export interface PadSpot { x: number; y: number; z: number; flower: boolean }
+
 export interface Flora {
   group: THREE.Group; trunks: Circle[];
   /** Brighten the glow caps near a point (Collette's orb), eased. */
   glowNear: (x: number, z: number, dt: number) => void;
   caps: number;
+  /** Every rendered pad, plain and flowered: the frogs sit and hop on these, not on coordinates. */
+  pads: PadSpot[];
 }
 
 export function makeFlora(): Flora {
@@ -162,5 +167,11 @@ export function makeFlora(): Flora {
     }
     if (changed && caps.instanceColor) caps.instanceColor.needsUpdate = true;
   };
-  return { group, trunks, glowNear, caps: capList.length };
+  // the pads the frogs live on: the *rendered* instances, sorted west to east so the hop graph is
+  // built in a spatial order (T-49; the eight hard-coded coordinates were not pads at all)
+  const pads: PadSpot[] = [
+    ...items['pad']!.map((it) => ({ x: it.x, y: it.y, z: it.z, flower: false })),
+    ...items['flower']!.map((it) => ({ x: it.x, y: it.y, z: it.z, flower: true })),
+  ].sort((a, b) => a.x - b.x || a.z - b.z);
+  return { group, trunks, glowNear, caps: capList.length, pads };
 }

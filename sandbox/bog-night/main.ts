@@ -50,7 +50,7 @@ runScene({
     scene.add(flora.group);
     const props = makeProps();
     scene.add(props.group);
-    const creatures = makeCreatures();
+    const creatures = makeCreatures(flora.pads);
     scene.add(creatures.group);
     // spores always (phosphor, drifting up slowly); wisps handled by the creatures; moths at the lit posts at night
     const spores = drifters(150, G.phosphor, 3.5, 1.1, { x: -8, z: 0, w: 90, d: 80, y0: 0.2, y1: 3.2 }, 0.3, 5);

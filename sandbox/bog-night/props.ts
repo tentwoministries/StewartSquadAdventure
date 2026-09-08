@@ -32,6 +32,7 @@ export function makeProps(): Props {
   const group = new THREE.Group();
   const worldMat = makeWorldMaterial();
   const clothMat = makeWorldMaterial({ side: THREE.DoubleSide, roughness: 1, sway: 0.06 });
+  const fernCloth = makeWorldMaterial({ side: THREE.DoubleSide, roughness: 1 }); // her hood is an open shell
   const glowMat = makeWorldMaterial({ emissive: true });
   const opaque: THREE.BufferGeometry[] = [], glow: THREE.BufferGeometry[] = [];
   const footprints: Circle[] = [];
@@ -67,21 +68,76 @@ export function makeProps(): Props {
   // a crooked signpost at the west end
   opaque.push(xf(mergeGeos([CY(0.05, 0.06, 2.0, 5, G.post).translate(0, 1, 0), B(0.9, 0.18, 0.04, G.boards).translate(0.3, 1.7, 0).rotateY(0.5), B(0.8, 0.18, 0.04, G.boards).translate(-0.25, 1.4, 0).rotateY(-0.9)]), CAUSEWAY.x0 - 0.6, BOARD_Y, -2.0));
   fp(CAUSEWAY.x0 - 0.6, -2.0, 0.2);
-  // ---- Mistweaver Fern at the jetty's end: a hunched fringe with a swinging lantern ---------------
-  const fern = new THREE.Group();
+  // ---- Mistweaver Fern at the jetty's end (npcs.md §2.6.5, T-50) ---------------------------------
+  // Canon: hunched, 1.55 m, a fringed shawl whose fringes hang to the knee, a 1.9 m hooked staff
+  // with the amber lantern swinging from the hook, an old sharp face and a long grey braid. She is
+  // built facing local +x (the scene's `yaw()` convention, T-26), so she takes a bearing like any
+  // other prop; the staff is *planted* on her root and her right hand is posed onto it (the
+  // Collette-orb lesson), and the sway lives on `fernLean`, whose pivot is her hips.
+  const fern = new THREE.Group(); fern.name = 'bog.fern';
+  const fernLean = new THREE.Group(); fernLean.name = 'bog.fern.lean';
+  const FERN_HIP = 0.72;
   {
-    const body = new THREE.Mesh(mergeGeos([
-      xf(CY(0.22, 0.34, 1.1, 7, '#7FA68F'), 0, 0.85, 0, 0, 0.35), xf(CY(0.36, 0.42, 0.5, 8, '#4A3524'), 0, 0.3), // the fringe of reeds and the hunched body
-      xf(colorize(new THREE.SphereGeometry(0.17, 7, 5), '#C8926A'), 0.12, 1.45, 0.16), xf(colorize(new THREE.ConeGeometry(0.34, 0.5, 8), '#5A7A4A'), 0.12, 1.75, 0.16, 0, 0.25),
-    ]), worldMat);
-    body.castShadow = true;
-    const staff = new THREE.Group();
-    staff.add(new THREE.Mesh(mergeGeos([xf(CY(0.025, 0.03, 1.9, 5, G.post), 0, 0.95), xf(colorize(new THREE.TorusGeometry(0.16, 0.025, 4, 8, Math.PI * 1.3), G.post), 0.16, 1.95, 0, 0, 0, 0)]), worldMat));
+    const SHAWL = '#7FA68F', HOOD = '#6C8F7C', DRESS = '#4A3524', TIP = '#70C090', SKIN = '#C8926A', GREY = '#B9B4A6', DARK = '#1A1410';
+    // a limb between two points: a cylinder aligned to the segment, then moved onto its midpoint
+    const limb = (a: [number, number, number], b: [number, number, number], r0: number, r1: number, hex: string): THREE.BufferGeometry => {
+      const va = new THREE.Vector3(...a), vb = new THREE.Vector3(...b);
+      const g = colorize(new THREE.CylinderGeometry(r0, r1, va.distanceTo(vb), 5), hex);
+      const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), vb.clone().sub(va).normalize());
+      g.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(q));
+      g.translate((va.x + vb.x) / 2, (va.y + vb.y) / 2, (va.z + vb.z) / 2);
+      return g;
+    };
+    const parts: THREE.BufferGeometry[] = [
+      xf(CY(0.24, 0.35, 0.80, 8, DRESS), 0.01, 0.40),                                  // the rot-brown dress
+      xf(CY(0.175, 0.28, 0.48, 8, SHAWL), 0.045, 0.97, 0, 0, 0, -0.28),                // the hunched body under the shawl
+      xf(B(0.19, 0.11, 0.44, SHAWL), 0.105, 1.175, 0, 0, 0, -0.15),                    // shoulders, rolled forward
+      xf(CY(0.055, 0.062, 0.10, 6, SKIN), 0.128, 1.255),                               // the neck
+      xf(colorize(new THREE.SphereGeometry(0.115, 8, 6), SKIN), 0.148, 1.385),         // the head, pushed forward: hunched
+      xf(colorize(new THREE.SphereGeometry(0.119, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.5), GREY), 0.138, 1.418), // grey hair, stopping above the eye line
+      xf(colorize(new THREE.SphereGeometry(0.112, 7, 4, 0, Math.PI, 0, Math.PI * 0.9), GREY), 0.128, 1.385, 0, Math.PI / 2), // the nape half
+      xf(B(0.034, 0.024, 0.034, DARK), 0.238, 1.393, 0.052), xf(B(0.034, 0.024, 0.034, DARK), 0.238, 1.393, -0.052), // eyes
+      xf(B(0.030, 0.013, 0.048, GREY), 0.234, 1.424, 0.055), xf(B(0.030, 0.013, 0.048, GREY), 0.234, 1.424, -0.055), // brows: old, sharp
+      xf(colorize(new THREE.ConeGeometry(0.028, 0.08, 4), SKIN).rotateZ(-Math.PI / 2), 0.258, 1.368),  // the nose
+      xf(B(0.022, 0.014, 0.055, '#8A5A48'), 0.246, 1.330, 0, 0, 0, 0.25),              // the mouth: amused
+      limb([0.02, 1.36, 0.01], [-0.09, 1.06, 0.03], 0.036, 0.028, GREY),               // the long braid of grey
+      limb([-0.09, 1.06, 0.03], [-0.125, 0.86, 0.04], 0.028, 0.017, GREY),
+      xf(CY(0.026, 0.026, 0.045, 5, TIP), -0.128, 0.855),                              // its binding
+      limb([0.07, 1.13, 0.19], [0.09, 0.90, 0.34], 0.058, 0.046, SHAWL),               // the right arm, onto the staff
+      limb([0.09, 0.90, 0.34], [0.16, 1.03, 0.40], 0.046, 0.038, SHAWL),
+      xf(B(0.085, 0.09, 0.08, SKIN), 0.160, 1.055, 0.400),                             // the right hand on the shaft
+      limb([0.07, 1.13, -0.19], [0.16, 0.94, -0.30], 0.058, 0.046, SHAWL),             // the left arm, clutching the shawl
+      limb([0.16, 0.94, -0.30], [0.22, 1.06, -0.14], 0.046, 0.038, SHAWL),
+      xf(B(0.08, 0.085, 0.075, SKIN), 0.220, 1.060, -0.140),
+    ];
+    // the shawl's fringe, hanging to the knee with accent tips (the reed fringe becomes her hem)
+    for (let i = 0; i < 16; i++) {
+      const a = i * 0.3927, fx = 0.03 + Math.cos(a) * 0.28, fz = Math.sin(a) * 0.28;
+      const len = 0.21 + 0.09 * ((i * 5) % 7) / 6;   // uneven lengths: a fringe, not a fence
+      parts.push(xf(B(0.026, len, 0.018, SHAWL), fx, 0.74 - len / 2, fz, a));
+      parts.push(xf(B(0.028, 0.045, 0.020, TIP), fx, 0.74 - len - 0.02, fz, a));
+    }
+    const bodyGeo = mergeGeos(parts); bodyGeo.translate(0, -FERN_HIP, 0);
+    const body = new THREE.Mesh(bodyGeo, worldMat); body.name = 'bog.fern.body';
+    body.castShadow = true; body.receiveShadow = true;
+    // the hood: an open half shell behind the head (lowered, not over the face)
+    const hoodGeo = colorize(new THREE.CylinderGeometry(0.15, 0.245, 0.44, 8, 1, true, Math.PI, Math.PI), HOOD);
+    xf(hoodGeo, 0.0, 1.325, 0, 0, 0, 0.42); hoodGeo.translate(0, -FERN_HIP, 0);
+    const hood = new THREE.Mesh(hoodGeo, fernCloth); hood.name = 'bog.fern.hood'; hood.castShadow = true;
+    fernLean.add(body, hood); fernLean.position.y = FERN_HIP;
+    // the hooked staff, planted on the boards beside her right hand
+    const staff = new THREE.Group(); staff.name = 'bog.fern.staff';
+    staff.add(new THREE.Mesh(mergeGeos([
+      xf(CY(0.026, 0.034, 1.9, 5, G.post), 0, 0.95),
+      xf(colorize(new THREE.TorusGeometry(0.15, 0.024, 4, 8, Math.PI * 1.25), G.post), 0.14, 1.86),
+      xf(CY(0.036, 0.036, 0.07, 6, TIP), 0, 1.045), xf(CY(0.034, 0.034, 0.05, 6, TIP), 0, 1.62), // the staff's binding
+    ]), worldMat));
     const hook = makeLantern(G.witchLantern, 14, 7, 3.0, C.iron, 0.9, true);
-    hook.pivot.position.set(0.32, 1.98, 0); staff.add(hook.pivot); lanterns.push(hook);
-    staff.position.set(0.4, 0, 0.1);
-    fern.add(body, staff);
-    fern.position.set(JETTY.x - 0.3, BOARD_Y, JETTY.z1 - 1.2); fern.rotation.y = yaw(160);
+    hook.pivot.position.set(0.30, 1.88, 0); staff.add(hook.pivot); lanterns.push(hook);
+    staff.position.set(0.16, 0, 0.40);
+    fern.add(fernLean, staff);
+    // bearing 25: down the jetty toward the causeway (the old yaw(160) pointed her at the hut)
+    fern.position.set(JETTY.x - 0.3, BOARD_Y, JETTY.z1 - 1.2); fern.rotation.y = yaw(25);
     group.add(fern); fp(JETTY.x - 0.3, JETTY.z1 - 1.2, 0.6);
   }
   // the rowboat tied at the jetty, bobbing
@@ -185,7 +241,11 @@ export function makeProps(): Props {
   const update = (t: number, dt: number, kf: Keyframe, hero: THREE.Vector3) => {
     plane.update(t);
     boat.position.y = WATER_Y + 0.05 + 0.03 * Math.sin(t * 0.9); boat.rotation.z = 0.03 * Math.sin(t * 0.7); boat.rotation.x = 0.02 * Math.sin(t * 1.1 + 1);
-    fern.position.y = BOARD_Y + 0.01 * Math.sin(t * 1.4); fern.rotation.z = 0.02 * Math.sin(t * 0.8);
+    // Fern's slow sway: two incommensurate rates (the bible's 0.4 rad/s stool rock and a 0.53 rad/s
+    // cross-lean), a 0.04 rad lean in all, over a slow breath. Tier-0 rule 3; npcs.md §3 (v27 §19.2).
+    fernLean.rotation.z = 0.030 * Math.sin(t * 0.40);
+    fernLean.rotation.x = 0.026 * Math.sin(t * 0.53 + 1.1);
+    fernLean.position.y = FERN_HIP + 0.008 * Math.sin(t * 0.9);
     for (const l of lanterns) { l.pivot.rotation.z = Math.sin(t * 0.6 + l.pivot.position.x) * 0.05; l.update(t, dt, kf.lantern); }
     // the mechanic: stand within 2.2 m of a dark post for 1.5 s and it lights; lit posts stay lit
     for (const p of posts) {
