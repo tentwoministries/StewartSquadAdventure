@@ -30,7 +30,7 @@ This checkout is lane **0.75 visual studies** (the default lane, the demo lane) 
 
 ---
 
-# Next session — handoff written 2026-09-08 (end of the Opus fixes session; the reel is `p0.75-demo-reel-2`, awaiting Andrew's pass)
+# Next session — handoff written 2026-09-08 (end of the Opus fixes session; the reel is `p0.75-demo-reel-2`; Andrew has looked at it and likes it; **the next session is "the reel fixes"**, an Opus 5 session that turns his reaction list into fixes, per `docs/design/mockups/REEL_FIXES_BRIEF.md`)
 
 ## Systems at a glance (the one-page map is `docs/design/mockups/README.md`)
 
@@ -61,7 +61,7 @@ This checkout is lane **0.75 visual studies** (the default lane, the demo lane) 
 
 1. Read `docs/LANES.md`, this file, `CLAUDE.md`, `docs/design/mockups/DEMO_PROGRAM.md` §2 and §6, `LESSONS.md` §0, and `docs/visual-loop/opus-fixes-2026-09-08.md`. Confirm `CLAUDE_CODE_EFFORT_LEVEL` is unset.
 2. **Andrew's pass on reel 2** (`npm run dev` here, or the demo worktree on :5180: `http://localhost:5180/sandbox/`; the Beats tab first). Show the two frames at the bar and the fight's evidence; take reactions as tweak rows; his screenshots under `docs/reference/`; approved numbers marked in `style-draft.json` (the four new scenes' `demoScenes` entries were added 2026-09-08 with the numbers verbatim from the scene files; note they carry inline `stations`/`frames`/`approved: false` while the older four use a `stationsSource` string and the top-level `frames.approved` list, so an approval on a new scene goes in both places until the block is unified). Andrew began this pass on 2026-09-08 with the reel on :5173 / :5180; his reactions are not yet logged.
-3. Then **"demo candidates"** (`DEMO_PROGRAM.md` §2: write `DEMO_CANDIDATES.md`), then "build the next demo set", each new scene on a short-lived branch off this tip, built by `sandbox-builder` from a Fable brief with a librarian sheet, per the pattern in `docs/qa/briefs/`.
+3. **"the reel fixes"** (`docs/design/mockups/REEL_FIXES_BRIEF.md`, an Opus 5 session): Andrew's reactions from step 2 as a list, one line each with scene and station; rows, briefs, sheets, builders, one audit, commits per scene, a tag when it reads. Repeat rounds until Andrew says the reel is ready for the kids. Then **"demo candidates"** (`DEMO_PROGRAM.md` §2: write `DEMO_CANDIDATES.md`), then "build the next demo set", each new scene on a short-lived branch off this tip, built by `sandbox-builder` from a Fable brief with a librarian sheet, per the pattern in `docs/qa/briefs/`.
 4. Independent of this lane: **"control build"** (`FABLE_CONTROL_BRIEF.md`; note the brief's Rootways and Crash Meadow are now measured against reel 2's meadow, not reel 1's), then "control review".
 5. The rulings owed at the application step: T-39 (the floor's wording), T-40 (the ribbon's colour), T-36 (the combat ring's 0.25 s vs the flourish's 0.92 s ribbon life), T-37 (CS-04's length), and the design-lead line the art-director asked for on a seated pose in `_shared/rig.ts` (`LESSONS.md` Misc).
 

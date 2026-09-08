@@ -29,6 +29,7 @@ All worktree paths are siblings of the primary checkout under `C:/Documents TEMP
 | "experience balance", "pre-build brainstorm", "the pre-build list" | 0.85 story and play (P-01) or the lane the item names | `docs/design/PRE_BUILD_TODO.md`; P-01 runs on the story lane after the kids' reading sessions |
 | "story", "walkthrough", "0.85", "the acts", "gameplay mechanics pass", "the kids' suggestions", "storyboard", "Liam's ideas" | 0.85 story and play | move to `StewartSquad-story/`, confirm branch `phase-0.85-story`, read its handoff |
 | "the Opus fixes", "Opus fixes", "bring the keepers in" | 0.75 visual studies | `docs/design/mockups/OPUS_FIX_PLAN.md`; its §0 cherry-picks the lint fixes first (check is red on the demo lane until then) |
+| "the reel fixes", "reel fixes", "my reactions to the reel", "fix the reel" | 0.75 visual studies, **Opus 5 orchestrator** | `docs/design/mockups/REEL_FIXES_BRIEF.md`: Andrew's reactions become tweak rows and checkable fixes, Opus agents build, Andrew judges by looking; Fable only after two failures or for a "reel review" |
 | "control build" | Fable control | cut the lane per `FABLE_CONTROL_BRIEF.md` §2, read only what §1 allows, build §3 |
 | "control review" | Fable control | `FABLE_CONTROL_BRIEF.md` §5: the experiment's method, blind scoring, `CONTROL_VERDICT.md` |
 | "demo candidates", "the candidates assessment" | 0.75 visual studies | `docs/design/mockups/DEMO_PROGRAM.md` §2: write `DEMO_CANDIDATES.md` |
