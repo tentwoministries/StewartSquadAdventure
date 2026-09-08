@@ -24,6 +24,17 @@ Continue from docs/NEXT_SESSION.md. Story lane (0.85): reading session with the 
 Continue from docs/NEXT_SESSION.md. Ready to launch: start Phase 1.
 ```
 
+Added 2026-09-08 (`docs/design/mockups/DEMO_PROGRAM.md` §4 has the order and what each needs):
+
+```
+Continue from docs/NEXT_SESSION.md. Visuals lane (0.75): the Opus fixes.
+Continue from docs/NEXT_SESSION.md. Control build.
+Continue from docs/NEXT_SESSION.md. Control review.
+Continue from docs/NEXT_SESSION.md. Visuals lane (0.75): demo candidates.
+Continue from docs/NEXT_SESSION.md. Visuals lane (0.75): build the next demo set.
+Continue from docs/NEXT_SESSION.md. Scratch: <the idea>.
+```
+
 The last one only works once both lanes are locked (`p0.75-design-locked`, `p0.85-story-locked`); otherwise the session lists what is still open and asks which to finish.
 
 ## Effort level guidance (Andrew's policy, 2026-09-06)

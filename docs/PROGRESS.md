@@ -76,3 +76,10 @@ Plan: build the four remaining demo scenes on the Forest scene's rules (`STUDY_N
 - [ ] Andrew's pass on the reel (and the kids' pass on the four close-ups): reactions as rows, approved frames' numbers marked in `style-draft.json`, T-15..T-19 settled
 - [ ] The anti-palette check scene (`STUDY_NOTES.md` §3 row 6), still last
 - Findings: the camera follow must hold the station until the first key (every station in the new scenes is off the hero); a kid hook may not add to an eased head rotation (the 118° pitch); the bible's Bog fog and aurora altitude do not survive the diorama camera (T-16, T-17); the Desert's dusk key wants cooling (T-19); the caves' layout is a picture now (T-18)
+
+## Demo lane — the program after the Opus experiment (2026-09-08, Fable 5.1, docs only)
+
+- [x] `docs/design/mockups/DEMO_PROGRAM.md` (rule tiers, demo-candidates session, hub categories, session order, adopted policy), `OPUS_FIX_PLAN.md`, `FABLE_CONTROL_BRIEF.md`; `LANES.md` rows and phrases; `SESSION_PLAN.md` opening lines; `CLAUDE.md` item 8 and the program's row; the seven Opus agent files gained the batching and acceptance-check line; `NEXT_SESSION.md` update block
+- [ ] The Opus fixes session (`OPUS_FIX_PLAN.md` §0–§7): lint cherry-picks first (check is red on this branch until then), keepers in, shared-runtime hooks, `_shared/step.ts`, ten tests, the tagged ledger and `scripts/rules.cjs`, re-shot frames, hub tabs, lane retirement, routing docs to the story lane
+- [ ] The control build and review (`FABLE_CONTROL_BRIEF.md`); then demo candidates (`DEMO_PROGRAM.md` §2); then the next demo set
+- Note: `git cherry-pick` was blocked by the session's permission classifier, so the lint fixes were not brought across here; every commit on this branch since `a8945ab` is docs-only

@@ -1,6 +1,6 @@
 # Lanes: which branch and worktree a session works in (read this before the handoff)
 
-Written 2026-09-07. This file routes a new session. Andrew opens Claude Code in the primary checkout (`C:/Documents TEMP/ClaudeCode/StewartSquad Adventure/`) and types one line; the session reads this file, picks the lane, moves to that lane's worktree, and only then reads that worktree's `docs/NEXT_SESSION.md`. Every lane's docs carry a copy of this file; the newest copy wins (check the date line in each lane's `NEXT_SESSION.md` routing block).
+Written 2026-09-07, rows and phrases added 2026-09-08. This file routes a new session. Andrew opens Claude Code in the primary checkout (`C:/Documents TEMP/ClaudeCode/StewartSquad Adventure/`) and types one line; the session reads this file, picks the lane, moves to that lane's worktree, and only then reads that worktree's `docs/NEXT_SESSION.md`. Every lane's docs carry a copy of this file; the newest copy wins (check the date line in each lane's `NEXT_SESSION.md` routing block).
 
 ## 1. The lanes
 
@@ -10,6 +10,8 @@ Written 2026-09-07. This file routes a new session. Andrew opens Claude Code in 
 | 0.75 biomes | The other biomes' demo scenes, built in their own worktree while the Forest demo was live. | `phase-0.75-biomes` | (removed) | — | **merged into 0.75 visual studies 2026-09-07 (tag `p0.75-demo-reel-1`); closed**. New demo scenes follow the same recipe: a short-lived branch and worktree off the demo lane's tip, merged back when it reads |
 | 0.75 demo | A checkout of a tag that nothing edits, so a demo for the kids survives a working session. `npx vite --port 5180` from inside it. | detached at a demo tag (`p0.75-demo-forest-1`) | `StewartSquad-demo/` | `docs/design/mockups/README.md` | open |
 | 0.75 scratch | Throwaway experiments, re-cut from the demo lane's tip when wanted; fast-forwarded in only if all of it is a keeper, otherwise deleted and re-cut. `npx vite --port 5181` from inside it. | `phase-0.75-scratch` | `StewartSquad-scratch/` | the demo lane's | open, idle |
+| Opus 5 experiment | Five demo scenes built by an Opus 5 session from `docs/design/mockups/OPUS_EXPERIMENT_BRIEF.md`, judged 2026-09-08 (`OPUS_EXPERIMENT_VERDICT.md` on the branch). A record: nothing merged; the fix session cherry-picks the keepers and removes the worktree, the branch stays. | `phase-0.75-opus-experiment` | `StewartSquad-opus/` (:5182) | `docs/NEXT_SESSION.md` there | judged; retired by the fix session (`OPUS_FIX_PLAN.md` §7) |
+| Fable control | The same brief's Rootways and Crash Meadow built cold by a Fable session, then reviewed blind, for the apples-to-apples comparison (`docs/design/mockups/FABLE_CONTROL_BRIEF.md`). Cut from `8266a7b`, the tip the experiment started from. | `phase-0.75-fable-control` | `StewartSquad-control/` (:5183) | `docs/NEXT_SESSION.md` there | planned; opened by the "control build" session |
 | **0.85 story and play** | The read-through walkthrough of the whole game (`docs/story/WALKTHROUGH.md`), the kids' suggestions list, the storyboard. Story, flow, gameplay mechanics, progression. Docs only, no code. | `phase-0.85-story` | `StewartSquad-story/` | `docs/NEXT_SESSION.md` there | open |
 | main | The integration branch. Holds the Design Bible gate `p0.5-design-bible`. Receives 0.75 and 0.85 at their application steps, then the build phases start from it. | `main` | never checked out in a lane worktree | `docs/NEXT_SESSION.md` | untouched by the lanes |
 
@@ -25,6 +27,11 @@ All worktree paths are siblings of the primary checkout under `C:/Documents TEMP
 | "scratch", "try something throwaway", "quick experiment" | 0.75 scratch | move to `StewartSquad-scratch/`; re-cut the branch from the demo lane's tip first if it is stale |
 | "build the demo", "here.now", "a link for Dad", "static build" | 0.75 visual studies | `npm run build:demo` in the primary checkout, verify `dist-demo/` locally, zip it (`docs/design/mockups/README.md` "Sharing the reel") |
 | "story", "walkthrough", "0.85", "the acts", "gameplay mechanics pass", "the kids' suggestions", "storyboard", "Liam's ideas" | 0.85 story and play | move to `StewartSquad-story/`, confirm branch `phase-0.85-story`, read its handoff |
+| "the Opus fixes", "Opus fixes", "bring the keepers in" | 0.75 visual studies | `docs/design/mockups/OPUS_FIX_PLAN.md`; its §0 cherry-picks the lint fixes first (check is red on the demo lane until then) |
+| "control build" | Fable control | cut the lane per `FABLE_CONTROL_BRIEF.md` §2, read only what §1 allows, build §3 |
+| "control review" | Fable control | `FABLE_CONTROL_BRIEF.md` §5: the experiment's method, blind scoring, `CONTROL_VERDICT.md` |
+| "demo candidates", "the candidates assessment" | 0.75 visual studies | `docs/design/mockups/DEMO_PROGRAM.md` §2: write `DEMO_CANDIDATES.md` |
+| "build the next demo set", "is there a new demo you had in mind", "next demos" | 0.75 visual studies | `DEMO_CANDIDATES.md`; short-lived branches off the demo tip per §1 |
 | "apply the tweaks", "application session", "lock the design" | 0.75 application step | on `phase-0.75-visual-studies`; `PHASE_0.75_BRIEF.md` §4; ends with a merge to `main` and `p0.75-design-locked` |
 | "apply the suggestions", "update the bible from the story", "surgical update" | 0.85 application step | on `phase-0.85-story`; `docs/story/PHASE_0.85_BRIEF.md` §4; ends with a merge to `main` and `p0.85-story-locked` |
 | "ready to launch", "start Phase 1", "start the build", "the pilot" | Phase 1 build | see §5 |

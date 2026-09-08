@@ -56,3 +56,5 @@ These are Andrew's standing rules. They go at the top of every handoff document,
 - **Report back as files:** your final message to the orchestrator is a short summary; the work itself lives in the repo. Include: files touched, what was verified (Rule 2 shapes), what was deferred, and anything that hits a Brief §2 interrupt condition.
 - **Never** edit `docs/BRIEF.md`, family-canon text, or another agent's in-flight files. Never install a paid asset or add a runtime network dependency.
 - **Before handing back:** `npm run check` must pass if you touched code. Run the P1–P3 checklist steps that apply to your change (`docs/INSPECTION_CHECKLIST.md`).
+
+**Tool calls (Andrew, 2026-09-08):** batch independent tool calls in one turn and read everything you need before you start; one call per turn tripled the API calls and the cost of a comparable Fable session. Your task must name its acceptance checks (tests or stepped probes); run them before reporting done.

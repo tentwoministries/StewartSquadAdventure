@@ -19,7 +19,7 @@ These are Andrew's standing rules. They go at the top of every handoff document,
 
 ## Routing (2026-09-07, updated after the reel merge): read docs/LANES.md first
 
-This checkout is lane **0.75 visual studies** (the default lane, the demo lane) on branch `phase-0.75-visual-studies`. If Andrew's first line names another lane, move to that lane's worktree before reading further. Open lanes: 0.75 visual studies (this checkout, :5173), 0.75 demo (`StewartSquad-demo/`, a tag, :5180), 0.75 scratch (`StewartSquad-scratch/`, branch `phase-0.75-scratch`, :5181), 0.85 story and play (`StewartSquad-story/`, branch `phase-0.85-story`). The 0.75 biomes lane is merged and closed. Default when unnamed: this lane.
+This checkout is lane **0.75 visual studies** (the default lane, the demo lane) on branch `phase-0.75-visual-studies`. If Andrew's first line names another lane, move to that lane's worktree before reading further. Open lanes: 0.75 visual studies (this checkout, :5173), 0.75 demo (`StewartSquad-demo/`, a tag, :5180), 0.75 scratch (`StewartSquad-scratch/`, branch `phase-0.75-scratch`, :5181), 0.85 story and play (`StewartSquad-story/`, branch `phase-0.85-story`), the Opus experiment (`StewartSquad-opus/`, branch `phase-0.75-opus-experiment`, :5182, judged, a record until the fix session retires it), and, once its session cuts it, the Fable control (`StewartSquad-control/`, branch `phase-0.75-fable-control`, :5183). The 0.75 biomes lane is merged and closed. Default when unnamed: this lane. **Opening phrases added 2026-09-08:** "the Opus fixes" → this lane, `docs/design/mockups/OPUS_FIX_PLAN.md`; "control build" / "control review" → the control lane, `FABLE_CONTROL_BRIEF.md`; "demo candidates", "build the next demo set", "a new demo" → this lane, `DEMO_PROGRAM.md` §2.
 
 ## Model and effort policy (Andrew, 2026-09-06)
 
@@ -30,6 +30,16 @@ This checkout is lane **0.75 visual studies** (the default lane, the demo lane) 
 - Escalate an implementer to Fable only for unusually judgment-heavy work (Phase 1 shader and lighting, the curved-world shader, the `BOSS_BLOCKS` port, the multiplayer spike, anything that failed twice on Opus) by adding a separate agent file such as `render-engineer-fable.md` and one `docs/DECISIONS.md` line. Never Fable on mechanical work; never `max` except scoring or gating; one strong review pass over repeated weak ones.
 - Phase 0.75 studies: the orchestrator writes the sandbox directly (logged exception); effort **medium** for the iteration loop, **high** when a study opens or a frame is approved (`PHASE_0.75_BRIEF.md` §5).
 
+
+---
+
+# Update 2026-09-08 (read this block first; the 2026-09-07 handoff below is still the state of the reel itself)
+
+The Opus 5 experiment was judged on its own branch (`phase-0.75-opus-experiment`, worktree `StewartSquad-opus/`: `docs/design/mockups/OPUS_EXPERIMENT_VERDICT.md` there; scores 23–33/45 against this reel's Forest baseline at 35; three scenes worth keeping after one fix pass each, the flight's code and rows kept, the Rootways left). Nothing was merged. Andrew then adopted the program in **`docs/design/mockups/DEMO_PROGRAM.md`**: the rules architecture (§1), the demo-candidates session (§2), the hub categories (§3), the session order (§4) and the model policy (§5, also `CLAUDE.md` item 8).
+
+**The next session on this lane is "the Opus fixes"** (`OPUS_FIX_PLAN.md`): its §0 cherry-picks the two lint fixes first, because `npm run check` is **red on this branch** (a `.cjs` parse error since the `build:demo` commit, plus 2,060 lint errors from `dist-demo/` when the build output exists); the commits on this branch since then, including today's, are docs-only. Independent of it, **"control build"** (`FABLE_CONTROL_BRIEF.md`) cuts a new lane from `8266a7b` and rebuilds the Rootways and the Crash Meadow cold on Fable for the apples-to-apples comparison Andrew asked for; **"control review"** judges it blind. After the fixes: **"demo candidates"** (`DEMO_PROGRAM.md` §2), then "build the next demo set". The story lane has not yet received today's routing docs (`LANES.md`, `CLAUDE.md`, `SESSION_PLAN.md`); the fix session cherry-picks them across (`OPUS_FIX_PLAN.md` §7).
+
+Two review-session facts every sandbox session needs: a hidden Browser pane *and* a background Chrome tab both report `visibilityState: hidden`, so the clock stalls; step the runtime instead (`ssSave()` renders one 1/60 s frame; the fix session turns this into `_shared/step.ts`). And scene code may not write a non-active kid's `lookAt` (the runtime overwrites it each frame before the rig reads it); the fix session adds a `look` hook.
 
 ---
 
