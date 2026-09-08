@@ -26,5 +26,7 @@ export default defineConfig(({ mode }) => ({
   },
   // sandboxShotPlugin is dev-serve only (Phase 0.75 studies); it never enters a build.
   plugins: mode === 'archive' ? [viteSingleFile({ removeViteModuleLoader: true })] : mode === 'demo' ? [] : [sandboxShotPlugin()],
-  server: { port: 5173, strictPort: true },
+  // The watcher stays out of docs/ (Andrew's screenshots land there while a viewer still has the file
+  // open, and chokidar's EBUSY on a locked jpg took the dev server down, 2026-09-08) and the build outputs.
+  server: { port: 5173, strictPort: true, watch: { ignored: ['**/docs/**', '**/dist*/**', '**/releases/**'] } },
 }));

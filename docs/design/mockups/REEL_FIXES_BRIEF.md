@@ -28,3 +28,23 @@ Andrew looks at the reel and says what is wrong or what he wants; each reaction 
 ## 4. Where things are
 
 `docs/NEXT_SESSION.md` (the state) · `docs/qa/briefs/opus-fixes-*.md` and `docs/qa/rules/opus-fixes-*.md` (the pattern to copy) · `scripts/sandbox-drive.cjs`, `scripts/probes/` (the harness and the probes each scene already has) · `docs/visual-loop/opus-fixes-2026-09-08.md` (the last scores, with each scene's "changes planned, in order": a free backlog to draw from when Andrew's list is short) · `docs/design/mockups/LESSONS.md` §0 (the always-tier) · `docs/design/mockups/DEMO_PROGRAM.md` §6 (the loop).
+
+## 5. Round 1 as run (2026-09-08, Fable orchestrating by Andrew's call; the experiment he asked for)
+
+Andrew gave the reactions to reel 2 as a list spanning six scenes and four cross-scene defects, and asked that this round be run by Fable with Opus agents, as a measured test of whether delegation adds work over Fable fixing directly. What happened, with numbers:
+
+| Step | Who | Wall clock | Tokens | Notes |
+|---|---|---|---|---|
+| Diagnosis and intake | Fable | ~45 min | ~110 k of source read | Read `_shared/` (walk, rig, the two kid files, scene, step, shot, orbit, creature) and the relevant parts of six scene folders; found the cause of every cross-scene item before briefing (the ring's un-curved shader, the non-indexed icosahedron torn by per-index displacement, `park`'s third argument being a bearing, the drift's top inside the lake basin, the Euler-order tilts). Rows T-41..T-56 |
+| Seven briefs | Fable | ~25 min | — | One page each with a diagnosis, the files each may touch, and checks a probe can answer |
+| Seven rule sheets | `rules-librarian` ×7, parallel | 70–130 s each | 55–122 k each, ~600 k | Every sheet added canon the brief lacked (Fern's 1.55 m and 1.9 m staff; per-kid run speeds; the sprint window must run on the stepped `dt`) and named a Working Rule 1 gap where the bible has no row |
+| Seven builds | `sandbox-builder` ×7, parallel | 14 / 21 / 29 / 38 / 46 / 60 / 71 min | 150 k – 391 k each, ~1.92 M | Flight, rocks, stations, Bog, Hearth, shared rigs, caves. Every check quoted with numbers; 26 files, +1,373/−181 lines, 25 probes, 14 new tests (25 → 39), ~90 frames |
+| Audit | `rules-auditor` | 10 min | 231 k | 10 items: 2 sure (the ring lift fell between two briefs; row statuses), 2 likely (a seal yaw snap; no frame of the merged tree), 6 worth a look |
+| Fix pass | `sandbox-builder` | see `LOG.md` | — | The audit's real misses plus a nine-frame sweep of the merged tree |
+| Review, mechanical fixes, records | Fable | ~40 min | ~60 k of reports read | Three orchestrator edits (the Forest's ring shader, the ring lift, the statuses), the LOG/DECISIONS/PROGRESS/handoff |
+
+**What delegation cost Fable.** The reports are long (seven builders plus the audit ≈ 60 k tokens to read), the seams between briefs produced two misses the audit had to catch (a one-line lift that both briefs assigned to the other; nobody rendered the merged tree), and two agents on one file (`caves-descent/terrain.ts`) needed explicit region ownership. Fable still had to do the diagnosis itself — a brief without a cause is a brief the builder spends an hour re-deriving — and that was the largest single Fable spend.
+
+**What delegation bought.** Roughly 3 M Opus tokens did the work that would have been 1.5–2 M *Fable* tokens and five to seven hours serial; the round's build phase ran in 71 minutes because seven scenes were built at once. The builders found things the diagnosis missed (Fern faced the Witch's hut, not the causeway; the unseen pool hopper was a hare with an unbounded random walk; the rigs' `R` limb is the kid's left, T-57), and every claim came with a number a probe produced. The audit found the seams.
+
+**The call for future rounds.** Keep this shape when a round spans three or more scenes or touches `_shared/`: Fable diagnoses and writes the briefs (the part that needs judgment), Opus builds and audits. For a round of one to three scene-local reactions, the Opus-run default in §1 is right and Fable is not needed. Fable editing code directly is worth it only when the brief would be longer than the diff (the Forest's two-line ring shader was one). Two additions to §2 from this round: **(5b)** after the fix pass, one builder shoots one frame per scene *from the merged tree* — every builder's sweep ran against a tree that changed under it; and **(2b)** when two briefs touch the same object (a ring's height, a shared file's region), name one owner in both briefs.

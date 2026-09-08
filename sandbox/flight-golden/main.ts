@@ -208,6 +208,9 @@ runScene({
       },
       poi: (active) => lookFor(active),
       look: (kid) => lookFor(kid),
+      // T-60: the kids ride the bench at every station of this scene, so X never fires a flourish here
+      // (Isabella's whirl put the ribbon across the fuselage and spun her through the cockpit)
+      flourishOk: () => false,
       hud: () => [flight.hud(), `clock ${ct.toFixed(2)} / ${FLIGHT_LEN} s ×${rate.toFixed(2)} · camera ${ride ?? 'LD (a station: the orbit works)'} · touchdown at ${TOUCHDOWN} s${ride ? ` · look ${look.yaw.toFixed(1)}° / ${look.pitch.toFixed(1)}° (drag; ${LOOK_HOLD}s hold, ${LOOK_EASE}s home; R clears)` : ''}`],
       keys: {
         '0': { help: 'fly again', run: () => { ct = 0; running = true; return 'from the top'; } },

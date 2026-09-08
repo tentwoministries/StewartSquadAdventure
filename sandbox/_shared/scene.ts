@@ -46,6 +46,10 @@ export interface SceneWorld {
    *  write a non-active kid's `lookAt` itself — the runtime overwrites it every frame — so this
    *  hook is the way. It is a world position, not a bearing, and the rig eases toward it. */
   look?: (kid: Kid, active: Kid) => THREE.Vector3 | null;
+  /** May the X key fire the active kid's flourish right now? Undefined means yes. A scene that seats
+   *  or stows the kids (the flight's ride) returns false: a whirl in a cockpit puts the ribbon
+   *  across the plane and the kid through the fuselage (T-60). */
+  flourishOk?: () => boolean;
 }
 export interface SceneDef {
   id: string; eyebrow: string; eyebrowAccent: string; title: string; line: string;
@@ -187,7 +191,7 @@ export function runScene(def: SceneDef): void {
     else if (e.key === 'o' || e.key === 'O') { showHud = !showHud; refreshHud(); }
     else if (e.key === 'Enter') { void save(); }
     else if (e.key === 'b' || e.key === 'B') { blur = !blur; post.tilt.blendMode.opacity.value = blur ? 1 : 0; say(`tilt-shift ${blur ? 'on' : 'off'}`); refreshHud(); }
-    else if (e.key === 'x' || e.key === 'X') { active().flourish(); say(`${active().name}!`); }
+    else if (e.key === 'x' || e.key === 'X') { if (world.flourishOk && !world.flourishOk()) say('not now: the kids are riding'); else { active().flourish(); say(`${active().name}!`); } }
     else if (e.key === 'Tab') { e.preventDefault(); if (def.kids.length > 1) { activeIdx = (activeIdx + 1) % def.kids.length; walk.setHero(active().root); walk.setBlockers(blockersFor(active())); renderParty(); say(`${active().name}`); refreshHud(); } }
     else if (e.key === ',') go({ t: def.times[timeIdx]! }, `../${def.prev}/`);
     else if (e.key === '.') go({ t: def.times[timeIdx]! }, `../${def.next}/`);
