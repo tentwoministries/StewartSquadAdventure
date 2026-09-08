@@ -39,6 +39,8 @@ The Opus 5 experiment was judged on its own branch (`phase-0.75-opus-experiment`
 
 **The next session on this lane is "the Opus fixes"** (`OPUS_FIX_PLAN.md`): its §0 cherry-picks the two lint fixes first, because `npm run check` is **red on this branch** (a `.cjs` parse error since the `build:demo` commit, plus 2,060 lint errors from `dist-demo/` when the build output exists); the commits on this branch since then, including today's, are docs-only. Independent of it, **"control build"** (`FABLE_CONTROL_BRIEF.md`) cuts a new lane from `8266a7b` and rebuilds the Rootways and the Crash Meadow cold on Fable for the apples-to-apples comparison Andrew asked for; **"control review"** judges it blind. After the fixes: **"demo candidates"** (`DEMO_PROGRAM.md` §2), then "build the next demo set". The story lane has not yet received today's routing docs (`LANES.md`, `CLAUDE.md`, `SESSION_PLAN.md`); the fix session cherry-picks them across (`OPUS_FIX_PLAN.md` §7).
 
+Also new: **`docs/design/PRE_BUILD_TODO.md`**, the list of things to do or consider before the master build (P-01 is Andrew's experience-balance brainstorm on the story lane; P-05 is the caves' stairs, logged as T-34 with status `observed`), and `DEMO_PROGRAM.md` §1 rules 3–5 (the `misc` tag and its tidy, row status, the full-ledger read at gates).
+
 Two review-session facts every sandbox session needs: a hidden Browser pane *and* a background Chrome tab both report `visibilityState: hidden`, so the clock stalls; step the runtime instead (`ssSave()` renders one 1/60 s frame; the fix session turns this into `_shared/step.ts`). And scene code may not write a non-active kid's `lookAt` (the runtime overwrites it each frame before the rig reads it); the fix session adds a `look` hook.
 
 ---

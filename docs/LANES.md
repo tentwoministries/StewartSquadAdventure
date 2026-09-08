@@ -26,6 +26,7 @@ All worktree paths are siblings of the primary checkout under `C:/Documents TEMP
 | "demo for the kids", "show the kids", "open the demo" | 0.75 demo | run the demo worktree on port 5180 (`docs/design/mockups/README.md`); do not edit anything there |
 | "scratch", "try something throwaway", "quick experiment" | 0.75 scratch | move to `StewartSquad-scratch/`; re-cut the branch from the demo lane's tip first if it is stale |
 | "build the demo", "here.now", "a link for Dad", "static build" | 0.75 visual studies | `npm run build:demo` in the primary checkout, verify `dist-demo/` locally, zip it (`docs/design/mockups/README.md` "Sharing the reel") |
+| "experience balance", "pre-build brainstorm", "the pre-build list" | 0.85 story and play (P-01) or the lane the item names | `docs/design/PRE_BUILD_TODO.md`; P-01 runs on the story lane after the kids' reading sessions |
 | "story", "walkthrough", "0.85", "the acts", "gameplay mechanics pass", "the kids' suggestions", "storyboard", "Liam's ideas" | 0.85 story and play | move to `StewartSquad-story/`, confirm branch `phase-0.85-story`, read its handoff |
 | "the Opus fixes", "Opus fixes", "bring the keepers in" | 0.75 visual studies | `docs/design/mockups/OPUS_FIX_PLAN.md`; its §0 cherry-picks the lint fixes first (check is red on the demo lane until then) |
 | "control build" | Fable control | cut the lane per `FABLE_CONTROL_BRIEF.md` §2, read only what §1 allows, build §3 |
