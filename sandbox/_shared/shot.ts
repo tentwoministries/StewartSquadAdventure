@@ -28,18 +28,24 @@ export function placeCamera(cam: THREE.PerspectiveCamera, s: Station): void {
   cam.lookAt(t);
 }
 
-export interface Params { shot: string; t: string; v: string; curve: number; post: boolean; ui: boolean; freeze: boolean; walk: boolean }
-export function readParams(): Params {
+export interface Params { shot: string; t: string; v: string; curve: number; post: boolean; ui: boolean; freeze: boolean; walk: boolean; step: boolean }
+/**
+ * `defaultT` is what `t` reads when the query string has none. The shared runtime passes `''` and
+ * falls back to the scene's own `defaultTime` (T-29: a scene with no dusk used to get one); the
+ * Forest scene calls this with no argument and keeps its dusk.
+ */
+export function readParams(defaultT = 'dusk'): Params {
   const q = new URLSearchParams(location.search);
   return {
     shot: q.get('shot') ?? 'S1',
-    t: q.get('t') ?? 'dusk',
+    t: q.get('t') ?? defaultT,
     v: q.get('v') ?? 'A',
     curve: Number(q.get('curve') ?? '1'),
     post: q.get('post') !== '0',
     ui: q.get('ui') !== '0',
     freeze: q.get('freeze') === '1',
     walk: q.get('walk') === '1',
+    step: q.get('step') === '1',
   };
 }
 

@@ -1,7 +1,9 @@
 // The shared demo-scene runtime (Phase 0.75, STUDY_NOTES.md §6 rule 8): renderer, camera, the key
 // and hemisphere lights, the sky, the post stack, the orbit, WASD walking, the HUD, the title card
-// and party strip drawn into saved frames, the keys every scene shares, scene stepping, and the
-// hidden-tab tick. A scene supplies a SceneDef: its keyframes, stations, kids, card and a build()
+// and party strip drawn into saved frames, the keys every scene shares, scene stepping, the
+// hidden-tab tick, the hit-stop, and the `?step=1` stepping harness (step.ts: ssStep / ssSnap /
+// ssKey — how a probe drives a page that is not on screen).
+// A scene supplies a SceneDef: its keyframes, stations, kids, card and a build()
 // that returns the world (groundY, blockers, a per-frame update). The Forest scene keeps its own
 // main.ts (the family has seen it); the four new scenes run on this.
 import * as THREE from 'three';
@@ -11,10 +13,21 @@ import { makePost, POST_DRAFT } from './post';
 import type { Kid } from './rig';
 import { placeCamera, readParams, saveShot, type Params, type Station } from './shot';
 import { dirFrom, makeSky, type CloudSpec } from './sky';
+import { installStep } from './step';
 import { UNITS, type Keyframe, type VariantId } from './style';
 import { makeWalk, type Circle } from './walk';
 
-export interface SceneCtx { hemiSky: THREE.Color; active: Kid; camera: THREE.PerspectiveCamera; keyDir: THREE.Vector3; freeze: boolean }
+export interface SceneCtx {
+  hemiSky: THREE.Color; active: Kid; camera: THREE.PerspectiveCamera; keyDir: THREE.Vector3; freeze: boolean;
+  /** Hit-stop (heroes.md §2.5.7, T-31): hold the walk, the rigs and world.update for `seconds`. A
+   *  longer stop already running is not shortened. Takes any duration; 0.04 s is two frames. */
+  stop: (seconds: number) => void;
+  /** True on a frame the hit-stop is holding: the dt handed to the sim is 0. */
+  stopped: boolean;
+  /** The real frame dt, always the wall dt even while stopped: what a scene steps its exempt
+   *  effects by (the hit that caused the stop, and the debris it made, keep their own clock). */
+  stopDt: number;
+}
 export interface SceneWorld {
   groundY: (x: number, z: number) => number;
   blockers: Circle[];
@@ -25,8 +38,14 @@ export interface SceneWorld {
   update: (t: number, dt: number, kf: Keyframe, ctx: SceneCtx) => void;
   hud?: () => string[];
   keys?: Record<string, { help: string; run: () => string | undefined }>;
-  /** Where the active kid's head should look when nothing else is happening (a creature, a lamp). */
+  /** Where the *active* kid's head should look when nothing else is happening (a creature, a lamp).
+   *  Ignored while the active kid is walking: the walker looks where he is going. */
   poi?: (active: Kid) => THREE.Vector3 | null;
+  /** Where a *non-active* kid's head should look. Called once per idle kid per frame, before the
+   *  rig reads `lookAt`; return null for the default (the active kid's head). Scene code may not
+   *  write a non-active kid's `lookAt` itself — the runtime overwrites it every frame — so this
+   *  hook is the way. It is a world position, not a bearing, and the rig eases toward it. */
+  look?: (kid: Kid, active: Kid) => THREE.Vector3 | null;
 }
 export interface SceneDef {
   id: string; eyebrow: string; eyebrowAccent: string; title: string; line: string;
@@ -45,7 +64,7 @@ export interface SceneDef {
 const W = 1600, H = 1000;
 
 export function runScene(def: SceneDef): void {
-  const params = readParams();
+  const params = readParams(''); // no `t` in the query string means this scene's defaultTime (T-29)
   const canvas = document.getElementById('c') as HTMLCanvasElement;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(1); renderer.setSize(W, H, false);
@@ -87,8 +106,9 @@ export function runScene(def: SceneDef): void {
   WORLD_U.uCurve.value = curveLevels[params.curve] ?? curveLevels[def.curveDefault ?? 1]!;
 
   // keyframe
-  let timeIdx = Math.max(0, def.times.indexOf(params.t === 'dusk' && !def.times.includes('dusk') ? def.defaultTime : params.t));
-  if (!def.times.includes(params.t)) timeIdx = Math.max(0, def.times.indexOf(def.defaultTime));
+  // `t` absent (or not one of this scene's hours) means the scene's own default (T-29)
+  let timeIdx = def.times.indexOf(params.t);
+  if (timeIdx < 0) timeIdx = Math.max(0, def.times.indexOf(def.defaultTime));
   let variantId: VariantId = (def.variants && def.variants.ids.includes(params.v as VariantId) ? params.v : def.variants?.ids[0] ?? 'A') as VariantId;
   let kf: Keyframe = def.keyframes[def.times[timeIdx]!]!;
   const hemiSky = new THREE.Color();
@@ -216,27 +236,41 @@ export function runScene(def: SceneDef): void {
   window.addEventListener('resize', fit); fit();
 
   // loop
-  let t = params.freeze ? 12.3 : 0, last = performance.now();
-  const ctx: SceneCtx = { hemiSky, active: active(), camera, keyDir, freeze };
+  let t = params.freeze ? 12.3 : 0, last = performance.now(), stopLeft = 0;
+  const ctx: SceneCtx = {
+    hemiSky, active: active(), camera, keyDir, freeze, stopped: false, stopDt: 0,
+    stop: (seconds: number) => { stopLeft = Math.max(stopLeft, seconds); },
+  };
   function renderOnce(dt: number): void {
     if (!freeze) t += dt;
+    // hit-stop (T-31): while the timer runs, the walk, the rigs and world.update are handed dt 0.
+    // The clock and ctx.stopDt keep the wall dt, so a scene can still step whatever it exempts.
+    ctx.stopDt = dt;
+    ctx.stopped = stopLeft > 0;
+    if (ctx.stopped) stopLeft -= dt;
+    const sdt = ctx.stopped ? 0 : dt;
     WORLD_U.uTime.value = t;
     if (sky) sky.starU.uTime.value = t;
     const a = active();
     ctx.active = a; ctx.freeze = freeze;
-    if (!freeze) walk.update(dt);
-    // heads: the walker looks ahead; idle kids look at the scene's point of interest, else at the active kid
+    if (!freeze) walk.update(sdt);
+    // heads: the walker looks ahead; the active kid otherwise at the scene's point of interest;
+    // an idle kid where world.look says, else at the active kid
     const poi = world.poi?.(a);
     for (const k of def.kids) {
       if (k === a && walk.moving) k.lookAt.set(k.root.position.x + Math.sin(k.root.rotation.y) * 6, 0.9, k.root.position.z + Math.cos(k.root.rotation.y) * 6);
       else if (k === a && poi) k.lookAt.copy(poi);
-      else if (k !== a) k.lookAt.set(a.root.position.x, a.root.position.y + 1.0, a.root.position.z);
-      k.update(t, dt, k === a && walk.moving);
+      else if (k !== a) {
+        const at = world.look?.(k, a);
+        if (at) k.lookAt.copy(at);
+        else k.lookAt.set(a.root.position.x, a.root.position.y + 1.0, a.root.position.z);
+      }
+      k.update(t, sdt, k === a && walk.moving);
     }
     // the key light and its shadow box follow the active kid, so shadows never run out when walking
     key.target.position.set(a.root.position.x, 0, a.root.position.z);
     key.position.copy(key.target.position).addScaledVector(keyDir, 70);
-    world.update(t, dt, kf, ctx);
+    world.update(t, sdt, kf, ctx);
     if (sky) {
       sky.clouds.forEach((c) => { c.mesh.position.set(c.base.x + t * 0.4 * (c.base.y > 0 ? 1 : 0.5), c.base.y + Math.sin(t * 0.25 + c.phase) * 0.4, c.base.z); });
       sky.group.position.set(camera.position.x, 0, camera.position.z);
@@ -246,11 +280,16 @@ export function runScene(def: SceneDef): void {
   }
   function frame(now: number): void {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    renderOnce(dt);
+    // ?step=1: the loop keeps drawing (the page stays live) but advances nothing; ssStep is then
+    // the only source of time, which is what makes a stepped probe reproducible.
+    renderOnce(params.step ? 0 : dt);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
-  setInterval(() => { if (document.hidden) { const now = performance.now(); const dt = Math.min(0.05, (now - last) / 1000); last = now; renderOnce(dt); } }, 33);
+  // the hidden-tab tick (a pane that is not on screen gets no animation frames) — off while stepping
+  if (!params.step) setInterval(() => { if (document.hidden) { const now = performance.now(); const dt = Math.min(0.05, (now - last) / 1000); last = now; renderOnce(dt); } }, 33);
+  win['ssCtx'] = ctx;
+  installStep({ canvas, render: renderOnce, clock: () => t, overlay: () => (showCard ? drawOverlay : undefined) });
 }
 
 /** The page every scene uses (index.html keeps only the frame, canvas and the empty UI nodes). */
