@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { colorize, jitterColor, makeWorldMaterial, mergeGeos, xf } from '../_shared/material';
 import { deg, rng } from '../_shared/rng';
+import { displace } from '../_shared/rock';
 import { C, LIGHT } from '../_shared/style';
 import type { Circle } from './scatter';
 import { groundY, makeStreamRocks } from './terrain';
@@ -225,10 +226,9 @@ export function makeProps(): Props {
     const g = colorize(new THREE.IcosahedronGeometry(s, 1), C.stone);
     const p = g.getAttribute('position') as THREE.BufferAttribute, c = g.getAttribute('color') as THREE.BufferAttribute;
     const moss = new THREE.Color(C.moss);
-    for (let i = 0; i < p.count; i++) {
-      p.setXYZ(i, p.getX(i) * (0.85 + r() * 0.3), p.getY(i) * (0.7 + r() * 0.2), p.getZ(i) * (0.85 + r() * 0.3));
-    }
-    g.computeVertexNormals();
+    // T-43: one scale per unique position, not per index, or the shared corners part and the
+    // boulder shows daylight through its seams. `displace` recomputes the flat normals.
+    displace(g, r, { x: [0.85, 1.15], y: [0.7, 0.9], z: [0.85, 1.15] });
     const n = g.getAttribute('normal') as THREE.BufferAttribute;
     for (let i = 0; i < p.count; i += 3) if (n.getZ(i) < -0.25 && n.getY(i) > 0.15) for (let k = 0; k < 3; k++) c.setXYZ(i + k, moss.r, moss.g, moss.b);
     jitterColor(g, r, 0.05);

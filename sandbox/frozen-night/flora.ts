@@ -6,6 +6,7 @@ import { FROZEN as F } from '../_shared/biomes';
 import { colorize, jitterColor, makeWorldMaterial, mergeGeos, xf } from '../_shared/material';
 import { BLOOM_LAYER } from '../_shared/post';
 import { hash2, lerp, rng } from '../_shared/rng';
+import { displace } from '../_shared/rock';
 import type { Circle } from '../_shared/walk';
 import { HEARTH, ICEFALL, inside, lakeD, OBSERVATORY, PLATE, SHELF, STRIP, terrainY } from './terrain';
 
@@ -50,8 +51,8 @@ function crystalGeo(r: () => number): THREE.BufferGeometry {
 function boulderGeo(s: number, r: () => number): THREE.BufferGeometry {
   const g = colorize(new THREE.IcosahedronGeometry(s, 1), F.rock);
   const p = g.getAttribute('position') as THREE.BufferAttribute;
-  for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) * (0.85 + r() * 0.3), p.getY(i) * (0.65 + r() * 0.2), p.getZ(i) * (0.85 + r() * 0.3));
-  g.computeVertexNormals();
+  // T-43: one scale per unique position; by index the corners part and the boulder is see-through.
+  displace(g, r, { x: [0.85, 1.15], y: [0.65, 0.85], z: [0.85, 1.15] });
   const n = g.getAttribute('normal') as THREE.BufferAttribute, c = g.getAttribute('color') as THREE.BufferAttribute;
   const snow = new THREE.Color(F.snow);
   for (let i = 0; i < p.count; i += 3) if (n.getY(i) > 0.45) for (let k = 0; k < 3; k++) c.setXYZ(i + k, snow.r, snow.g, snow.b);

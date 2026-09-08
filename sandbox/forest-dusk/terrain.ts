@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { createNoise2D } from 'simplex-noise';
 import { colorize, FOG_GLSL, WORLD_U, makeWorldMaterial, mergeGeos } from '../_shared/material';
 import { clamp, lerp, rng, smoothstep } from '../_shared/rng';
+import { displace } from '../_shared/rock';
 import { C } from '../_shared/style';
 
 export const PLATE = { x0: -52, x1: 62, z0: -50, z1: 50 };
@@ -296,8 +297,8 @@ export function makeStreamRocks(): THREE.BufferGeometry {
   for (const [x, z] of ROCKS) {
     const g = new THREE.IcosahedronGeometry(0.55 + rr() * 0.3, 1);
     g.scale(1.2, 0.7, 1);
-    const p = g.getAttribute('position') as THREE.BufferAttribute;
-    for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) * (0.9 + rr() * 0.2), p.getY(i) * (0.9 + rr() * 0.2), p.getZ(i) * (0.9 + rr() * 0.2));
+    // T-43: per unique position, so the rock stays a solid a kid could sit on (camp.md §2.3.2)
+    displace(g, rr, { x: [0.9, 1.1], y: [0.9, 1.1], z: [0.9, 1.1] });
     g.translate(x, -0.45, z);
     parts.push(colorize(g, C.stone));
   }
