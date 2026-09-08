@@ -126,3 +126,22 @@ Built to the plan, line by line: the plate is the Forest scene's imported terrai
 |---|---|---|
 | 1 | The set, the goblins, the beat, the two keys, all seven stations | S1 and S2 read first time — the palisade, the cart and cage, the cook-fire's pool, the totem ring, the long golden shadows |
 | 2 | The shatter turned into real geometry; `?beat=1` added | **Saved:** `meadow-golden-s1/s2/s3/s4/w1/l1/cu-a-01`, `meadow-golden-s3-a-02` (the connect: three goblins felled, the ribbon at full, the shards in the air), `meadow-dusk-s3-b-01` (the beat at dusk with the cook-fire's pool) |
+
+### Scene 5 — the west rim at dawn (spelled out, brief §3.5; `sandbox/rim-dawn/`, id `rim`)
+
+The Forest plate exactly as `sandbox/forest-dusk/main.ts` builds it (terrain, trees, props, scatter, fx), minus the deer's wandering, plus the one new thing. The dawn keyframe is the plan's column verbatim, and the two below-rim clouds are moved to (−72, −10, 36) and (−80, −13, 46) through `SceneDef.clouds`.
+
+**The finding this scene exists for.** The plan says the stream's spline "ends at (−58, 44) past the plate's organic edge, so the water ribbon already reaches the rim". It does — and from the rim it is a **5 m sheet of water hanging 9 m out in mid-air**, because the terrain under it stops at the plate's edge and nothing was ever built to carry it. In the Forest scene no station looks back at the rim, so nobody has seen it. The fix is not to shorten the water: it is to give it something to run over. A rock tongue is built from `edgeAt()` (marched along the stream with `inside()`) out to the water's end, seven segments tapering 7.4 → 5.8 m wide, mossy along both top edges, sitting just under the sheet. The stream now runs out along a rock spout and falls off its tip, which is what the island's west rim should have been all along. Row T-32.
+
+**Where the plan was silent or wrong, and what was decided:**
+
+| Point | Decision |
+|---|---|
+| the lip "at about (−55, −0.35, 42)" | The lip is where the *water* ends, (−57.5, −0.35, 43.6), not where the island does (about (−49, 40.8)); the tongue spans the difference |
+| the deer "at the pond's west bank at (−43, −28)" | (−43, −28) is 3.6 m from the pond's centre, and the pond is r 9: the deer stands in open water. Moved to (−49.5, −28.5) facing 110 (the bank, looking at the water); the plan's number is kept in the comment |
+| the fall's `fallMat` | Copied from the caves' props as instructed, not imported; the alpha stays ≤ 0.35 after the edge term, which is the lesson that recipe already carries |
+
+| Iter | Changed | Verdict |
+|---|---|---|
+| 1 | Everything: the fall (14 m × 4.5 m, two crossed sheets), the foam lip, the rock shelf and the 6 m plunge pool at y −14 with its second thinner ribbon draining into the void, eight mist sprites and forty spray points; the dawn keyframe; the mist wisps; the fox on the rim path, the bobber, the songbirds; the deer | `S2` — from off the island looking back — is the frame: the fall in full height, the pool on its shelf, the mist, Liam small on the rim above. `S1` had the water hanging in mid-air |
+| 2 | The rock tongue, then dropped 0.4 m so the sheet sits above the rock rather than through it; the deer moved to the bank | **Saved:** `rim-dawn-s1/s2/s3/s4/w1/l1/cu-01` and `rim-golden-s1-01`. Note `W1` and `S1` both look east-north-east into a dawn key at azimuth 100, so the island is backlit: built as the plan gives them, and the backlight is the second thing to judge |
