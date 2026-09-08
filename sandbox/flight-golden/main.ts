@@ -22,16 +22,21 @@ import { FLIGHT_LEN, makeFlight, TOUCHDOWN } from './flight';
 // reproducible — and a browser pane that is open but not on screen stops serving animation frames
 // after about half a second (STUDY_NOTES.md §6 rule 8), so a still of a moving thing needs a clock
 // it can be told, not one it has to run to reach.
+// With `?step=1` the clock is *seeded* at `ct` and left running, because under the stepping harness
+// nothing advances except `ssStep(n)` — so `?step=1&ct=0` then `ssStep(60)` is second 1.0, exactly,
+// which is how the bank probe walks the whole flight.
 const CT = Number(new URLSearchParams(location.search).get('ct') ?? 'NaN');
 
 // CH, WG and ED are ridden, not stood in: the scene drives the camera from the plane every frame
 // and the orbit is off until the wheels are down. LD is a real station — cutscenes.md shot 7, the
 // hold at the strip's far end that makes every landing record visible.
 const RIDE: Record<string, 'CH' | 'WG' | 'ED'> = { CH: 'CH', S1: 'CH', WG: 'WG', S2: 'WG', ED: 'ED', S3: 'ED' };
-const LD: Station = { name: 'The strip', target: [34, 1.2, 20], yaw: 92, pitch: 4, d: 44, note: 'cutscenes.md shot 7: the hold at the far end, the plane coming at the camera, both bounces in frame' };
+// The plane now lands heading east and rolls out to (38.5, 20), so the hold is east of it, looking
+// back down the strip: the plane comes at the camera and stops 17 m short of it, both bounces in frame.
+const LD: Station = { name: 'The strip', target: [21, 1.2, 20], yaw: 270, pitch: 6, d: 30, note: 'cutscenes.md shot 7: the hold at the far end, the plane coming at the camera, both bounces in frame' };
 const STATIONS: Record<string, Station> = {
   CH: { name: 'Chase', target: [0, 6, 20], yaw: 90, pitch: 8, d: 14, note: 'the fixed chase behind and above the plane; the flight starts on load' },
-  WG: { name: 'The wing', target: [0, 6, 20], yaw: 90, pitch: 6, d: 9, note: 'off the left wing, the island under it' },
+  WG: { name: 'The wing', target: [0, 6, 20], yaw: 90, pitch: 10, d: 9, note: 'off the left wing, the island under it (scores change 5: +4° so four heads separate)' },
   ED: { name: "Ed's shoulder", target: [0, 6, 20], yaw: 90, pitch: 4, d: 4, note: 'over the pilot: the collar, the goggles, the red streak that never stops' },
   LD, S1: { name: 'Chase', target: [0, 6, 20], yaw: 90, pitch: 8, d: 14, note: 'chase' },
   S2: { name: 'The wing', target: [0, 6, 20], yaw: 90, pitch: 6, d: 9, note: 'wing' },
@@ -68,9 +73,24 @@ runScene({
     flash.position.z = -1; flash.renderOrder = 999; flash.frustumCulled = false;
 
     const ride = RIDE[params.shot] ?? (params.shot === 'LD' || params.shot === 'S4' ? null : 'CH');
-    let ct = Number.isFinite(CT) ? CT : 0, rate = 1, running = !Number.isFinite(CT), stowed = false;
+    let ct = Number.isFinite(CT) ? CT : 0, rate = 1, running = params.step || !Number.isFinite(CT), stowed = false;
     const seatTmp = new THREE.Object3D();
-    const look = new THREE.Vector3();
+    const win = window as unknown as Record<string, unknown>;
+    win['ssFlight'] = flight;
+    // the probes' handle on the cutscene clock (scripts/probes/flight-*.cjs)
+    win['ssCut'] = { at: () => ct, seek: (v: number) => { ct = Math.max(0, Math.min(FLIGHT_LEN, v)); }, run: (on: boolean) => { running = on; } };
+
+    // Where each kid looks (npcs.md §2.3.7, and the scene's own intent). The runtime overwrites a
+    // *non-active* kid's `lookAt` every frame before the rig reads it, so a scene may not write it:
+    // `poi` covers whoever is active and `look` covers the other three (LESSONS.md Rigs, last row).
+    const lookTmp = new THREE.Vector3(), headTmp = new THREE.Object3D();
+    const headOf = (i: number): THREE.Vector3 => { flight.seat(i, headTmp); return lookTmp.copy(headTmp.position).setY(headTmp.position.y + 0.9); };
+    const lookFor = (kid: { name: string }): THREE.Vector3 | null => {
+      if (kid.name === 'Noah') return lookTmp.set(flight.pos.x, 0, flight.pos.z);                 // leans out and tracks the ground
+      if (kid.name === 'Liam') return headOf(3);                                                  // sits still and looks at the others
+      if (kid.name === 'Collette') return headOf(0);                                              // Liam, in the seat ahead of her
+      return lookTmp.copy(flight.pos).addScaledVector(flight.fwd, 22).setY(flight.pos.y + 7);     // Isabella, arms up, eyes ahead
+    };
     return {
       groundY, blockers: [], waterY: -5, maxStep: 40,
       applyKeyframe: (kf, keyDir) => lightWater(terrain.ice, keyDir, kf.key.color, kf.key.intensity, kf.hemi.sky, kf.key.elev),
@@ -78,33 +98,40 @@ runScene({
         if (!ctx.camera.children.includes(flash)) ctx.camera.add(flash);
         props.update(t, dt, kf);
         if (running) ct = Math.min(FLIGHT_LEN, ct + dt * rate);
-        flight.set(ct, Math.max(dt, 1e-3) * rate);
+        // dt straight through, never floored: under `?step=1` a frame the probe did not ask for has
+        // dt 0, and a floor of 1e-3 would let the bank ease on frames the clock never advanced.
+        flight.set(ct, dt * rate);
         // The curved world is centred on the station target, and it bends the *world material* only:
         // at 118 m out with `uCurve` at level 1 that is 8.4 m, so the aircraft, Ed and the four kids
         // sank clean out of a chase frame while their selection rings (their own shader) stayed put.
         // A moving camera has to carry the centre with it.
         WORLD_U.uCurveCenter.value.set(flight.pos.x, flight.pos.z);
         // the four kids ride the bench: seated legs, then one clip each (heroes.md §2.4.7)
-        ctx.active.lookAt.copy(flight.pos);
         (window as unknown as { ssKids: typeof ctx.active[] }).ssKids.forEach((k, i) => {
           // the carried props are stowed for the flight: Collette's 1.7 m staff is planted on her
-          // root, so in a 1.1 m cockpit it stands straight up through the top wing and the frame
-          if (!stowed) { for (const n of ['prop.R', 'prop.L']) { const p2 = k.root.getObjectByName(n); if (p2) p2.visible = false; } }
+          // root, so in a 1.1 m cockpit it stands straight up through the top wing and the frame.
+          // The selection rings go with them: world-space gameplay UI has no place in a cutscene
+          // (the scores' change 4 — they were drawn on the fuselage under the kids in every frame).
+          if (!stowed) {
+            for (const n of ['prop.R', 'prop.L']) { const p2 = k.root.getObjectByName(n); if (p2) p2.visible = false; }
+            k.ring.visible = false;
+          }
+          k.ringLight.intensity = 0;
           flight.seat(i, seatTmp);
           k.root.position.copy(seatTmp.position);
           k.root.quaternion.copy(seatTmp.quaternion);
           const b = k.bones;
-          b.LL.th.rotation.x = -1.42; b.RL.th.rotation.x = -1.42;
-          b.LL.sh.rotation.x = 1.30; b.RL.sh.rotation.x = 1.30;
-          b.spine.rotation.x = 0.08;
+          // a seated pose, not a lowered standing one: thighs level, shins down, a little recline
+          b.LL.th.rotation.x = -1.52; b.RL.th.rotation.x = -1.52;
+          b.LL.sh.rotation.x = 1.44; b.RL.sh.rotation.x = 1.44;
+          b.LL.foot.rotation.x = 0.28; b.RL.foot.rotation.x = 0.28;
+          b.spine.rotation.x = -0.06; b.spine.rotation.z = 0;
+          b.hips.rotation.x = 0.10;
           const grab = flight.stall; // on the stall-drop all four grab the rim
           if (i === 0) { // Liam sits still, one hand on the cockpit rim, looking at the others
             b.R.sh.rotation.x = -0.95; b.R.sh.rotation.z = -0.55; b.R.fa.rotation.x = -0.55;
-            k.lookAt.set(seatTmp.position.x, seatTmp.position.y + 0.9, seatTmp.position.z);
           } else if (i === 1) { // Noah leans out and tracks the ground
-            b.spine.rotation.z = -0.34; b.spine.rotation.x = 0.26;
-            look.copy(flight.pos); look.y = 0;
-            k.lookAt.copy(look);
+            b.spine.rotation.z = -0.34; b.spine.rotation.x = 0.20;
           } else if (i === 2) { // Collette holds her tails down against the wind
             b.L.sh.rotation.x = -2.15; b.R.sh.rotation.x = -2.15; b.L.fa.rotation.x = -1.25; b.R.fa.rotation.x = -1.25;
             b.L.sh.rotation.z = 0.35; b.R.sh.rotation.z = -0.35;
@@ -122,7 +149,9 @@ runScene({
         if (ride) flight.chase(ctx.camera, ride);
         flash.material.opacity = ride ? flight.whiteOut * 0.85 : 0;
       },
-      hud: () => [flight.hud(), `clock ${ct.toFixed(1)} / ${FLIGHT_LEN} s ×${rate.toFixed(2)} · camera ${ride ?? 'LD (a station: the orbit works)'} · touchdown at ${TOUCHDOWN} s`],
+      poi: (active) => lookFor(active),
+      look: (kid) => lookFor(kid),
+      hud: () => [flight.hud(), `clock ${ct.toFixed(2)} / ${FLIGHT_LEN} s ×${rate.toFixed(2)} · camera ${ride ?? 'LD (a station: the orbit works)'} · touchdown at ${TOUCHDOWN} s`],
       keys: {
         '0': { help: 'fly again', run: () => { ct = 0; running = true; return 'from the top'; } },
         m: { help: 'hold/run the clock', run: () => { running = !running; return running ? 'flying' : `held at ${ct.toFixed(1)} s`; } },
