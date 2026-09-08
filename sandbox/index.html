@@ -8,7 +8,11 @@
     html, body { margin: 0; background: #0B0E1A; color: #FFF5E6; font-family: Lora, Georgia, 'Times New Roman', serif; }
     main { max-width: 1100px; margin: 0 auto; padding: 48px 28px 60px; }
     h1 { font-size: 40px; font-weight: 600; margin: 0 0 6px; }
-    .sub { color: #D4C4A8; font-style: italic; font-size: 18px; margin: 0 0 34px; }
+    .sub { color: #D4C4A8; font-style: italic; font-size: 18px; margin: 0 0 26px; }
+    .tabs { display: flex; gap: 22px; align-items: center; margin: 0 0 22px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,245,230,0.10); }
+    .tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 4px 0; cursor: pointer; font: 800 12px/1.2 Nunito, 'Segoe UI', system-ui, sans-serif; letter-spacing: 0.18em; text-transform: uppercase; color: #D4C4A8; opacity: 0.75; transition: color 0.2s, opacity 0.2s, border-color 0.2s; }
+    .tab:hover { opacity: 1; }
+    .tab.on { color: #E8A838; opacity: 1; border-bottom-color: #E8A838; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
     a.card { display: block; text-decoration: none; color: inherit; background: rgba(255,245,230,0.05); border-radius: 12px; padding: 20px 22px 18px; border: 1px solid rgba(255,245,230,0.08); transition: border-color 0.2s, transform 0.2s; }
     a.card:hover { border-color: #E8A838; transform: translateY(-2px); }
@@ -17,8 +21,10 @@
     .name { font-size: 26px; font-weight: 600; line-height: 1.15; }
     .rule { width: 42px; height: 2px; background: #E8A838; margin: 9px 0 8px; opacity: 0.85; }
     .line { font-size: 15px; font-style: italic; color: #D4C4A8; }
+    .note { margin-top: 8px; font: italic 13px/1.4 Nunito, 'Segoe UI', system-ui, sans-serif; color: #D4C4A8; opacity: 0.8; }
     .who { margin-top: 12px; display: flex; gap: 8px; align-items: center; font: 700 12px Nunito, 'Segoe UI', system-ui, sans-serif; color: #D4C4A8; }
     .who i { display: inline-block; width: 14px; height: 14px; border-radius: 50%; }
+    .empty { display: none; color: #D4C4A8; font-style: italic; font-size: 16px; margin: 6px 0 0; }
     .keys { margin-top: 40px; color: #D4C4A8; font: 13px/1.7 Nunito, 'Segoe UI', system-ui, sans-serif; }
     .keys kbd { font: 800 11px/1 Nunito, 'Segoe UI', system-ui, sans-serif; color: #2B2118; background: #FFF5E6; border-radius: 5px; padding: 3px 5px; margin: 0 2px; }
   </style>
@@ -26,15 +32,43 @@
 <body>
   <main>
     <h1>Stewart Squad Adventure</h1>
-    <p class="sub">The demo scenes: one per biome, one kid each, the caves with all four. Walk, orbit, tweak, screenshot. <kbd>,</kbd> and <kbd>.</kbd> step between scenes from inside any of them; <kbd>H</kbd> comes back here.</p>
+    <p class="sub">The demo scenes: one per biome, one kid each, the caves with all four. Walk, orbit, tweak, screenshot. The tabs sort the scenes — Places, Beats, Systems, Lab — and Lab holds kept experiments that are not yet for the family. <kbd>,</kbd> and <kbd>.</kbd> step between scenes from inside any of them; <kbd>H</kbd> comes back here.</p>
+    <div class="tabs">
+      <button type="button" class="tab on" data-tab="places">Places</button>
+      <button type="button" class="tab" data-tab="beats">Beats</button>
+      <button type="button" class="tab" data-tab="systems">Systems</button>
+      <button type="button" class="tab" data-tab="lab">Lab</button>
+    </div>
+    <p class="empty">Nothing here yet: the anti-palette check comes next</p>
     <div class="grid">
-      <a class="card" href="./forest-dusk/?shot=L1&t=dusk&v=B"><div class="eyebrow">Forest · <b>Home</b></div><div class="name">Stewart Camp</div><div class="rule"></div><div class="line">Tent, fire, one bedroll. For now.</div><div class="who"><i style="background:#2A62CF"></i> Liam · the deer · dusk (B)</div></a>
-      <a class="card" href="./desert-noon/?shot=S1&t=noon"><div class="eyebrow">Scorching Sands · <b>The Oasis</b></div><div class="name">The Oasis</div><div class="rule"></div><div class="line">Sand, not sugar. Water is further than it looks.</div><div class="who"><i style="background:#EE7F24"></i> Noah · lizards, the camel, vultures · noon</div></a>
-      <a class="card" href="./bog-night/?shot=S1&t=night"><div class="eyebrow">Murky Swamp · <b>The Long Causeway</b></div><div class="name">The Long Causeway</div><div class="rule"></div><div class="line">Lanterns first. Then everything else.</div><div class="who"><i style="background:#9D4FD8"></i> Collette · frogs, herons, wisps · night</div></a>
-      <a class="card" href="./frozen-night/?shot=L1&t=night"><div class="eyebrow">Frozen Peaks · <b>The Hearth</b></div><div class="name">The Hearth</div><div class="rule"></div><div class="line">Where the propeller went. Don't look down.</div><div class="who"><i style="background:#D6294E"></i> Isabella · the elk herd, penguins · the aurora</div></a>
-      <a class="card" href="./caves-descent/?shot=S1&t=half"><div class="eyebrow">Crystal Caves · <b>Lamplight Landing</b></div><div class="name">The Crystal Depths</div><div class="rule"></div><div class="line">The island's roots. Quartz keeps the lamps lit.</div><div class="who"><i style="background:#2A62CF"></i><i style="background:#EE7F24"></i><i style="background:#9D4FD8"></i><i style="background:#D6294E"></i> all four · the heart, the waterfall, the lamps</div></a>
+      <a class="card" data-cat="places" href="./forest-dusk/?shot=L1&t=dusk&v=B"><div class="eyebrow">Forest · <b>Home</b></div><div class="name">Stewart Camp</div><div class="rule"></div><div class="line">Tent, fire, one bedroll. For now.</div><div class="who"><i style="background:#2A62CF"></i> Liam · the deer · dusk (B)</div></a>
+      <a class="card" data-cat="places" href="./desert-noon/?shot=S1&t=noon"><div class="eyebrow">Scorching Sands · <b>The Oasis</b></div><div class="name">The Oasis</div><div class="rule"></div><div class="line">Sand, not sugar. Water is further than it looks.</div><div class="who"><i style="background:#EE7F24"></i> Noah · lizards, the camel, vultures · noon</div></a>
+      <a class="card" data-cat="places" href="./bog-night/?shot=S1&t=night"><div class="eyebrow">Murky Swamp · <b>The Long Causeway</b></div><div class="name">The Long Causeway</div><div class="rule"></div><div class="line">Lanterns first. Then everything else.</div><div class="who"><i style="background:#9D4FD8"></i> Collette · frogs, herons, wisps · night</div></a>
+      <a class="card" data-cat="places" href="./frozen-night/?shot=L1&t=night"><div class="eyebrow">Frozen Peaks · <b>The Hearth</b></div><div class="name">The Hearth</div><div class="rule"></div><div class="line">Where the propeller went. Don't look down.</div><div class="who"><i style="background:#D6294E"></i> Isabella · the elk herd, penguins · the aurora</div></a>
+      <a class="card" data-cat="places beats" href="./caves-descent/?shot=S1&t=half"><div class="eyebrow">Crystal Caves · <b>Lamplight Landing</b></div><div class="name">The Crystal Depths</div><div class="rule"></div><div class="line">The island's roots. Quartz keeps the lamps lit.</div><div class="who"><i style="background:#2A62CF"></i><i style="background:#EE7F24"></i><i style="background:#9D4FD8"></i><i style="background:#D6294E"></i> all four · the heart, the waterfall, the lamps</div></a>
+      <a class="card" data-cat="beats places" href="./shadow-wrong/?shot=S1&t=wrong"><div class="eyebrow">Shadow Realm · <b>Home, Wrong</b></div><div class="name">Home, Wrong</div><div class="rule"></div><div class="line">Everything is where you left it.</div><div class="who"><i style="background:#9D4FD8"></i><i style="background:#D6294E"></i> Collette and Isabella · the shadow deer, the swing, the one warm light · wrong dusk</div></a>
+      <a class="card" data-cat="beats" href="./meadow-golden/?shot=S1&t=golden"><div class="eyebrow">Enchanted Forest · <b>Crash Meadow</b></div><div class="name">Crash Meadow</div><div class="rule"></div><div class="line">The flattest, emptiest ground on the island. Not for long.</div><div class="who"><i style="background:#D6294E"></i><i style="background:#2A62CF"></i> Isabella and Liam · three goblins, the whirl, the Ground Pound · golden hour (<code>?beat=1</code> runs the fight)</div></a>
+      <a class="card" data-cat="places" href="./rim-dawn/?shot=S2&t=dawn"><div class="eyebrow">Enchanted Forest · <b>The West Rim</b></div><div class="name">The West Rim</div><div class="rule"></div><div class="line">Where the stream runs out of island.</div><div class="who"><i style="background:#2A62CF"></i> Liam · the fall off the island, the fox, songbirds, the bobber · dawn</div></a>
+      <a class="card" data-cat="lab" href="./flight-golden/?shot=CH&t=golden"><div class="eyebrow">Frozen Peaks · <b>CS-04</b></div><div class="name">The Green Meanie</div><div class="rule"></div><div class="line">Don't ask Grandpa Ed about his landing record.</div><div class="note">Lab: re-shot after the speed fix, not yet for the family</div><div class="who"><i style="background:#2A62CF"></i><i style="background:#EE7F24"></i><i style="background:#9D4FD8"></i><i style="background:#D6294E"></i> Grandpa Ed and all four · the flight</div></a>
     </div>
     <p class="keys">Every scene: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk, <kbd>⇧</kbd> run · drag orbits, wheel zooms, <kbd>R</kbd> back to the station · <kbd>B</kbd> tilt-shift on/off · <kbd>X</kbd> the kid's flourish · <kbd>Tab</kbd> swaps the walked kid (caves) · <kbd>0</kbd> <kbd>[</kbd> <kbd>]</kbd> the scene's own keys (the deer, the camel, the lanterns, the herd, the lamps; wind, fog, aurora, pulse) · <kbd>1</kbd>–<kbd>4</kbd> the stations, <kbd>5</kbd>–<kbd>9</kbd> the study framings · <kbd>T</kbd> time of day · <kbd>K</kbd> curve · <kbd>P</kbd> post · <kbd>F</kbd> freeze · <kbd>U</kbd> card · <kbd>O</kbd> the numbers · <kbd>Enter</kbd> saves a frame to docs/design/mockups/.<br/>URL: <code>?shot=&amp;t=&amp;curve=&amp;freeze=1&amp;ui=0</code>. The plan and the treasures: <code>docs/design/mockups/STUDY_NOTES.md</code> §3 and §7.</p>
   </main>
+  <script>
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+    var cards = Array.prototype.slice.call(document.querySelectorAll('a.card'));
+    var empty = document.querySelector('.empty');
+    function show(cat) {
+      var n = 0;
+      cards.forEach(function (c) {
+        var on = (c.dataset.cat || '').split(' ').indexOf(cat) >= 0;
+        c.style.display = on ? 'block' : 'none';
+        if (on) n++;
+      });
+      tabs.forEach(function (t) { t.classList.toggle('on', t.dataset.tab === cat); });
+      empty.style.display = n ? 'none' : 'block';
+    }
+    tabs.forEach(function (t) { t.addEventListener('click', function () { show(t.dataset.tab); }); });
+    show('places');
+  </script>
 </body>
 </html>
