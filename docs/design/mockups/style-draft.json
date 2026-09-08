@@ -423,7 +423,7 @@
     }
   },
   "demoScenes": {
-    "$comment": "Session 2 (2026-09-07): the four new scenes as rendered. Keyframes are the bible rows (world-events-weather.md §2.1.4) through the T-07 conversion (key ×3, hemi ×9 at render) and then tuned by eye; the source of truth for these numbers is sandbox/_shared/biomes.ts until a frame is approved. Fog near/far in metres; light intensities pre-conversion.",
+    "$comment": "Session 2 (2026-09-07): the four biome scenes as rendered. Session 3 (2026-09-08): the four Opus-fixes scenes (shadow, meadow, rim, flight) added under the same rule. Keyframes are the bible rows (world-events-weather.md §2.1.4) through the T-07 conversion (key ×3, hemi ×9 at render) and then tuned by eye; the source of truth for every number here is the scene file named in the entry's `source` until a frame is approved. Fog near/far in metres; light intensities pre-conversion.",
     "desert": {
       "hero": "Noah",
       "heroHour": "noon",
@@ -999,6 +999,863 @@
         "count": "about 400",
         "proximity": "×2 within 6 m of any kid, eased at 4/s"
       }
+    },
+    "shadow": {
+      "hero": "Collette and Isabella",
+      "heroHour": "wrongDusk (the clock is locked)",
+      "source": "sandbox/shadow-wrong/main.ts (the WRONG keyframe and STATIONS); the sky stops are sandbox/shadow-wrong/sky.ts VOID",
+      "stationsSource": "sandbox/shadow-wrong/main.ts",
+      "approved": false,
+      "keyframes": {
+        "wrong": {
+          "key": [
+            "#7A52B4",
+            3,
+            12,
+            300
+          ],
+          "hemi": [
+            "#4E3486",
+            "#33204F",
+            0.44
+          ],
+          "fog": [
+            "#3C2560",
+            16,
+            60,
+            0.72,
+            7
+          ],
+          "sky": [
+            "#1C1235",
+            "#5A3480",
+            "#382156",
+            0
+          ],
+          "cloud": "#241436",
+          "stars": 1,
+          "exposure": 1,
+          "note": "one keyframe, no clock: the bible's shadow.wrongDusk row retuned in the fix pass (T-20/T-24). The literal intensities are the scene file's, not the bible row's × conversion. A 40 s breathing runs on top: fog max ±15 %, rift light ±25 %"
+        }
+      },
+      "stations": {
+        "S1": {
+          "name": "The mirror fire",
+          "target": [
+            0,
+            0.7,
+            0
+          ],
+          "yaw": 315,
+          "pitch": 22,
+          "d": 12,
+          "note": "read off the frame: the cold fire's cyan pool dead centre with the three tongues hanging into the ring, the shadow squad's four seats round it and all four still empty, Collette at the left and Isabella beyond the fire facing the camera, the citadel's ember spill across the top right, the torn tent and the deer at the top left, and the long shadows the low key throws toward the lens. At this pitch the frame's top edge is 4.5° below the horizon, so none of the sky's furniture is in it: the black moon sits at +40° and cannot share a 35° frame with the fire"
+        },
+        "S2": {
+          "name": "The cabin",
+          "target": [
+            -8,
+            2.2,
+            -11.5
+          ],
+          "yaw": 325,
+          "pitch": 24,
+          "d": 21,
+          "note": "from the dooryard: the roof gone black, the windows lit ember, the door a black slot"
+        },
+        "S3": {
+          "name": "The south rim (a beat, not a station)",
+          "target": [
+            -4,
+            -2,
+            54.5
+          ],
+          "yaw": 180,
+          "pitch": 30,
+          "d": 26,
+          "note": "a beat for the hub's \"Beats\" row and not a place you stand: the one warm light in the world, the real camp fire through the void 250 m below the rim at −37°, with two void clouds lit from underneath by it and the lip's rift cracks in the near third. The camera has to stand 13 m above the lip or the rim skirt itself eats the sightline (T-25); the sky's moon is at +40° and cannot share a 35° frame with a light at −37°"
+        },
+        "S4": {
+          "name": "The mirror stream",
+          "target": [
+            -14,
+            1,
+            17.5
+          ],
+          "yaw": 72,
+          "pitch": 12,
+          "d": 8.5,
+          "note": "across the stream instead of along it: the broken step in silhouette, the sheet of water climbing its face with the bands travelling up, the drops carrying on over the lip, and Collette on the far bank for the scale of it"
+        },
+        "W1": {
+          "name": "The shard, wide",
+          "target": [
+            -2,
+            0,
+            2
+          ],
+          "yaw": 320,
+          "pitch": 40,
+          "d": 44,
+          "note": "the whole quadrant: the cabin, the fire, the torn tent, the void clouds below drifting in"
+        },
+        "L1": {
+          "name": "The fire, lower",
+          "target": [
+            0,
+            0.9,
+            0
+          ],
+          "yaw": 315,
+          "pitch": 26,
+          "d": 20,
+          "note": "the gameplay read: the cold pool on the ground, the cabin behind, the black moon over it"
+        },
+        "CU": {
+          "name": "Isabella by the cold fire",
+          "target": [
+            -3.4,
+            1.05,
+            -5.2
+          ],
+          "yaw": 300,
+          "pitch": 6,
+          "d": 3.4,
+          "note": "read off the frame: the ruby dress at portrait distance with the citadel's ember-lit wall in the right third as the key and, in the left two thirds, the far plain going into the fog, the pines on its edge and the void sky over them — the yaw turned 330 → 300 in round 2 because at 330 the wall filled the whole frame and the close-up had no air in it. The falling embers of the cold fire are back at a fifth of the ambient sprite size, and the camera's near plane is 1.8 m here (see below)",
+          "cameraNear": 1.8
+        },
+        "SW": {
+          "name": "The swing",
+          "target": [
+            4.8,
+            1.9,
+            -11.5
+          ],
+          "yaw": 245,
+          "pitch": 7,
+          "d": 7.5,
+          "note": "read off the frame: the swing that swings by itself, ±25° on a 3.1 s period, hung from the bough of a dead pine with the rift open in the ground under it; Isabella at the left for the scale, the citadel's ember windows in the right third, the cold fire's pool at the left edge, and the mirrored constellations in the top third. Round 2 dropped the pitch 14 → 7 and turned the yaw 237 → 245: at pitch 14 the frame was ground from edge to edge and the living pine's canopy skirt (it starts at 1.4 m) was an unlit slab over the right third"
+        },
+        "DE": {
+          "name": "The shadow deer",
+          "target": [
+            -9.5,
+            1,
+            9.5
+          ],
+          "yaw": 225,
+          "pitch": 16,
+          "d": 9.5,
+          "note": "the deer at its parked spot with the cold fire behind the camera: press 0 and it dissolves into the mote column over 1.6 s"
+        }
+      },
+      "frames": [
+        "shadow-wrong-s1-01.png",
+        "shadow-wrong-s1-02-01.png",
+        "shadow-wrong-s1-02-02.png",
+        "shadow-wrong-s2-01.png",
+        "shadow-wrong-s2-02-01.png",
+        "shadow-wrong-s2-02-02.png",
+        "shadow-wrong-s3-01.png",
+        "shadow-wrong-s3-02-01.png",
+        "shadow-wrong-s4-01.png",
+        "shadow-wrong-s4-02-01.png",
+        "shadow-wrong-w1-01.png",
+        "shadow-wrong-w1-02-01.png",
+        "shadow-wrong-l1-01.png",
+        "shadow-wrong-l1-02-01.png",
+        "shadow-wrong-cu-01.png",
+        "shadow-wrong-cu-02-01.png",
+        "shadow-wrong-cu-02-02.png",
+        "shadow-wrong-sw-02-01.png",
+        "shadow-wrong-sw-02-02.png",
+        "shadow-wrong-swing-0-02-01.png",
+        "shadow-wrong-swing-0-02-02.png",
+        "shadow-wrong-swing-1-02-01.png",
+        "shadow-wrong-swing-1-02-02.png",
+        "shadow-wrong-dissolve-0-02-01.png",
+        "shadow-wrong-dissolve-1-02-01.png",
+        "shadow-wrong-dissolve-2-02-01.png",
+        "shadow-wrong-dissolve-3-02-01.png",
+        "shadow-wrong-dissolve-4-02-01.png",
+        "shadow-wrong-t09-02-01.png",
+        "shadow-wrong-runtime-02-01.png"
+      ]
+    },
+    "meadow": {
+      "hero": "Isabella, with Liam as the companion",
+      "heroHour": "golden",
+      "source": "sandbox/meadow-golden/main.ts (STATIONS); the keyframes are KEYFRAMES in sandbox/_shared/style.ts, which the scene imports rather than defines",
+      "stationsSource": "sandbox/meadow-golden/main.ts",
+      "approved": false,
+      "keyframes": {
+        "golden": {
+          "key": [
+            "#FFD08A",
+            1.4,
+            16,
+            245
+          ],
+          "hemi": [
+            "#7A8FC8",
+            "#3E6A36",
+            0.38
+          ],
+          "fog": [
+            "#D9A66E",
+            28,
+            78,
+            0.6,
+            12
+          ],
+          "sky": [
+            "#3B5BA8",
+            "#FFB870",
+            "#6B5A8A",
+            0.6
+          ],
+          "exposure": 1.05,
+          "note": "the scene's defaultTime"
+        },
+        "noon": {
+          "key": [
+            "#FFF6E6",
+            1.15,
+            58,
+            180
+          ],
+          "hemi": [
+            "#6FA8E6",
+            "#2E6A38",
+            0.32
+          ],
+          "fog": [
+            "#9DC3DD",
+            38,
+            98,
+            0.45,
+            12
+          ],
+          "sky": [
+            "#2F6BC0",
+            "#A7D3EE",
+            "#4A8FC0",
+            0.35
+          ],
+          "exposure": 0.92,
+          "note": "the day columns re-tuned under the physical conversion (T-07)"
+        },
+        "dusk": {
+          "key": [
+            "#FF8C5A",
+            1.2,
+            4,
+            270
+          ],
+          "hemi": [
+            "#4A4E8E",
+            "#2A4A30",
+            0.5
+          ],
+          "fog": [
+            "#7B5A8C",
+            23,
+            62,
+            0.85,
+            12
+          ],
+          "sky": [
+            "#22305E",
+            "#E86A4A",
+            "#3A2C5A",
+            0.6
+          ],
+          "exposure": 0.95,
+          "note": "variant A. The scene also offers B and C through style.ts `variant()`, which apply to dusk only: B ember dusk, C blue hour — the same numbers as the top-level `keyframes.dusk-B` / `dusk-C` of this file"
+        }
+      },
+      "stations": {
+        "S1": {
+          "name": "The meadow",
+          "target": [
+            44,
+            0.8,
+            0
+          ],
+          "yaw": 300,
+          "pitch": 40,
+          "d": 24,
+          "note": "goblin camp A upper-right (palisade, cook-fire, cart and cage), the furrow's wreck-heap upper-left, Isabella and Liam centre with their rings, the moved totem left of them, long golden shadows across the grass; no tree enters at pitch 40 — L1 is the framing that has them"
+        },
+        "S2": {
+          "name": "Goblin camp A",
+          "target": [
+            40,
+            0.9,
+            -14
+          ],
+          "yaw": 20,
+          "pitch": 38,
+          "d": 18,
+          "note": "the gap, the cart and the cage, the cook-fire"
+        },
+        "S3": {
+          "name": "The beat",
+          "target": [
+            44,
+            0.9,
+            2
+          ],
+          "yaw": 330,
+          "pitch": 34,
+          "d": 14,
+          "note": "the fight at the distance the game plays at"
+        },
+        "S4": {
+          "name": "The totem",
+          "target": [
+            58,
+            1.2,
+            18
+          ],
+          "yaw": 250,
+          "pitch": 20,
+          "d": 9,
+          "note": "the carved face, the rag streamer, the skull on its spike"
+        },
+        "W1": {
+          "name": "The meadow, wide",
+          "target": [
+            44,
+            0,
+            0
+          ],
+          "yaw": 300,
+          "pitch": 44,
+          "d": 40,
+          "note": "the whole 45 x 45 m of open grass, ringed by its four totems"
+        },
+        "L1": {
+          "name": "The meadow, lower",
+          "target": [
+            44,
+            0.8,
+            0
+          ],
+          "yaw": 300,
+          "pitch": 32,
+          "d": 26,
+          "note": "S1 dropped: the trees on the meadow edge enter the frame"
+        },
+        "CU": {
+          "name": "Isabella close-up",
+          "target": [
+            44,
+            0.75,
+            2
+          ],
+          "yaw": 330,
+          "pitch": 10,
+          "d": 4.2,
+          "note": "she faces bearing 150, so the camera at yaw 330 has her face and the hammer"
+        }
+      },
+      "mechanic": {
+        "hitStop": {
+          "whirl": 0.04,
+          "pound": 0.06,
+          "note": "heroes.md §2.5.7: Ground Pound impact 0.06 s, third-hit finisher 0.04 s; the whirl is not a listed site so it takes the finisher's"
+        },
+        "screenShake": "4 px over 0.15 s (0.0025 of a 1600 px frame)",
+        "whirl": {
+          "radius": 1.9,
+          "at": "the first frame past 180° of turn 1"
+        },
+        "groundPound": {
+          "radius": 2.5,
+          "at": "0.30 s",
+          "ring": "0.4 → 2.5 m over 0.35 s",
+          "dust": 12
+        },
+        "meadowClear": "the Forest's tree instances zeroed inside r 22 of (44, 0)"
+      },
+      "particles": {
+        "pollen": 220
+      },
+      "frames": [
+        "meadow-golden-s1-a-01.png",
+        "meadow-golden-s1-02-03.png",
+        "meadow-golden-s2-a-01.png",
+        "meadow-golden-s2-02-03.png",
+        "meadow-golden-s3-a-01.png",
+        "meadow-golden-s3-a-02.png",
+        "meadow-golden-s3-02-02.png",
+        "meadow-golden-s4-a-01.png",
+        "meadow-golden-w1-a-01.png",
+        "meadow-golden-w1-02-01.png",
+        "meadow-golden-l1-a-01.png",
+        "meadow-golden-l1-02-01.png",
+        "meadow-golden-cu-a-01.png",
+        "meadow-golden-beat-02-01.png",
+        "meadow-golden-ribbon-0-02-01.png",
+        "meadow-golden-ribbon-1-02-01.png",
+        "meadow-golden-shatter-0-02-01.png",
+        "meadow-golden-shatter-1-02-01.png",
+        "meadow-golden-runtime-02-01.png"
+      ]
+    },
+    "rim": {
+      "hero": "Liam",
+      "heroHour": "dawn",
+      "source": "sandbox/rim-dawn/main.ts (the DAWN keyframe and STATIONS); `golden` and `noon` are KEYFRAMES in sandbox/_shared/style.ts, which the scene imports",
+      "stationsSource": "sandbox/rim-dawn/main.ts",
+      "approved": false,
+      "keyframes": {
+        "dawn": {
+          "key": [
+            "#FFB48C",
+            1.3,
+            8,
+            100
+          ],
+          "hemi": [
+            "#6E7FB8",
+            "#2E5A3A",
+            0.45
+          ],
+          "fog": [
+            "#7A76B0",
+            22,
+            65,
+            0.7,
+            12
+          ],
+          "sky": [
+            "#2B3A70",
+            "#F2A57A",
+            "#3C4C7A",
+            0.7
+          ],
+          "cloud": "#F5C9B0",
+          "stars": 0.25,
+          "exposure": 0.95,
+          "note": "the bible's Forest dawn row (world-events-weather.md §2.1.3) through the T-07 conversion, with the plan's tuned column. The hemi intensity and the whole fog row are overridden at station W1 — see stations.W1.keyframeOverride"
+        },
+        "golden": {
+          "key": [
+            "#FFD08A",
+            1.4,
+            16,
+            245
+          ],
+          "hemi": [
+            "#7A8FC8",
+            "#3E6A36",
+            0.38
+          ],
+          "fog": [
+            "#D9A66E",
+            28,
+            78,
+            0.6,
+            12
+          ],
+          "sky": [
+            "#3B5BA8",
+            "#FFB870",
+            "#6B5A8A",
+            0.6
+          ],
+          "exposure": 1.05
+        },
+        "noon": {
+          "key": [
+            "#FFF6E6",
+            1.15,
+            58,
+            180
+          ],
+          "hemi": [
+            "#6FA8E6",
+            "#2E6A38",
+            0.32
+          ],
+          "fog": [
+            "#9DC3DD",
+            38,
+            98,
+            0.45,
+            12
+          ],
+          "sky": [
+            "#2F6BC0",
+            "#A7D3EE",
+            "#4A8FC0",
+            0.35
+          ],
+          "exposure": 0.92
+        }
+      },
+      "stations": {
+        "S1": {
+          "name": "The fall",
+          "target": [
+            "-54 + DL.x",
+            -2,
+            "42 + DL.z"
+          ],
+          "yaw": 110,
+          "pitch": 22,
+          "d": 20,
+          "note": "the fall from the rim's north side, the plunge pool below, the clouds beyond; it looks east into the dawn key (T-33), so the rim is a silhouette and the fill carries the rock — a study framing, not a hero frame. DL is the lip correction: findLip(inside) minus the first pass's hard-coded lip (-57.5, 43.6)"
+        },
+        "S2": {
+          "name": "Below the rim",
+          "target": [
+            "-56 + DL.x",
+            -8,
+            "42 + DL.z"
+          ],
+          "yaw": 70,
+          "pitch": 6,
+          "d": 26,
+          "note": "off the island looking back: the fall in full height, the rim over it"
+        },
+        "S3": {
+          "name": "The pond at dawn",
+          "target": [
+            -45,
+            -0.3,
+            -30
+          ],
+          "yaw": 300,
+          "pitch": 45,
+          "d": 22,
+          "note": "camp.md §2.11.5 S4 exactly. Read from the frame: the deer stands at the pond's north-west shore, right of centre — the west bank proper is a 1.9 m band between the water and the rim, too narrow for it — and the bobber's rings are on the water below it"
+        },
+        "S4": {
+          "name": "The stream's last bend",
+          "target": [
+            "(LIAM_AT.x + LIP.x) / 2",
+            0.6,
+            "(LIAM_AT.z + LIP.z) / 2"
+          ],
+          "yaw": 200,
+          "pitch": 38,
+          "d": 18,
+          "note": "the water speeding toward the lip, the foam, Liam under the birch — the songbirds go up as it loads"
+        },
+        "W1": {
+          "name": "The rim, wide",
+          "target": [
+            -48,
+            0,
+            30
+          ],
+          "yaw": 120,
+          "pitch": 40,
+          "d": 44,
+          "note": "the whole west rim at 44 m: study-only, and the one station with its own fog pair (T-16/T-21) and a stronger fill, because the hero column's 22/65 m fog turns the island into one violet mass at this distance",
+          "keyframeOverride": {
+            "of": "dawn",
+            "hemiIntensity": 0.7,
+            "fog": [
+              "#7A76B0",
+              46,
+              100,
+              0.42,
+              12
+            ]
+          }
+        },
+        "L1": {
+          "name": "The fall, lower",
+          "target": [
+            "-54 + DL.x",
+            -2,
+            "42 + DL.z"
+          ],
+          "yaw": 110,
+          "pitch": 14,
+          "d": 24,
+          "note": "S1 dropped: the sky and the below-rim clouds fill the top of the frame"
+        },
+        "CU": {
+          "name": "Liam close-up",
+          "target": [
+            "LIAM_AT.x",
+            "groundY(LIAM_AT) + 0.95",
+            "LIAM_AT.z"
+          ],
+          "yaw": "(LIAM_FACE + 180) % 360",
+          "pitch": 10,
+          "d": 4.4,
+          "note": "he watches the fall, so the camera stands on the far side of that look; the dawn key at azimuth 100 rakes across him"
+        }
+      },
+      "placement": {
+        "note": "the fix pass marches every position near the plate's organic edge with inside() instead of asserting it (sandbox/rim-dawn/place.ts); the three fall stations are translated by the lip correction DL, their yaw/pitch/d authored",
+        "oldLip": {
+          "x": -57.5,
+          "z": 43.6
+        },
+        "lipFallback": {
+          "x": -49.4,
+          "z": 40.6
+        },
+        "deerPatch": {
+          "r": 3,
+          "avoid": "the pond, r 7.6"
+        },
+        "mist": 30
+      },
+      "frames": [
+        "rim-dawn-s1-01.png",
+        "rim-dawn-s1-02-01.png",
+        "rim-dawn-s2-01.png",
+        "rim-dawn-s2-02-01.png",
+        "rim-dawn-s3-01.png",
+        "rim-dawn-s3-02-01.png",
+        "rim-dawn-s4-01.png",
+        "rim-dawn-s4-02-01.png",
+        "rim-dawn-w1-01.png",
+        "rim-dawn-w1-02-01.png",
+        "rim-dawn-l1-01.png",
+        "rim-dawn-cu-01.png",
+        "rim-dawn-cu-02-01.png",
+        "rim-dawn-runtime-02-01.png"
+      ]
+    },
+    "flight": {
+      "hero": "all four, with Grandpa Ed flying",
+      "heroHour": "golden",
+      "source": "sandbox/flight-golden/main.ts (STATIONS) and sandbox/flight-golden/flight.ts + schedule.ts (the motion); the keyframes are FROZEN_KEYFRAMES in sandbox/_shared/biomes.ts, which the scene imports rather than defines — the same rows as demoScenes.frozen",
+      "stationsSource": "sandbox/flight-golden/main.ts",
+      "approved": false,
+      "keyframes": {
+        "golden": {
+          "key": [
+            "#FFC898",
+            1.4,
+            12,
+            245
+          ],
+          "hemi": [
+            "#7A7AC0",
+            "#B098A8",
+            0.38
+          ],
+          "fog": [
+            "#D0B0B8",
+            29,
+            92,
+            0.55,
+            14
+          ],
+          "sky": [
+            "#3C4AA0",
+            "#FFB090",
+            "#7A6A9A",
+            0.6
+          ],
+          "exposure": 1.05,
+          "aurora": 0,
+          "note": "the scene's defaultTime; T-29 — a bare URL opens at dusk, so every save passes ?t=golden"
+        },
+        "morning": {
+          "key": [
+            "#FFF4E4",
+            1.2,
+            28,
+            130
+          ],
+          "hemi": [
+            "#9CC8F0",
+            "#A8C0DC",
+            0.3
+          ],
+          "fog": [
+            "#CFE0F2",
+            35,
+            100,
+            0.45,
+            14
+          ],
+          "sky": [
+            "#3A80D0",
+            "#D8ECF8",
+            "#6A9CC8",
+            0.35
+          ],
+          "exposure": 0.95,
+          "aurora": 0
+        },
+        "dusk": {
+          "key": [
+            "#E87A80",
+            1.4,
+            5,
+            255
+          ],
+          "hemi": [
+            "#4E4CA0",
+            "#5A6898",
+            0.8
+          ],
+          "fog": [
+            "#5A5A98",
+            23,
+            74,
+            0.7,
+            14
+          ],
+          "sky": [
+            "#181C50",
+            "#C86078",
+            "#3A2C5A",
+            0.7
+          ],
+          "exposure": 0.95,
+          "aurora": 0.45
+        }
+      },
+      "stations": {
+        "CH": {
+          "name": "Chase",
+          "target": [
+            0,
+            6,
+            20
+          ],
+          "yaw": 90,
+          "pitch": 8,
+          "d": 14,
+          "note": "the fixed chase behind and above the plane; the flight starts on load. Ridden, not stood in: the scene drives the camera from the plane every frame and the orbit is off until the wheels are down",
+          "ct": [
+            2.2,
+            6.9,
+            8.6,
+            20
+          ]
+        },
+        "WG": {
+          "name": "The wing",
+          "target": [
+            0,
+            6,
+            20
+          ],
+          "yaw": 90,
+          "pitch": 10,
+          "d": 9,
+          "note": "off the left wing, the island under it (scores change 5: +4° so four heads separate). Ridden",
+          "ct": [
+            13,
+            21
+          ]
+        },
+        "ED": {
+          "name": "Ed's shoulder",
+          "target": [
+            0,
+            6,
+            20
+          ],
+          "yaw": 90,
+          "pitch": 4,
+          "d": 4,
+          "note": "over the pilot: the collar, the goggles, the red streak that never stops. Ridden",
+          "ct": [
+            5.7
+          ]
+        },
+        "LD": {
+          "name": "The strip",
+          "target": [
+            21,
+            1.2,
+            20
+          ],
+          "yaw": 270,
+          "pitch": 6,
+          "d": 30,
+          "note": "cutscenes.md shot 7: the hold at the far end, the plane coming at the camera, both bounces in frame. A real station — the plane lands heading east and rolls out to (38.5, 20), stopping 17 m short of the camera",
+          "ct": [
+            16.75,
+            25.3
+          ]
+        },
+        "S1": {
+          "name": "Chase",
+          "target": [
+            0,
+            6,
+            20
+          ],
+          "yaw": 90,
+          "pitch": 8,
+          "d": 14,
+          "note": "chase; the same ride as CH"
+        },
+        "S2": {
+          "name": "The wing",
+          "target": [
+            0,
+            6,
+            20
+          ],
+          "yaw": 90,
+          "pitch": 6,
+          "d": 9,
+          "note": "wing; the same ride as WG, but pitch 6 where WG is 10"
+        },
+        "S3": {
+          "name": "Ed's shoulder",
+          "target": [
+            0,
+            6,
+            20
+          ],
+          "yaw": 90,
+          "pitch": 4,
+          "d": 4,
+          "note": "shoulder; the same ride as ED"
+        },
+        "S4": {
+          "name": "The strip",
+          "target": [
+            21,
+            1.2,
+            20
+          ],
+          "yaw": 270,
+          "pitch": 6,
+          "d": 30,
+          "note": "the same object as LD"
+        }
+      },
+      "cutscene": {
+        "note": "?ct=<seconds> parks the cutscene clock so a moving frame is reproducible from a URL (a hidden browser pane serves no animation frames); with ?step=1 the clock is seeded at ct and stepped by ssStep(n). The frames' seconds are recorded per station above",
+        "pathLength": 329,
+        "cruiseSpeed": 14,
+        "rotateSpeed": 12,
+        "touchSpeed": 10,
+        "maxBankDeg": 35,
+        "touchdownAt": "TOUCHDOWN (sandbox/flight-golden/schedule.ts)",
+        "legs": "takeoff roll 3.0 s 0 → 12 m/s; rotate and climb 3.5 s 12 → 14; cruise at 14; approach 2.5 s 14 → 12; final 2.0 s at 12; flare 1.5 s 12 → 10; roll-out 3.5 s 10 → 0"
+      },
+      "frames": [
+        "flight-golden-ch-01.png",
+        "flight-golden-ch-02.png",
+        "flight-golden-ch-03.png",
+        "flight-golden-ch-03-02.png",
+        "flight-golden-wg-01.png",
+        "flight-golden-wg-02.png",
+        "flight-golden-ed-01.png",
+        "flight-golden-ld-01.png",
+        "flight-golden-ld-02.png",
+        "flight-golden-runtime-02-01.png"
+      ]
     },
     "hero": {
       "rig": "sandbox/_shared/rig.ts (one body; the face system; legs/torso/shoulder/headR per kid)",
