@@ -75,8 +75,64 @@ runScene({
     const ride = RIDE[params.shot] ?? (params.shot === 'LD' || params.shot === 'S4' ? null : 'CH');
     let ct = Number.isFinite(CT) ? CT : 0, rate = 1, running = params.step || !Number.isFinite(CT), stowed = false;
     const seatTmp = new THREE.Object3D();
+    // ---- T-48, the look-around ------------------------------------------------------------------
+    // Andrew, reel 2: "adding the ability to move the view around with the mouse might be helpful …
+    // but it might be best to just let it be a ride." So the look is optional and temporary: a drag
+    // orbits the chase camera round the plane, the view holds where the mouse left it for LOOK_HOLD,
+    // then eases back to the chase frame over LOOK_EASE on a smoothstep (LESSONS.md §0 rule 3 —
+    // nothing pops). With nobody touching the mouse every number here stays 0 and `flight.chase`
+    // runs none of the offset arithmetic, so the untouched ride is the frames it always was.
+    //
+    // The drag is *read*, not handled. `_shared/orbit.ts`'s own mouse and touch handlers keep
+    // writing `ssOrbit.current` even while the scene drives the camera (orbit.ts lines 21–27 and
+    // 37–39), and a demo scene may not edit `_shared/`; so this adds no listener and re-binds no
+    // key, and nothing here can swallow a skip input. R is the orbit's own key: `reset()` (orbit.ts
+    // line 33) puts `current` back on the station exactly, which is what `atStation` reads to clear
+    // the look in one frame — the one allowed instant, because it is a reset, not a state change.
+    //
+    // The offset accumulates from *changes* in `current`, never from its absolute value: after a
+    // return the anchor moves to wherever the mouse was left, so the next drag starts from the chase
+    // frame again instead of snapping back to the angle the last one ended on.
+    const LOOK_HOLD = 2.0, LOOK_EASE = 2.0;        // seconds (DECISIONS.md 2026-09-08 · flight T-48)
+    const ORBIT_PITCH = { min: 18, max: 75 };      // `_shared/orbit.ts` line 25's own clamp (T-23)
+    const st = STATIONS[params.shot] ?? STATIONS['CH']!;   // the station makeOrbit was built from
+    const look = { yaw: 0, pitch: 0 };
+    const clampPitch = (p2: number): number => Math.min(ORBIT_PITCH.max, Math.max(ORBIT_PITCH.min, p2));
+    const shortest = (d: number): number => ((d + 540) % 360) - 180;
+    let anchorYaw = st.yaw, anchorPitch = st.pitch;
+    let wantYaw = 0, wantPitch = 0, heldYaw = 0, heldPitch = 0, since = 0;
+    const updateLook = (dt: number): void => {
+      const cur = (window as unknown as { ssOrbit?: { current: Station } }).ssOrbit?.current;
+      if (!cur) return;
+      if (cur.yaw === st.yaw && cur.pitch === st.pitch && cur.d === st.d) { // on the station: R, or no drag yet
+        anchorYaw = st.yaw; anchorPitch = st.pitch;
+        wantYaw = 0; wantPitch = 0; heldYaw = 0; heldPitch = 0; since = 0;
+        look.yaw = 0; look.pitch = 0;
+        return;
+      }
+      // the pitch offset is measured between *clamped* pitches, so a station below the orbit's 18°
+      // floor (CH is at 8°) still starts at a zero offset instead of jumping to the floor (T-23)
+      const ty = shortest(cur.yaw - anchorYaw), tp = clampPitch(cur.pitch) - clampPitch(anchorPitch);
+      if (Math.abs(ty - wantYaw) > 1e-6 || Math.abs(tp - wantPitch) > 1e-6) { // the mouse moved: track it 1:1
+        wantYaw = ty; wantPitch = tp; heldYaw = ty; heldPitch = tp; since = 0;
+        look.yaw = ty; look.pitch = tp;
+        return;
+      }
+      since += dt; // wall seconds, not cutscene seconds: the look is UI, so `[` and `]` do not scale it
+      if (since <= LOOK_HOLD) { look.yaw = heldYaw; look.pitch = heldPitch; return; }
+      const k = Math.min(1, (since - LOOK_HOLD) / LOOK_EASE);
+      const s = 1 - k * k * (3 - 2 * k); // smoothstep home: zero slope at both ends of the return
+      look.yaw = heldYaw * s; look.pitch = heldPitch * s;
+      if (k >= 1) { // home: re-anchor on where the mouse was left, so the next drag starts at zero
+        anchorYaw = cur.yaw; anchorPitch = cur.pitch;
+        wantYaw = 0; wantPitch = 0; heldYaw = 0; heldPitch = 0;
+        look.yaw = 0; look.pitch = 0;
+      }
+    };
+
     const win = window as unknown as Record<string, unknown>;
     win['ssFlight'] = flight;
+    win['ssLook'] = look; // the probes' handle on the look offset (scripts/probes/flight-look.cjs)
     // the probes' handle on the cutscene clock (scripts/probes/flight-*.cjs)
     win['ssCut'] = { at: () => ct, seek: (v: number) => { ct = Math.max(0, Math.min(FLIGHT_LEN, v)); }, run: (on: boolean) => { running = on; } };
 
@@ -145,13 +201,14 @@ runScene({
           }
         });
         stowed = true;
-        // the camera rides the plane on CH / WG / ED; on LD the station stands and the plane comes to it
-        if (ride) flight.chase(ctx.camera, ride);
+        // the camera rides the plane on CH / WG / ED; on LD the station stands and the plane comes
+        // to it (and the orbit is the orbit, untouched by T-48's offset)
+        if (ride) { updateLook(dt); flight.chase(ctx.camera, ride, look); }
         flash.material.opacity = ride ? flight.whiteOut * 0.85 : 0;
       },
       poi: (active) => lookFor(active),
       look: (kid) => lookFor(kid),
-      hud: () => [flight.hud(), `clock ${ct.toFixed(2)} / ${FLIGHT_LEN} s ×${rate.toFixed(2)} · camera ${ride ?? 'LD (a station: the orbit works)'} · touchdown at ${TOUCHDOWN} s`],
+      hud: () => [flight.hud(), `clock ${ct.toFixed(2)} / ${FLIGHT_LEN} s ×${rate.toFixed(2)} · camera ${ride ?? 'LD (a station: the orbit works)'} · touchdown at ${TOUCHDOWN} s${ride ? ` · look ${look.yaw.toFixed(1)}° / ${look.pitch.toFixed(1)}° (drag; ${LOOK_HOLD}s hold, ${LOOK_EASE}s home; R clears)` : ''}`],
       keys: {
         '0': { help: 'fly again', run: () => { ct = 0; running = true; return 'from the top'; } },
         m: { help: 'hold/run the clock', run: () => { running = !running; return running ? 'flying' : `held at ${ct.toFixed(1)} s`; } },

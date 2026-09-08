@@ -65,15 +65,28 @@ const ROLL_RATE = 1.0;       // rad/s ceiling on the roll, below the 1.2 rad/s s
 const MAX_BANK = (MAX_BANK_DEG * Math.PI) / 180;
 /** The cloud layer sits at +24 m over the hub (npcs.md §2.2.4), 21.5–26.5 m thick. */
 const CLOUD = { lo: 21.5, hi: 26.5 };
+/** T-48's look: the yaw is free, the *total* elevation about the plane is held off the poles so a
+ *  chase frame can never flip over the top. The offset itself is clamped where it is read, by the
+ *  orbit's own 18–75° pitch clamp (`_shared/orbit.ts`); this is the last guard, in radians. */
+const LOOK_EL = { min: (-60 * Math.PI) / 180, max: (85 * Math.PI) / 180 };
 /** The one stall-drop of the flight (npcs.md §2.2.3): 1.2 s, the nose dips, −4 m, the four grab on. */
 const STALL = { at: 7.0, dur: 1.2, drop: 4 };
+
+/**
+ * T-48, the look-around: degrees of yaw and elevation added to a chase framing, about the point the
+ * chase looks at. `{ yaw: 0, pitch: 0 }` (or no offset at all) is the ride untouched — `chase` then
+ * runs none of the offset arithmetic, so a frame nobody dragged is the floats it always was.
+ * The scene owns the offset's timing (`main.ts`: the hold and the eased return); this file owns
+ * what it means geometrically.
+ */
+export interface LookOffset { yaw: number; pitch: number }
 
 export interface Flight {
   group: THREE.Group;
   plane: THREE.Group;
   /** Seat world matrices for the four kids (seat.0..3) and Ed's pilot socket. */
   seat: (i: number, out: THREE.Object3D) => void;
-  chase: (out: THREE.Object3D, kind: 'CH' | 'WG' | 'ED') => void;
+  chase: (out: THREE.Object3D, kind: 'CH' | 'WG' | 'ED', look?: LookOffset) => void;
   /** Advance to `t` seconds of the cutscene clock; returns the beat name. */
   set: (t: number, dt: number) => string;
   /** 0 while clear, 1 in the middle of the cloud layer: the streaming curtain's white-out. */
@@ -214,6 +227,7 @@ export function makeFlight(): Flight {
 
   const pos = new THREE.Vector3(), tan = new THREE.Vector3(), tmp = new THREE.Vector3();
   const tanA = new THREE.Vector3(), tanB = new THREE.Vector3();
+  const camTmp = new THREE.Vector3(), armTmp = new THREE.Vector3(); // the chase's eye and its arm
   const q = new THREE.Quaternion();
   let bounce = 0, roll = 0, beat = 'on the strip', propAngle = 0, stall = 0;
   const flight: Flight = {
@@ -223,13 +237,27 @@ export function makeFlight(): Flight {
     // CH / WG / ED are ridden, not stood in: the station's numbers in main.ts describe the framing,
     // these offsets are what the camera actually does. WG is up 0.85 m on the first pass (about +4°
     // over an 11.4 m eye-to-subject line), the scores' change 5, so four heads separate.
-    chase: (out, kind) => {
+    chase: (out, kind, look) => {
       const p = plane.group;
-      if (kind === 'CH') { tmp.set(-13, 3.4, 0); p.localToWorld(tmp); out.position.copy(tmp); tmp.set(2, 1.1, 0); p.localToWorld(tmp); out.lookAt(tmp); }
-      else if (kind === 'WG') { tmp.set(-1.8, 3.4, -12.0); p.localToWorld(tmp); out.position.copy(tmp); tmp.set(1.0, 1.0, 1.2); p.localToWorld(tmp); out.lookAt(tmp); }
+      if (kind === 'CH') { tmp.set(-13, 3.4, 0); p.localToWorld(tmp); camTmp.copy(tmp); tmp.set(2, 1.1, 0); p.localToWorld(tmp); }
+      else if (kind === 'WG') { tmp.set(-1.8, 3.4, -12.0); p.localToWorld(tmp); camTmp.copy(tmp); tmp.set(1.0, 1.0, 1.2); p.localToWorld(tmp); }
       // ED backs off 1.9 m from the first pass: the bench dropped 0.26 m and moved 0.13 m aft, which
       // put the old shoulder camera inside Collette's head.
-      else { tmp.set(-3.6, 1.75, 0.62); p.localToWorld(tmp); out.position.copy(tmp); tmp.set(1.0, 1.55, 0); p.localToWorld(tmp); out.lookAt(tmp); }
+      else { tmp.set(-3.6, 1.75, 0.62); p.localToWorld(tmp); camTmp.copy(tmp); tmp.set(1.0, 1.55, 0); p.localToWorld(tmp); }
+      // T-48: the look swings the eye round the point the chase already looks at, so the plane stays
+      // framed and only the angle on it changes — a look, not a free camera. The spherical terms are
+      // `_shared/shot.ts` `placeCamera`'s own convention: a station at yaw b sits at
+      // target + (−sin b, 0, cos b) · d·cos(pitch), pitch degrees above the target.
+      if (look && (look.yaw !== 0 || look.pitch !== 0)) {
+        const arm = armTmp.subVectors(camTmp, tmp);
+        const r = Math.max(arm.length(), 1e-6);
+        const yaw = Math.atan2(-arm.x, arm.z) + (look.yaw * Math.PI) / 180;
+        const el = THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(arm.y / r, -1, 1)) + (look.pitch * Math.PI) / 180, LOOK_EL.min, LOOK_EL.max);
+        const c = Math.cos(el) * r;
+        camTmp.set(tmp.x - Math.sin(yaw) * c, tmp.y + Math.sin(el) * r, tmp.z + Math.cos(yaw) * c);
+      }
+      out.position.copy(camTmp);
+      out.lookAt(tmp);
     },
     set: (t, dt) => {
       const tc = THREE.MathUtils.clamp(t, 0, FLIGHT_LEN);
