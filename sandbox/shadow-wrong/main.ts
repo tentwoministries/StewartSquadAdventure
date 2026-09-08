@@ -79,8 +79,16 @@ runScene({
       kid.root.position.set(ix, gy(ix, iz), iz); kid.face(147);
       return;
     }
+    // T-47: S4 put her at (−15.5, 15.5), which is 3 m inside the mirror stream's cut — ground
+    // −0.62 m against the walk's −0.25 m water wall, so 0 of 36 bearings were open and four
+    // seconds of W or of S moved her 0.00 m (`scripts/probes/runtime-stations.cjs`). The bank is
+    // marched to, not guessed: the nearest walkable ground is 1.75 m north-west but projects to
+    // NDC x −1.06, off the left edge of this 8.5 m lens, so the least move that is *both* walkable
+    // and in frame is 4.5 m to (−12.61, 12.05) — ground −0.15, W and S both free (1.78 m/s), NDC
+    // (−0.82, +0.11). She is still on the far bank, still giving the step its scale; her head is
+    // the S4 poi's job, her body faces 194° = the bearing to (−14, 17.5) from the new spot.
     const spots: Record<string, [number, number, number]> = {
-      S1: [-2.6, 1.9, 54], S2: [-4.6, -7.0, 330], S3: [-7.5, 45.5, 165], S4: [-15.5, 15.5, 157],
+      S1: [-2.6, 1.9, 54], S2: [-4.6, -7.0, 330], S3: [-7.5, 45.5, 165], S4: [-12.61, 12.05, 194],
       W1: [-1.6, 2.6, 54], L1: [-1.6, 2.6, 54], CU: [-1.0, 1.8, 200],
       SW: [9.0, -8.5, 240], DE: [-6.5, 2.5, 315],
     };
