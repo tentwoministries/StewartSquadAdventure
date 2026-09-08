@@ -8,10 +8,13 @@ import { colorize, makeWorldMaterial, mergeGeos } from '../_shared/material';
 import { BLOOM_LAYER } from '../_shared/post';
 import { rng } from '../_shared/rng';
 
+// The palette. The three sky stops and the fog were lifted in the fix pass: at the shipped values
+// `shadow-wrong-s3-01` was 96.7 % of its pixels under T-24's 12 % floor and `-s1-01` 73 %, because
+// the void below the horizon is what most of those frames *are*. The mood is contrast, not black.
 export const VOID = {
-  void: '#120A1F', ember: '#FF6A2A', rift: '#3AF0FF', ash: '#5C5C66',
-  zenith: '#06030E', horizon: '#3A1A50', ground: '#120A1F', fog: '#1E1030',
-  charcoal: '#1C1A22', cabinRoof: '#1C1A22', cyanDim: '#1A4A58',
+  void: '#1A1030', ember: '#FF6A2A', rift: '#3AF0FF', riftMid: '#2ABDD8', riftPale: '#BFFAFF', ash: '#86829A',
+  zenith: '#1C1235', horizon: '#5A3480', ground: '#382156', fog: '#1E1030',
+  charcoal: '#241F30', cabinRoof: '#241F30', cyanDim: '#1A4A58', cyanLight: '#2FA6D8',
 } as const;
 
 export interface ShadowSky {
@@ -123,6 +126,36 @@ export function makeShadowSky(): ShadowSky {
     mesh.position.copy(base);
     group.add(mesh);
     clouds.push({ mesh, base, ph: r() * 6.28, in: 0.35 + r() * 0.4 });
+  }
+  // two more on the *south* flank, well off the −37° corridor (T-25) and low enough to sit in S3's
+  // lower third: the far fire is a directional light from below, so these are the one thing in the
+  // scene it lights, and they give the void under the rim a shape instead of a black field
+  // −32° and ±24° from S3's camera: lower than that is behind the rim's own silhouette (the lip's
+  // edge is at −42° from there) and nearer the centre is in front of the one warm light itself
+  for (const [cx, cy, cz, s] of [[-40, -42, 78, 0.55], [38, -45, 82, 0.5]] as [number, number, number, number][]) {
+    const parts: THREE.BufferGeometry[] = [];
+    for (let j = 0; j < 4; j++) {
+      const g = new THREE.IcosahedronGeometry((5 + r() * 4) * s, 1);
+      g.scale(1.5, 0.55, 1.1);
+      g.translate((j - 1.5) * 9 * s, (r() - 0.5) * 2.4, (r() - 0.5) * 5);
+      parts.push(colorize(g, '#2E1A48'));
+    }
+    const merged2 = mergeGeos(parts);
+    // baked warm on the underside: these are the two the far camp fire reaches
+    const c2 = merged2.getAttribute('color') as THREE.BufferAttribute, n2 = merged2.getAttribute('normal') as THREE.BufferAttribute;
+    const warm = new THREE.Color('#8A4A32'), dark = new THREE.Color('#2A1840');
+    for (let k2 = 0; k2 < c2.count; k2++) {
+      const t = THREE.MathUtils.clamp(0.5 + n2.getY(k2) * 0.5, 0, 1);
+      const c = warm.clone().lerp(dark, t);
+      c2.setXYZ(k2, c.r, c.g, c.b);
+    }
+    // unlit: the only light down there is the camp fire 250 m below, and the bible forbids raising
+    // its fill to light anything (dungeons.md §2.6.6), so the glow on their bellies is painted on
+    const mesh = new THREE.Mesh(merged2, new THREE.MeshBasicMaterial({ vertexColors: true }));
+    const base = new THREE.Vector3(cx, cy, cz);
+    mesh.position.copy(base);
+    group.add(mesh);
+    clouds.push({ mesh, base, ph: r() * 6.28, in: 0.2 + r() * 0.2 });
   }
 
   const update = (t: number, camera: THREE.Camera, breathe: number): void => {

@@ -19,11 +19,14 @@ export interface Creatures {
   update: (t: number, dt: number, hero: THREE.Vector3) => void;
   poi: () => THREE.Vector3 | null;
   dissolveNow: () => string;
+  /** Every value a stepped probe needs to see the dissolve run (OPUS_FIX_PLAN.md §6). */
+  probe: () => { state: string; u: number; visible: boolean; bodyScale: number; bodyOpacity: number; rimScale: number; rimOpacity: number; x: number; z: number };
   hud: () => string[];
 }
 
 /** A body plus an inverted-hull shell in rift cyan: the shadow material's rim, cheaply. */
-function shadowBody(parts: THREE.BufferGeometry[], mat: THREE.Material, rimMat: THREE.Material, swell: number): THREE.Group {
+interface ShadowMesh { group: THREE.Group; body: THREE.Mesh; rim: THREE.Mesh }
+function shadowBody(parts: THREE.BufferGeometry[], mat: THREE.Material, rimMat: THREE.Material, swell: number): ShadowMesh {
   const g = new THREE.Group();
   const merged = mergeGeos(parts);
   const body = new THREE.Mesh(merged, mat);
@@ -31,14 +34,23 @@ function shadowBody(parts: THREE.BufferGeometry[], mat: THREE.Material, rimMat: 
   rim.scale.setScalar(1 + swell);
   rim.layers.enable(BLOOM_LAYER);
   g.add(rim, body);
-  return g;
+  return { group: g, body, rim };
 }
+
+/** The dissolve's length in seconds, and its ease (T-06: nothing pops). */
+const DISSOLVE = 1.6;
+const SWELL = 0.06;
+const ease = (u: number): number => u * u * (3 - 2 * u);
 
 export function makeCreatures(): Creatures {
   const group = new THREE.Group();
   const r = rng(233);
   const voidMat = makeWorldMaterial({ roughness: 1 });
   const rimMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(VOID.rift).multiplyScalar(0.9), side: THREE.BackSide, transparent: true, opacity: 0.75, depthWrite: false, blending: THREE.AdditiveBlending });
+  // the deer carries its own pair of materials, because the dissolve fades them and the fox must not
+  // fade with it (a fresh call, not `.clone()`: the world material's patch lives on onBeforeCompile)
+  const deerMat = makeWorldMaterial({ roughness: 1, transparent: true });
+  const deerRimMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(VOID.rift).multiplyScalar(0.9), side: THREE.BackSide, transparent: true, opacity: 0.75, depthWrite: false, blending: THREE.AdditiveBlending });
 
   // ---- the shadow deer: built along +x, so rotation.y is 90° − bearing (the facing rule) ---------
   const deerParts = [
@@ -52,13 +64,16 @@ export function makeCreatures(): Creatures {
     ...([[0.34, 0.12], [0.34, -0.12], [-0.34, 0.12], [-0.34, -0.12]] as [number, number][]).map(([x, z]) => xf(CY(0.045, 0.04, 0.9, 5, VOID.void), x, 0.45, z)),
     xf(B(0.14, 0.2, 0.05, VOID.rift), -0.5, 1.05),
   ];
-  const deer = shadowBody(deerParts, voidMat, rimMat, 0.06);
+  const deerMesh = shadowBody(deerParts, deerMat, deerRimMat, SWELL);
+  const deer = deerMesh.group;
   group.add(deer);
   const wander = makeWander({
-    patch: { x: -6, z: 6, r: 8, avoid: [{ x: 0, z: 0, r: 3 }, { x: -6, z: -3, r: 2.6 }, { x: -8, z: -11.5, r: 5 }] },
+    patch: { x: -7.5, z: 7.5, r: 7, avoid: [{ x: 0, z: 0, r: 3 }, { x: -6, z: -3, r: 2.6 }, { x: -8, z: -11.5, r: 5 }] },
     speed: 0.5, seed: 41, turnRate: 2.0, graze: [7, 13], lookChance: 0.45,
   });
-  wander.park(-7, 7, 220);
+  // parked 10.3 m from S1's hero spot: inside 7 m it dissolves on the first frame, which is what
+  // emptied the hero frame of its deer in `shadow-wrong-s1-01`
+  wander.park(-9.5, 9.5, 215);
   const deerEar = flicker(31, 2.5, 3);
   const motes = makePoints(60, VOID.rift, 5, 2.0);
   group.add(motes.pts);
@@ -78,19 +93,19 @@ export function makeCreatures(): Creatures {
     xf(colorize(new THREE.ConeGeometry(0.09, 0.42, 5), VOID.void).rotateZ(1.15), -0.34, 0.38),
     xf(colorize(new THREE.IcosahedronGeometry(0.06, 0), VOID.rift), -0.52, 0.5),
   ];
-  const fox = shadowBody(foxParts, voidMat, rimMat, 0.07);
+  const fox = shadowBody(foxParts, voidMat, rimMat, 0.07).group;
   group.add(fox);
-  let foxX = -18, foxZ = -6, foxH = 0.6;
+  let foxX = -18, foxZ = -6, foxH = 0.6, foxHold = 12;
 
   const poiV = new THREE.Vector3();
-  let poiSet = false, dissolvePending = false, nowT = 0;
+  let poiSet = false, dissolvePending = false, nowT = 0, dissolveU = 0;
 
   const update = (t: number, dt: number, hero: THREE.Vector3): void => {
     poiSet = false; nowT = t;
     const dx = hero.x - wander.x, dz = hero.z - wander.z;
     const near = Math.hypot(dx, dz) < 7;
     if ((near || dissolvePending) && state === 'here') { state = 'dissolving'; stateT = t; dissolvePending = false; gonePoint.set(wander.x, groundY(wander.x, wander.z), wander.z); }
-    if (state === 'dissolving' && t - stateT > 1.6) { state = 'gone'; stateT = t; }
+    if (state === 'dissolving' && t - stateT > DISSOLVE) { state = 'gone'; stateT = t; }
     if (state === 'gone' && t - stateT > 20) {
       state = 'here'; stateT = t; spotIdx = (spotIdx + 1) % spots.length;
       const [sx, sz] = spots[spotIdx]!;
@@ -102,15 +117,35 @@ export function makeCreatures(): Creatures {
       deer.position.set(wander.x, groundY(wander.x, wander.z), wander.z);
       deer.rotation.y = wander.rotY();
       const g = wander.graze;
-      deer.children.forEach((c) => { c.rotation.x = -0.34 * g; });
+      deerMesh.body.rotation.x = -0.34 * g; deerMesh.rim.rotation.x = -0.34 * g;
       deer.position.y += 0.02 * Math.sin(t * 1.2) - 0.1 * g;
       deer.scale.setScalar(1 + 0.01 * deerEar(t));
+      deerMesh.body.scale.setScalar(1); deerMesh.rim.scale.setScalar(1 + SWELL);
+      deerMat.opacity = 1; deerRimMat.opacity = 0.75;
+      dissolveU = 0;
       if (!poiSet) { poiV.set(wander.x, 1.3, wander.z); poiSet = true; }
+    } else if (state === 'dissolving') {
+      // it dissolves *into* the motes instead of popping under them (T-06, the ease rule): the body
+      // shrinks and fades over the 1.6 s while the rift shell swells past it and thins out
+      const u = THREE.MathUtils.clamp((t - stateT) / DISSOLVE, 0, 1);
+      const e = ease(u);
+      dissolveU = u;
+      deer.visible = true;
+      // it must read *smaller and fainter* at every step of the filmstrip, so the whole group
+      // shrinks as well as the body, and both materials fade linearly in the ease
+      deer.scale.setScalar(1 - 0.25 * e);
+      deerMesh.body.scale.setScalar(1 - 0.70 * e);
+      deerMat.opacity = 1 - e;
+      deerMesh.rim.scale.setScalar(1 + SWELL + 0.35 * e);
+      deerRimMat.opacity = 0.75 * (1 - e);
+      deer.position.y = gonePoint.y + 0.30 * e;
+      if (!poiSet) { poiV.set(gonePoint.x, 1.3, gonePoint.z); poiSet = true; }
     } else {
       deer.visible = false;
+      dissolveU = 1;
     }
     // the motes: they rise out of where it stood, for 3.5 s
-    const age = t - (state === 'dissolving' ? stateT : stateT - 1.6);
+    const age = t - (state === 'dissolving' ? stateT : stateT - DISSOLVE);
     const alive = state !== 'here' && age < 3.5;
     for (let i = 0; i < 60; i++) {
       const s = moteSeed[i]!;
@@ -123,6 +158,7 @@ export function makeCreatures(): Creatures {
     motes.commit();
     // the fox holds 12 m: it walks away when you close, and drifts back when you do not
     const fdx = foxX - hero.x, fdz = foxZ - hero.z, fd = Math.hypot(fdx, fdz);
+    foxHold = fd;
     const want = fd < 12 ? 1.4 : fd > 16 ? -0.5 : 0;
     if (Math.abs(want) > 0.01 && fd > 0.5) {
       const step = want * dt * 1.6;
@@ -137,6 +173,7 @@ export function makeCreatures(): Creatures {
     group, update,
     poi: () => (poiSet ? poiV : null),
     dissolveNow: () => { dissolvePending = true; return 'it goes'; },
-    hud: () => [`shadow deer ${state}${state === 'gone' ? ` (reforms in ${Math.max(0, 20 - (nowT - stateT)).toFixed(0)} s)` : ''} · mirror fox holds ${Math.hypot(foxX, foxZ) > 0 ? '12' : '12'} m`],
+    probe: () => ({ state, u: Number(dissolveU.toFixed(3)), visible: deer.visible, bodyScale: Number(deerMesh.body.scale.x.toFixed(3)), bodyOpacity: Number(deerMat.opacity.toFixed(3)), rimScale: Number(deerMesh.rim.scale.x.toFixed(3)), rimOpacity: Number(deerRimMat.opacity.toFixed(3)), x: Number(deer.position.x.toFixed(2)), z: Number(deer.position.z.toFixed(2)) }),
+    hud: () => [`shadow deer ${state}${state === 'dissolving' ? ` ${(dissolveU * 100).toFixed(0)} %` : ''}${state === 'gone' ? ` (reforms in ${Math.max(0, 20 - (nowT - stateT)).toFixed(0)} s)` : ''} · mirror fox at ${foxHold.toFixed(1)} m (it holds 12)`],
   };
 }
