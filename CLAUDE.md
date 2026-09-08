@@ -73,7 +73,7 @@ Node is pinned in `.nvmrc` (24.16.0); `.npmrc` enforces exact versions and engin
 
 ## Agents (`.claude/agents/`) and the model/effort policy
 
-`archaeologist` (Phase 0) · `design-lead` (Phase 0.5 Design Bible files; documents only) · `art-director` (scores screenshots; never edits code) · `render-engineer` · `world-builder` · `systems-engineer` · `dungeon-designer` · `ui-designer` · `net-engineer` · `qa-inspector` (runs the checklist; blocks the gate). Parallelize agents whose files don't overlap; serialize anything touching `src/style/` or `src/sim/` core.
+`archaeologist` (Phase 0) · `design-lead` (Phase 0.5 Design Bible files; documents only) · `art-director` (scores screenshots; never edits code) · `render-engineer` · `world-builder` · `systems-engineer` · `dungeon-designer` · `ui-designer` · `net-engineer` · `qa-inspector` (runs the checklist; blocks the gate) · `rules-librarian` (Opus; the rule sheet per task) · `rules-auditor` (Opus; the whole ledger against a delivery) · `sandbox-builder` (Opus; demo scenes from a Fable brief). Parallelize agents whose files don't overlap; serialize anything touching `src/style/` or `src/sim/` core.
 
 Andrew's standing policy (2026-09-06):
 
@@ -87,7 +87,7 @@ Andrew's standing policy (2026-09-06):
 
 Addendum (Andrew, 2026-09-08, after the Opus 5 experiment; `docs/design/mockups/DEMO_PROGRAM.md` §5):
 
-8. **Fable 5.1 for the sandbox and every demo, Phase 1, every design and story session, every gate and review.** Opus 5 at `high` for Phase 2+ implementers **only when the task ships with executable acceptance checks** (tests or stepped probes the delivery must pass); Opus at `medium` for mechanical work. Every Opus prompt says: batch independent tool calls and read everything you need in one turn. Rules reach a build through three tiers (`DEMO_PROGRAM.md` §1): a short always-list, tagged ledger rows pulled by the task's tags, and checks; a task brief is one page and never pastes the ledger.
+8. **The delegated loop (revised 2026-09-08 for the budget shape: Fable has a fixed budget per five-hour window and per week; Opus agent tokens are plentiful).** Fable plans, authors briefs, compositions and light, reviews reports and frames, judges, commits; it writes code only for a piece that failed twice on Opus. Opus agents do everything describable in one page and checkable: `rules-librarian` and `rules-auditor` at `medium` (they replace a tag system: the librarian writes `docs/qa/rules/<task>.md` from the ledger for each task; the auditor reads the whole ledger against every delivery), implementers and `sandbox-builder` at `high`, mechanical work at `medium`, never `xhigh`. Every Opus prompt is self-contained (rules, sheet, checks, files to read, definition of done) and batches its tool calls. A wrong result goes back to a fresh Opus fixer with the finding and the check, twice, then to Fable; `SendMessage` is not available here, so no agent is resumed. Full text: `docs/design/mockups/DEMO_PROGRAM.md` §1, §5, §6.
 
 ## Hard constraints (repeat of docs/BRIEF.md §2, §4.2, §7.2)
 

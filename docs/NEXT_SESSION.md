@@ -41,6 +41,8 @@ The Opus 5 experiment was judged on its own branch (`phase-0.75-opus-experiment`
 
 Also new: **`docs/design/PRE_BUILD_TODO.md`**, the list of things to do or consider before the master build (P-01 is Andrew's experience-balance brainstorm on the story lane; P-05 is the caves' stairs, logged as T-34 with status `observed`), and `DEMO_PROGRAM.md` §1 rules 3–5 (the `misc` tag and its tidy, row status, the full-ledger read at gates).
 
+**Revised the same day for the budget shape** (Andrew: Fable has a fixed budget per five-hour window and per week, Opus agent tokens are plentiful): the tag system was dropped before it was built; `rules-librarian` and `rules-auditor` agents (Opus, medium) fetch and audit the rules instead; the fix session runs as the pilot of the delegated loop (`DEMO_PROGRAM.md` §6, the table at the top of `OPUS_FIX_PLAN.md`): Fable plans, reviews reports and frames, and commits; `sandbox-builder` agents (Opus, high) do the work with checks; a wrong result goes to a fresh Opus fixer twice, then to Fable. The three new agent files are not loadable in the turn they are written; they load at the next session start.
+
 Two review-session facts every sandbox session needs: a hidden Browser pane *and* a background Chrome tab both report `visibilityState: hidden`, so the clock stalls; step the runtime instead (`ssSave()` renders one 1/60 s frame; the fix session turns this into `_shared/step.ts`). And scene code may not write a non-active kid's `lookAt` (the runtime overwrites it each frame before the rig reads it); the fix session adds a `look` hook.
 
 ---

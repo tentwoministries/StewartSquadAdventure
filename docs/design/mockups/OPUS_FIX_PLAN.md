@@ -1,8 +1,28 @@
 # The Opus fixes: one session on the demo lane (brief written 2026-09-08 by the reviewing orchestrator)
 
-The Opus 5 experiment is judged (`docs/design/mockups/OPUS_EXPERIMENT_VERDICT.md` on branch `phase-0.75-opus-experiment`, worktree `StewartSquad-opus/`; read §0, §3 and §8 of it first, and `docs/visual-loop/opus-experiment-scores-2026-09-08.md` for the art-director's per-frame change lists). This session brings the keepers into the reel, fixes what the review found, turns the review's method into code and tests, tags the ledger, re-shoots the hero frames, and retires the experiment lane. Fable 5.1 at **high**; the orchestrator writes the sandbox directly (the logged Phase 0.75 exception). Shared files under `sandbox/_shared/` may be edited in this session, with the standing rule: a change there is checked with one frame per scene.
+The Opus 5 experiment is judged (`docs/design/mockups/OPUS_EXPERIMENT_VERDICT.md` on branch `phase-0.75-opus-experiment`, worktree `StewartSquad-opus/`; read §0, §3 and §8 of it first, and `docs/visual-loop/opus-experiment-scores-2026-09-08.md` for the art-director's per-frame change lists). This session brings the keepers into the reel, fixes what the review found, turns the review's method into code and tests, re-shoots the hero frames, and retires the experiment lane. Fable 5.1 at **high**; the orchestrator writes the sandbox directly (the logged Phase 0.75 exception). Shared files under `sandbox/_shared/` may be edited in this session, with the standing rule: a change there is checked with one frame per scene.
 
 Expected size: one session, about the cost of the review (≈ $20–30). Commit per numbered step below; `npm run check` green before each.
+
+## How this session runs: the pilot of the delegated loop (`DEMO_PROGRAM.md` §6)
+
+Fable plans, reviews and commits; Opus agents do the rest. Fable's turns: the plan, one review per task, the fix decisions, the close. The tasks, their agents and their checks:
+
+| Task | Agent · effort | Files it may touch | Acceptance checks |
+|---|---|---|---|
+| §0 preconditions, §1 cherry-picks | Fable (git) | — | `npm run check` green after the two lint picks; each scene pick is its own commit |
+| §2 the shared runtime | `sandbox-builder` · high (one agent; nothing else touches `_shared/` until it reports) | `sandbox/_shared/scene.ts`, new `step.ts`, `shot.ts` | `ssStep(60)` advances `ssWorld.hud()` clocks by exactly 1 s on a hidden pane; a scene `look` hook is honoured for a non-active kid; `ctx.stop(0.04)` zeroes the rigs' `dt`; one saved frame per existing scene unchanged to the eye |
+| §3 Home Wrong | `sandbox-builder` · high | `sandbox/shadow-wrong/` only | stepped filmstrip: the deer visible and shrinking at +0.4 s and +0.8 s of the dissolve; the swing moves visibly between two frames 0.5 s apart; frames of §4 saved |
+| §3 the Crash Meadow beat | `sandbox-builder` · high | `sandbox/meadow-golden/`, `sandbox/_shared/kid-isabella.ts` (the ribbon only) | the goblin probe (send, step 16 s, log states each second) reaches `windup` and `hit`; the ribbon's radius grows over ≥ 0.15 s; the shards fall below 0.5 m by +0.8 s; frames of §4 saved |
+| §3 the west rim | `sandbox-builder` · high | `sandbox/rim-dawn/` only | `inside()` true at the deer's feet; `findLip()` returns a point the plate contains within 1 m of the water's end; the bird burst fires within 1 s of load at S4; frames of §4 saved |
+| §3 the flight | `sandbox-builder` · high | `sandbox/flight-golden/` only | the speed test (`docs/visual-loop/` method, in `tests/unit/`): per-frame speed change under 1.5 m/s at 60 Hz, cruise within 14 ± 2 m/s, roll-out reaches 0; the bounce has two peaks in 1:0.5 and no step; bank never pinned for more than 2 s |
+| §5 tests | `systems-engineer` · medium | `tests/unit/sandbox/` | `npm run check` green; each test imports a pure function only |
+| §6 the ledger | `rules-librarian` · medium (writing, not fetching) | `docs/design/mockups/LESSONS.md` | §0 under fifteen lines; every row one line; a Misc section; the eight new rows present; no tag column |
+| audit | `rules-auditor` · medium | writes `docs/qa/rules/opus-fixes-audit.md` | a list of suspected misses with file and line, or an explicit "none" |
+| §4 scoring | `art-director` · Fable xhigh, once | `docs/visual-loop/` | one report over the nine frames |
+| §7 hub, lanes, handoff | Fable, with an Opus mechanical agent for the hub markup | `sandbox/index.html`, the lane docs | the hub lists the four scenes under their categories; the worktree removed; the handoff rewritten |
+
+Each Opus prompt is self-contained (`DEMO_PROGRAM.md` §6 step 3); a wrong result goes to a fresh Opus fixer with the finding and the check, twice, then to Fable.
 
 ## 0. Preconditions
 
@@ -43,18 +63,18 @@ About ten, all pure: the flight's schedule is monotonic and its per-frame speed 
 
 ## 6. The ledger (`LESSONS.md`; the tiers are `DEMO_PROGRAM.md` §1)
 
-Add §0 (the always-tier, under fifteen lines), add the `tags` cell to the thirty existing rows and to these new ones, and write `scripts/rules.cjs` (prints the rows whose tags match its arguments; twenty lines; lint it as the other `.cjs`):
+Add §0 (the always-tier, under fifteen lines), a **Misc** section, and these new rows, one line each (no tag column: the `rules-librarian` agent fetches by reading, `DEMO_PROGRAM.md` §1):
 
-- `process harness` · a hidden pane and a background tab both stall the clock; step the runtime with `ssStep`, never wait for a screen; read `ssWorld.hud()` not the DOM.
-- `process fight creature` · a keyed mechanic is not done until a stepped probe has shown every state reached; the goblins never attacked.
-- `creature fight` · a brake that eases to zero at the trigger distance never crosses it; brake past the line or trigger before it.
-- `rig process` · scene code may not write a non-active kid's `lookAt`; use the `look` hook.
-- `cutscene flight` · sample a spline by arc length against a speed schedule; parametric `getPoint` steps at every waypoint.
-- `props creature` · anything placed near the plate's edge asserts `inside()`; a bank is found by marching, not by subtracting a radius.
-- `light` · a telegraph seam is a small emissive; large or bright ones blow to white under bloom (T-10, again).
-- `process` · a lint fix is verified where the failure showed, with the build output present; `a05ab6b` passed in a worktree that had none.
+- (Process) a hidden pane and a background tab both stall the clock; step the runtime with `ssStep`, never wait for a screen; read `ssWorld.hud()` not the DOM.
+- (Process) a keyed mechanic is not done until a stepped probe has shown every state reached; the goblins never attacked.
+- (Rigs and animation) a brake that eases to zero at the trigger distance never crosses it; brake past the line or trigger before it.
+- (Rigs and animation) scene code may not write a non-active kid's `lookAt`; use the `look` hook.
+- (Camera) sample a spline by arc length against a speed schedule; parametric `getPoint` steps at every waypoint.
+- (Density and scale) anything placed near the plate's edge asserts `inside()`; a bank is found by marching, not by subtracting a radius.
+- (Light, fog and materials) a telegraph seam is a small emissive; large or bright ones blow to white under bloom (T-10, again).
+- (Process) a lint fix is verified where the failure showed, with the build output present; `a05ab6b` passed in a worktree that had none.
 
-Mark `story-dependent` where a row encodes a coordinate or an Act.
+Say `story-dependent` in a row that encodes a coordinate or an Act.
 
 ## 7. The hub, then the lanes
 
