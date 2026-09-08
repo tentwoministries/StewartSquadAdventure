@@ -11,6 +11,20 @@ import { makeKid, type Kid } from './rig';
 
 export const ISABELLA = { base: '#D6294E', dark: '#8A1538', accent: '#F0C040', glow: '#FFD966', hair: '#E2C070', skin: '#F2CBA7', pupil: '#2C3E50' };
 
+/** The whirl's ribbon is the one thing a hit-stop may not hold (heroes.md §2.5.7 / T-31: the stop
+ *  freezes the sim, the camera and every world system, never the effect that caused it). The rig is
+ *  handed `dt = 0` and a held clock while a stop runs, so a scene that calls `ctx.stop()` writes
+ *  `ctx.stopDt` here on every stopped frame and the ribbon keeps sweeping on it. 0 when nothing is
+ *  stopped — the ribbon then runs on the rig's own `dt` like everything else. */
+export const RIBBON_EXEMPT = { dt: 0 };
+
+/** The name the ribbon mesh carries, so a probe can read its radius: `kid.root.getObjectByName(RIBBON_NAME).scale.x`. */
+export const RIBBON_NAME = 'isabella.whirlRibbon';
+const RIBBON_R = 1.9;        // heroes.md §2.5.4: the ring is at 1.9 m
+const RIBBON_H = 0.3;        // ... and 0.3 m tall
+const RIBBON_ARC = 220;      // degrees of the swept arc (scores §4 change 7)
+const RIBBON_GROW = 0.30;    // the ease-in, well over the 0.15 s floor (Tier-0 rule 3)
+
 export function makeIsabella(): Kid {
   return makeKid(
     { name: 'Isabella', legs: 0.46, torso: 0.44, shoulder: 0.18, headR: 0.19, stance: 0.36, toesOut: 0.3, colours: ISABELLA, eye: { w: 0.07, h: 0.065, lid: 1 }, brow: 'round', smile: false },
@@ -47,13 +61,35 @@ export function makeIsabella(): Kid {
         xf(box(0.44, 0.05, 0.26, c.accent), 0, 0.09, 0), xf(box(0.44, 0.05, 0.26, c.accent), 0, -0.09, 0),
       ]).translate(0, -0.8, 0)));
       b.R.hand.add(hammer); hammer.position.set(0.02, -0.06, 0.06);
-      // the whirl ribbon: a short cylinder shell in glow, additive, hidden until the flourish
+      // The whirl ribbon (heroes.md §2.5.4: a ruby ring 0.3 m tall at 1.9 m). It is built at unit
+      // radius as a 220° open cylinder arc so the *radius* can be eased in with `scale` and the arc
+      // swept with `rotation.y`; the old full ring at 1.9 m on the first frame read as a second,
+      // larger selection ring (scores §4). The trailing fade is per-vertex: under additive blending
+      // a vertex that fades to black adds nothing, so the tail dissolves without a second material.
+      const ribGeo = new THREE.CylinderGeometry(1, 1, RIBBON_H, 30, 1, true, 0, (RIBBON_ARC * Math.PI) / 180);
+      {
+        const pos = ribGeo.getAttribute('position') as THREE.BufferAttribute;
+        const col = new Float32Array(pos.count * 3);
+        const head = new THREE.Color(c.glow).multiplyScalar(1.6), tail = new THREE.Color(c.base).multiplyScalar(0.9), tmpC = new THREE.Color();
+        for (let i = 0; i < pos.count; i++) {
+          // the arc runs from thetaStart (the leading edge) round to thetaStart + arc (the tail)
+          const a = ((Math.atan2(pos.getX(i), pos.getZ(i)) + Math.PI * 2) % (Math.PI * 2)) / ((RIBBON_ARC * Math.PI) / 180);
+          const k = THREE.MathUtils.clamp(1 - a, 0, 1);           // 1 at the head, 0 at the tail
+          tmpC.copy(tail).lerp(head, k).multiplyScalar(k * k);     // ... and to black at the tail
+          col[i * 3] = tmpC.r; col[i * 3 + 1] = tmpC.g; col[i * 3 + 2] = tmpC.b;
+        }
+        ribGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      }
       const ribbon = new THREE.Mesh(
-        new THREE.CylinderGeometry(1.9, 1.9, 0.3, 28, 1, true),
-        new THREE.MeshBasicMaterial({ color: new THREE.Color(c.glow).multiplyScalar(1.6), transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }),
+        ribGeo,
+        new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }),
       );
-      ribbon.layers.enable(BLOOM_LAYER); ribbon.position.y = 0.45; ribbon.visible = false; b.root.add(ribbon);
-      let upT = -100, rockPh = 0;
+      ribbon.name = RIBBON_NAME;
+      // a 15° tilt (scores §4 change 7) lives on a parent so the sweep stays a clean rotation.y
+      const ribTilt = new THREE.Group(); ribTilt.rotation.z = 0.26; ribTilt.position.y = 0.45;
+      ribTilt.add(ribbon);
+      ribbon.layers.enable(BLOOM_LAYER); ribTilt.visible = false; b.root.add(ribTilt);
+      let upT = -100, rockPh = 0, ribT = -1;
       return {
         flourishLen: 2.4,
         update: ({ t, dt, idle, blend, fl }) => {
@@ -88,14 +124,22 @@ export function makeIsabella(): Kid {
             const out = THREE.MathUtils.smoothstep(fl, 0, 0.2) * (1 - THREE.MathUtils.smoothstep(fl, 0.85, 1.15));
             b.L.sh.rotation.z = 1.45 * out; b.R.sh.rotation.z = -1.45 * out; b.L.sh.rotation.x = 0; b.R.sh.rotation.x = 0; b.L.fa.rotation.x = 0; b.R.fa.rotation.x = 0; b.L.sh.rotation.y = 0;
             hammer.rotation.z = 1.6 * out; hammer.rotation.x = 0;
-            ribbon.visible = out > 0.02;
-            (ribbon.material).opacity = 0.55 * out;
-            ribbon.rotation.y = -spinU * Math.PI * 4;
+            // the ribbon runs on its own clock: `dt` normally, `ctx.stopDt` while a hit-stop holds
+            // the rig (T-31 — the stop may not freeze the effect that caused it)
+            ribT = ribT < 0 ? fl : ribT + (dt > 0 ? dt : RIBBON_EXEMPT.dt);
+            const grow = THREE.MathUtils.smoothstep(ribT, 0, RIBBON_GROW);
+            const ribOut = THREE.MathUtils.smoothstep(ribT, 0, 0.12) * (1 - THREE.MathUtils.smoothstep(ribT, 0.62, 0.92));
+            const rad = 0.28 + (RIBBON_R - 0.28) * grow;
+            ribTilt.visible = ribOut > 0.02;
+            ribbon.scale.set(rad, 1, rad);
+            // the arc sweeps ahead of the body and keeps turning after the radius is full
+            ribbon.rotation.y = -(spinU * Math.PI * 4 + ribT * 2.2);
+            (ribbon.material).opacity = 0.6 * ribOut;
             const hop = Math.sin(THREE.MathUtils.clamp((fl - 1.05) / 0.4, 0, 1) * Math.PI);
             b.spin.position.y = 0.28 * hop;
             const look = THREE.MathUtils.smoothstep(fl, 1.5, 1.9);
             b.head.rotation.y += 0.7 * look; b.head.rotation.x += 0.1 * look;
-          } else { b.spin.rotation.y = 0; b.spin.position.y = 0; ribbon.visible = false; }
+          } else { b.spin.rotation.y = 0; b.spin.position.y = 0; ribTilt.visible = false; ribbon.scale.set(0.28, 1, 0.28); ribT = -1; }
         },
       };
     },

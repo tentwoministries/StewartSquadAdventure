@@ -236,19 +236,23 @@ export function runScene(def: SceneDef): void {
   window.addEventListener('resize', fit); fit();
 
   // loop
-  let t = params.freeze ? 12.3 : 0, last = performance.now(), stopLeft = 0;
+  let t = params.freeze ? 12.3 : 0, simT = t, last = performance.now(), stopLeft = 0;
   const ctx: SceneCtx = {
     hemiSky, active: active(), camera, keyDir, freeze, stopped: false, stopDt: 0,
     stop: (seconds: number) => { stopLeft = Math.max(stopLeft, seconds); },
   };
   function renderOnce(dt: number): void {
-    if (!freeze) t += dt;
-    // hit-stop (T-31): while the timer runs, the walk, the rigs and world.update are handed dt 0.
-    // The clock and ctx.stopDt keep the wall dt, so a scene can still step whatever it exempts.
+    // hit-stop (T-31): while the timer runs, the walk, the rigs and world.update are handed dt 0
+    // *and* the held sim clock `simT` (a rig's t-driven terms — breath, blink, the walk cycle's leg
+    // swing — would otherwise keep moving through a stop). The wall clock `t` and ctx.stopDt keep
+    // the wall dt: `t` drives uTime, the sky and the saved-frame clock, ctx.stopDt is the channel a
+    // scene steps whatever it exempts by (the hit that caused the stop, and its debris).
+    // With no stop ever called, simT === t exactly, so every other scene is unchanged.
     ctx.stopDt = dt;
     ctx.stopped = stopLeft > 0;
     if (ctx.stopped) stopLeft -= dt;
     const sdt = ctx.stopped ? 0 : dt;
+    if (!freeze) { t += dt; simT += sdt; }
     WORLD_U.uTime.value = t;
     if (sky) sky.starU.uTime.value = t;
     const a = active();
@@ -265,12 +269,12 @@ export function runScene(def: SceneDef): void {
         if (at) k.lookAt.copy(at);
         else k.lookAt.set(a.root.position.x, a.root.position.y + 1.0, a.root.position.z);
       }
-      k.update(t, sdt, k === a && walk.moving);
+      k.update(simT, sdt, k === a && walk.moving);
     }
     // the key light and its shadow box follow the active kid, so shadows never run out when walking
     key.target.position.set(a.root.position.x, 0, a.root.position.z);
     key.position.copy(key.target.position).addScaledVector(keyDir, 70);
-    world.update(t, sdt, kf, ctx);
+    world.update(simT, sdt, kf, ctx);
     if (sky) {
       sky.clouds.forEach((c) => { c.mesh.position.set(c.base.x + t * 0.4 * (c.base.y > 0 ? 1 : 0.5), c.base.y + Math.sin(t * 0.25 + c.phase) * 0.4, c.base.z); });
       sky.group.position.set(camera.position.x, 0, camera.position.z);

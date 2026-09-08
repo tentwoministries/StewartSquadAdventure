@@ -4,18 +4,27 @@
 // 0.04 s and screenShake(4, 0.15). The plate is the Forest scene's, centred on the meadow at (44, 0).
 // URL: ?shot=S3&t=golden   Keys: O shows them.
 import * as THREE from 'three';
-import { makeIsabella } from '../_shared/kid-isabella';
+import { makeIsabella, RIBBON_EXEMPT, RIBBON_NAME } from '../_shared/kid-isabella';
 import { makeLiam } from '../_shared/kid-liam';
 import { WORLD_U } from '../_shared/material';
 import { drifters, makePoints } from '../_shared/particles';
 import { BLOOM_LAYER } from '../_shared/post';
-import { runScene } from '../_shared/scene';
+import { runScene, type SceneWorld } from '../_shared/scene';
 import type { Station } from '../_shared/shot';
 import { C, KEYFRAMES, VARIANT_NOTES, variant } from '../_shared/style';
 import { makeScatter, makeTrees } from '../forest-dusk/scatter';
 import { groundY, makeTerrain } from '../forest-dusk/terrain';
 import { makeGoblins } from './goblins';
-import { CAMP, makeProps } from './props';
+import { CAMP, makeMeadowScatter, makeProps, MEADOW } from './props';
+
+// heroes.md §2.5.7 fixes the hit-stop sites: Ground Pound impact 0.06 s, a third-hit finisher on
+// connect 0.04 s, and "nothing else may add hit-stop without a §6 line". The whirl connect is not a
+// listed site, so it takes the finisher's 0.04; the Ground Pound takes its own 0.06.
+const STOP_WHIRL = 0.04, STOP_POUND = 0.06;
+
+const ISA = makeIsabella(), LIAM = makeLiam();
+/** The ribbon's current radius in metres, for the stepped probe (0 when it is not up). */
+const ribbonRadius = (): number => (ISA.root.getObjectByName(RIBBON_NAME) as THREE.Mesh | undefined)?.scale.x ?? 0;
 
 // `?beat=1` sets the three goblins down inside the meadow beside Isabella and fires the whirl on
 // the first frame, so the connect frame is reproducible from a URL instead of from timing a keypress
@@ -23,7 +32,10 @@ import { CAMP, makeProps } from './props';
 const BEAT = new URLSearchParams(location.search).get('beat') === '1';
 
 const STATIONS: Record<string, Station> = {
-  S1: { name: 'The meadow', target: [44, 0.8, 0], yaw: 300, pitch: 40, d: 24, note: "the camp's palisade, the totems, Isabella and Liam, the furrow's end" },
+  // T-30: the note is read off the render, not written beside the numbers. The camera these numbers
+  // give is (59.9, 16.2, 9.2) looking WNW along bearing 240°, so the frame spans bearings 213°–267°
+  // and depressions 22.5°–57.5° from it — which is where each thing below actually falls.
+  S1: { name: 'The meadow', target: [44, 0.8, 0], yaw: 300, pitch: 40, d: 24, note: "goblin camp A upper-right (palisade, cook-fire, cart and cage), the furrow's wreck-heap upper-left, Isabella and Liam centre with their rings, the moved totem left of them, long golden shadows across the grass; no tree enters at pitch 40 — L1 is the framing that has them" },
   S2: { name: 'Goblin camp A', target: [40, 0.9, -14], yaw: 20, pitch: 38, d: 18, note: 'the gap, the cart and the cage, the cook-fire' },
   S3: { name: 'The beat', target: [44, 0.9, 2], yaw: 330, pitch: 34, d: 14, note: 'the fight at the distance the game plays at' },
   S4: { name: 'The totem', target: [58, 1.2, 18], yaw: 250, pitch: 20, d: 9, note: 'the carved face, the rag streamer, the skull on its spike' },
@@ -38,7 +50,7 @@ runScene({
   keyframes: KEYFRAMES, times: ['golden', 'noon', 'dusk'], defaultTime: 'golden',
   variants: { ids: ['A', 'B', 'C'], notes: VARIANT_NOTES, apply: variant },
   stations: STATIONS, defaultShot: 'S1', extras: ['W1', 'L1', 'CU'],
-  kids: [makeIsabella(), makeLiam()],
+  kids: [ISA, LIAM],
   place: (kid, i, _shot, gy) => {
     // Isabella at (44, 2) facing 150; Liam 2.5 m behind her left shoulder, idle
     const [x, z] = i === 0 ? [44, 2] : [42.2, 3.6];
@@ -67,8 +79,13 @@ runScene({
       im.instanceMatrix.needsUpdate = true;
     });
     scene.add(trees.group);
-    const scatter = makeScatter([...props.footprints, { x: 44, z: 0, r: 0 }], trees.trunks);
+    // T-09 / T-22: the Forest's scatter is cleared out of the meadow (its six flower colours and its
+    // autumn-leaf litter read as confetti at every wide station here) and re-made by
+    // `makeMeadowScatter` at T-09's densities in clusters, with T-22's olive-brown litter.
+    const scatter = makeScatter([...props.footprints, { x: MEADOW.x, z: MEADOW.z, r: MEADOW.r }], trees.trunks);
     scene.add(scatter.group);
+    const meadowScatter = makeMeadowScatter(props.footprints);
+    scene.add(meadowScatter.group);
     const goblins = makeGoblins(props.gap, groundY, BEAT ? [[42.9, 1.2], [45.3, 2.5], [44.1, 3.4]] : [[CAMP.x - 1.4, CAMP.z + 1.6], [CAMP.x + 1.2, CAMP.z + 1.0], [CAMP.x - 0.2, CAMP.z - 1.8]]);
     scene.add(goblins.group);
     // pollen over the meadow (the Forest fx set, 220 points, alpha x0.7); fireflies are off at golden
@@ -81,35 +98,39 @@ runScene({
     );
     ring.rotation.x = -Math.PI / 2; ring.layers.enable(BLOOM_LAYER); ring.visible = false;
     scene.add(ring);
-    const dust = makePoints(12, '#8A6A3E', 5, 0.9, false);
+    // the dust puff: twelve points at a size that reads at gameplay distance (5 px at 14 m was 6 px
+    // on the frame and invisible; 26 is about 33 px) in pale dust rather than the goblins' rust
+    const dust = makePoints(12, '#C9B08A', 26, 1.5, true);
     scene.add(dust.pts);
 
-    let shakeT = -100, stopT = -100, poundT = -100, ringFlash = -100, lastSpin = 0, armed = BEAT;
+    let shakeT = -100, poundT = -100, poundFx = -100, ringFlash = -100, lastSpin = 0, armed = BEAT;
+    let fxT = 0;   // the hit-stop-exempt clock (T-31): the effect that caused a stop, and its debris
     const dustAt = new THREE.Vector3(), camBase = new THREE.Vector3();
     const hero = new THREE.Vector3();
-    return {
+    const world: SceneWorld & { probe: () => unknown } = {
       groundY, blockers: [...props.footprints, ...trees.trunks], waterY: -0.25,
       update: (t, dt, kf, ctx) => {
         WORLD_U.uCurveCenter.value.set(44, 0);
+        // T-31: the hit-stop is the runtime's now (ctx.stop). `t`/`dt` are already held while it
+        // runs; `fxT` is the wall clock the exempt effects keep, and RIBBON_EXEMPT is the same
+        // channel for the ribbon, which lives in the rig and would otherwise freeze with it.
+        fxT += ctx.stopDt;
+        RIBBON_EXEMPT.dt = ctx.stopped ? ctx.stopDt : 0;
         if (poundT === -1) poundT = t; // the key stamps a marker; the clock is owned here
         if (armed) { armed = false; ctx.active.flourish(); }
-        // hit-stop: the scene's dt is zeroed for 0.04 s (heroes.md §2.5.7's third added site).
-        // The ribbon and the shards keep their own clock, as the plan asks.
-        const stopped = t - stopT < 0.04;
-        const sdt = stopped ? 0 : dt;
-        props.update(t, sdt, kf);
+        props.update(t, dt, kf);
         const iz = ctx.active;
         hero.copy(iz.root.position);
-        goblins.update(t, sdt, hero, () => {
+        goblins.update(t, dt, hero, () => {
           // the hit: her ring flashes white for 0.15 s and the camera shakes 4 px / 0.15 s
           ringFlash = t; shakeT = t;
-        });
+        }, fxT);
         pollen.update(t, kf.pollen);
-        // X: the whirl. The connect is the first frame past 180° of the first turn (about 0.2 s in)
+        // X: the whirl. The connect is the first frame past 180° of the first turn (about 0.26 s in)
         const spin = iz.bones.spin.rotation.y;
         if (spin >= Math.PI && lastSpin < Math.PI) {
           const n = goblins.strike(hero, 1.9);
-          if (n > 0) { stopT = t; shakeT = t; ringFlash = t; }
+          if (n > 0) { ctx.stop(STOP_WHIRL); RIBBON_EXEMPT.dt = ctx.stopDt; shakeT = t; ringFlash = t; }
         }
         lastSpin = spin;
         // G: the Ground Pound. 0.10 crouch, 0.15 airborne (0.5 m), impact at 0.30
@@ -122,25 +143,30 @@ runScene({
           b.R.sh.rotation.x = pa < 0.30 ? -2.4 : -0.6; b.L.sh.rotation.x = pa < 0.30 ? -2.4 : -0.6;
           if (pa >= 0.30 && pa < 0.30 + dt) {
             const n = goblins.strike(hero, 2.5);
-            stopT = t; shakeT = t; ringFlash = t;
-            dustAt.copy(hero); void n;
+            ctx.stop(STOP_POUND); RIBBON_EXEMPT.dt = ctx.stopDt;
+            shakeT = t; ringFlash = t;
+            dustAt.copy(hero); poundFx = fxT; void n;
           }
-          const ru = (pa - 0.30) / 0.35;
-          ring.visible = ru >= 0 && ru <= 1;
-          if (ring.visible) {
-            ring.position.set(hero.x, groundY(hero.x, hero.z) + 0.04, hero.z);
-            const rr = 0.4 + ru * 2.1;
-            ring.scale.set(rr, rr, 1);
-            (ring.material).opacity = 0.9 * (1 - ru);
-          }
-        } else ring.visible = false;
+        }
+        // the ring decal and the puff are the impact's own effects: they run on fxT, not on the
+        // held sim clock, so a 0.06 s stop punctuates them instead of freezing them
+        const ru = (fxT - poundFx) / 0.35;
+        ring.visible = poundFx > 0 && ru >= 0 && ru <= 1;
+        if (ring.visible) {
+          ring.position.set(dustAt.x, groundY(dustAt.x, dustAt.z) + 0.04, dustAt.z);
+          const rr = 0.4 + ru * 2.1;
+          ring.scale.set(rr, rr, 1);
+          (ring.material).opacity = 0.9 * (1 - ru);
+        }
+        // the puff: a low ring of twelve, out fast and settling, alive 0.7 s
         for (let i = 0; i < 12; i++) {
-          const age = t - poundT - 0.30 - i * 0.012;
-          const alive = age > 0 && age < 0.9;
-          dust.pos[i * 3] = dustAt.x + Math.cos(i * 1.9) * (0.3 + age * 1.6);
-          dust.pos[i * 3 + 1] = groundY(dustAt.x, dustAt.z) + 0.1 + age * 0.7 - age * age * 0.6;
-          dust.pos[i * 3 + 2] = dustAt.z + Math.sin(i * 1.9) * (0.3 + age * 1.6);
-          dust.alpha[i] = alive ? (1 - age / 0.9) * 0.8 : 0;
+          const age = fxT - poundFx - i * 0.012;
+          const alive = poundFx > 0 && age > 0 && age < 0.7;
+          const spread = 0.25 + (1 - Math.exp(-age * 3.4)) * 1.35;
+          dust.pos[i * 3] = dustAt.x + Math.cos(i * 1.9 + 0.4) * spread;
+          dust.pos[i * 3 + 1] = groundY(dustAt.x, dustAt.z) + 0.12 + age * 1.05 - age * age * 1.1;
+          dust.pos[i * 3 + 2] = dustAt.z + Math.sin(i * 1.9 + 0.4) * spread;
+          dust.alpha[i] = alive ? Math.min(1, age / 0.05) * (1 - age / 0.7) * 0.95 : 0;
         }
         dust.commit();
         // the ring flash on her selection ring, and the shake
@@ -150,13 +176,21 @@ runScene({
         const sa = t - shakeT;
         if (sa >= 0 && sa < 0.15) {
           // 4 px at 1600 px wide is 0.0025 of the frame; at this station that is about 3.5 cm
-          if (sa < dt * 1.5) camBase.copy(ctx.camera.position);
+          if (sa < Math.max(dt, ctx.stopDt) * 1.5) camBase.copy(ctx.camera.position);
           const k = (1 - sa / 0.15) * 0.0025 * 2 * ctx.camera.position.distanceTo(hero) * Math.tan((35 * Math.PI) / 360) * 1.6;
           ctx.camera.position.set(camBase.x + Math.sin(sa * 190) * k, camBase.y + Math.cos(sa * 160) * k, camBase.z + Math.sin(sa * 145 + 1) * k);
         }
       },
       poi: () => goblins.poi(),
-      hud: () => [goblins.hud(), `meadow x 22-62, z ±22 · trees cleared inside r 22 of (44, 0): ${cleared} · whirl r 1.9 at 180° of turn 1 · pound r 2.5 at 0.30 s`],
+      hud: () => [goblins.hud(), `meadow x 22-62, z ±22 · trees cleared inside r 22 of (44, 0): ${cleared} · whirl r 1.9 at 180° of turn 1 · pound r 2.5 at 0.30 s · hit-stop ${STOP_WHIRL}/${STOP_POUND}`],
+      // what a stepped probe reads (OPUS_FIX_PLAN.md §6: a mechanic is not done until a probe has
+      // shown every state); kept, it costs nothing
+      probe: () => ({
+        ...goblins.probe(), fxT, ribbonR: ribbonRadius(),
+        dustLive: [...dust.alpha].filter((a) => a > 0.02).length,
+        dustMaxAlpha: Math.max(...dust.alpha),
+        ringOpacity: ring.visible ? ring.material.opacity : 0,
+      }),
       keys: {
         '0': { help: 'send the goblins', run: () => goblins.sendAll() },
         g: { help: 'Ground Pound', run: () => { poundT = -1; return 'GROUND POUND'; } },
@@ -164,5 +198,6 @@ runScene({
         ']': { help: 'goblins faster', run: () => { goblins.speed.value = Math.min(5, Math.round((goblins.speed.value + 0.25) * 1000) / 1000); return `${goblins.speed.value} m/s`; } },
       },
     };
+    return world;
   },
 });

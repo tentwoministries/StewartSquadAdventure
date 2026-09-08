@@ -13,8 +13,17 @@ const CY = (rt: number, rb: number, h: number, seg: number, hex: string) => colo
 const GOB = { base: '#7E3320', dark: '#5A2312', accent: '#E6DCC3', pupil: '#1C1A22', club: '#8B3A1E' };
 export const SPD = 2.125;   // 85 px/s at 40 px per m
 const WINDUP = 0.35, RECOVER = 0.65, REACH = 1.0, HIT_R = 0.25;
+/** The skid's target distance. `enemies.md` §2.4 triggers the windup at the cone's line (REACH), and
+ *  a brake that eases to zero *at* that line converges on it and never crosses it — the defect the
+ *  review found (three goblins parked at 1.00 m for sixteen seconds). The skid now aims 0.2 m past
+ *  the line, so the 0.2 s skid ends inside reach and the trigger stays at the bible's number. */
+const BRAKE_TO = REACH - 0.2;
+// the shatter (enemies.md §2.5 "Death styles in 3D"): 8 shards, 2.0–5.5 m/s, gravity 3.75 m/s², drag
+const SHARD_G = 3.75, SHARD_DRAG = 3.5, SHARD_FLIGHT = 0.5, SHARD_LIFE = 0.9;
 
 export type GobState = 'idle' | 'chase' | 'windup' | 'hit' | 'recover' | 'dead';
+
+export interface GobProbe { i: number; state: GobState; d: number; x: number; z: number }
 
 export interface Goblins {
   group: THREE.Group;
@@ -22,9 +31,12 @@ export interface Goblins {
   /** Every goblin alive inside `r` of `p` shatters. Returns how many. */
   strike: (p: THREE.Vector3, r: number) => number;
   sendAll: () => string;
-  update: (t: number, dt: number, hero: THREE.Vector3, onHit: () => void) => void;
+  /** `fxT` is the hit-stop-exempt clock the debris runs on (T-31); `t`/`dt` are the held sim clock. */
+  update: (t: number, dt: number, hero: THREE.Vector3, onHit: () => void, fxT: number) => void;
   poi: () => THREE.Vector3 | null;
   hud: () => string;
+  /** What a stepped probe reads: every goblin's state and its distance to the hero, and the shards. */
+  probe: () => { goblins: GobProbe[]; shardsLive: number; shardMaxY: number; felled: number };
 }
 
 function goblinBody(): { root: THREE.Group; spin: THREE.Group; head: THREE.Group; club: THREE.Group; legs: THREE.Group[]; arms: THREE.Group[] } {
@@ -81,9 +93,23 @@ export function makeGoblins(gap: THREE.Vector3, groundY: (x: number, z: number) 
   shards.frustumCulled = false; shards.castShadow = true;
   group.add(shards);
   const shardM = new THREE.Matrix4(), shardQ = new THREE.Quaternion(), shardP = new THREE.Vector3(), shardS = new THREE.Vector3();
-  const shardSeed = Array.from({ length: 24 }, () => ({ v: new THREE.Vector3((r() - 0.5) * 2, 0.5 + r(), (r() - 0.5) * 2).normalize().multiplyScalar(3), b: -100, o: new THREE.Vector3() }));
+  // the fan is flat, not an umbrella: the old seed took y in [0.5, 1.5] before normalising, so every
+  // shard went up together and read as a brown dome. Now the rise is 0.14–0.42 of a mostly
+  // horizontal direction, at the bible's 2.0–5.5 m/s.
+  const shardSeed = Array.from({ length: 24 }, () => {
+    const a = r() * Math.PI * 2, up = 0.14 + r() * 0.28;
+    return {
+      v: new THREE.Vector3(Math.cos(a), up, Math.sin(a)).normalize().multiplyScalar(2.0 + r() * 3.5),
+      spin: new THREE.Vector3(r() - 0.5, r() - 0.5, r() - 0.5).normalize(),
+      b: -100, gy: 0, o: new THREE.Vector3(),
+    };
+  });
   for (let i = 0; i < 24; i++) shards.setMatrixAt(i, new THREE.Matrix4().makeScale(0, 0, 0));
-  let shardNext = 0;
+  // per-instance colour, so the first 0.08 s of a shatter flashes gold (scores §4 change 7).
+  // shardMat is not the emissive variant, so instanceColor here is a plain diffuse multiplier.
+  const shardCol = new THREE.Color();
+  for (let i = 0; i < 24; i++) shards.setColorAt(i, shardCol.setRGB(1, 1, 1));
+  let shardNext = 0, shardsLive = 0, shardMaxY = 0;
 
   // the cone telegraph: a 70° half-angle sector 1.0 m long that fills from the goblin outward
   const coneGeo = new THREE.CircleGeometry(REACH, 16, -1.2217, 2.4435); // ±70°
@@ -98,13 +124,13 @@ export function makeGoblins(gap: THREE.Vector3, groundY: (x: number, z: number) 
     return { ...body, cone, x: hx, z: hz, heading: r() * 6.28, state: 'idle', st: 0, home: [hx, hz] as [number, number], phase: i * 0.7, deadAt: -100, flash: 0 };
   });
 
-  const poiV = new THREE.Vector3();
+  const poiV = new THREE.Vector3(), heroAt = new THREE.Vector3();
   let poiSet = false, killed = 0;
 
-  const shatter = (x: number, y: number, z: number, t: number): void => {
+  const shatter = (x: number, y: number, z: number, fxT: number): void => {
     for (let k = 0; k < 8; k++) {
       const s = shardSeed[shardNext % 24]!;
-      s.b = t; s.o.set(x, y + 0.35, z);
+      s.b = fxT; s.gy = y; s.o.set(x, y + 0.35, z);
       shardNext++;
     }
   };
@@ -121,10 +147,11 @@ export function makeGoblins(gap: THREE.Vector3, groundY: (x: number, z: number) 
     return n;
   };
 
-  const update = (t: number, dt: number, hero: THREE.Vector3, onHit: () => void): void => {
+  const update = (t: number, dt: number, hero: THREE.Vector3, onHit: () => void, fxT: number): void => {
     poiSet = false;
+    heroAt.copy(hero);
     for (const m of mobs) {
-      if (m.state === 'dead' && m.deadAt === -1) { m.deadAt = t; shatter(m.x, groundY(m.x, m.z), m.z, t); }
+      if (m.state === 'dead' && m.deadAt === -1) { m.deadAt = t; shatter(m.x, groundY(m.x, m.z), m.z, fxT); }
       const d = Math.hypot(hero.x - m.x, hero.z - m.z);
       m.st += dt;
       if (m.state === 'dead') {
@@ -141,13 +168,13 @@ export function makeGoblins(gap: THREE.Vector3, groundY: (x: number, z: number) 
         if (m.st >= RECOVER) { m.state = 'chase'; m.st = 0; }
       }
       // the low bobbing sprint: arms back, head forward, a 0.2 s skid into the stop
-      const moving = m.state === 'chase' && d > REACH * 0.9;
+      const moving = m.state === 'chase' && d > BRAKE_TO;
       if (moving) {
         const want = Math.atan2(hero.x - m.x, hero.z - m.z);
         let diff = want - m.heading;
         diff = Math.atan2(Math.sin(diff), Math.cos(diff));
         m.heading += diff * Math.min(1, dt * 7);
-        const brake = THREE.MathUtils.smoothstep(d, REACH, REACH + speed.value * 0.2); // the skid
+        const brake = THREE.MathUtils.smoothstep(d, BRAKE_TO, BRAKE_TO + speed.value * 0.2); // the skid, past the line
         m.x += Math.sin(m.heading) * speed.value * brake * dt;
         m.z += Math.cos(m.heading) * speed.value * brake * dt;
       } else if (m.state !== 'dead') {
@@ -181,24 +208,44 @@ export function makeGoblins(gap: THREE.Vector3, groundY: (x: number, z: number) 
       if (showCone) { const u = m.st / WINDUP; m.cone.scale.set(u, 1, u); (m.cone.material).opacity = 0.22 + 0.5 * u; }
       if (!poiSet && m.state !== 'dead') { poiV.set(m.x, 0.7, m.z); poiSet = true; }
     }
-    // the shards: 3 m/s outward, gravity, gone in 0.8 s
+    // The shards (enemies.md §2.5): a flat fan at 2.0–5.5 m/s with drag, gravity 3.75 m/s²; they are
+    // on the ground inside SHARD_FLIGHT and then lie there shrinking away, so a +0.8 s frame shows
+    // debris in the grass instead of an umbrella over the kill. They run on the exempt clock (T-31).
+    shardsLive = 0; shardMaxY = 0;
     for (let i = 0; i < 24; i++) {
       const s = shardSeed[i]!;
-      const age = t - s.b;
-      if (age < 0 || age > 0.8) { shards.setMatrixAt(i, shardM.makeScale(0, 0, 0)); continue; }
-      const k = 1 - age / 0.8;
-      shardP.set(s.o.x + s.v.x * age, s.o.y + s.v.y * age - 4.2 * age * age, s.o.z + s.v.z * age);
-      shardQ.setFromAxisAngle(s.v, age * 9);
-      shardS.setScalar(0.5 + 0.5 * k);
+      const age = fxT - s.b;
+      if (age < 0 || age > SHARD_LIFE) { shards.setMatrixAt(i, shardM.makeScale(0, 0, 0)); continue; }
+      // drag damps the throw to an asymptote; gravity keeps pulling until the shard lies on the grass
+      const trav = (1 - Math.exp(-SHARD_DRAG * age)) / SHARD_DRAG;
+      const rest = s.gy + 0.06;                                          // where a shard comes to lie
+      shardP.set(
+        s.o.x + s.v.x * trav,
+        Math.max(rest, s.o.y + s.v.y * trav - 0.5 * SHARD_G * age * age),
+        s.o.z + s.v.z * trav,
+      );
+      shardQ.setFromAxisAngle(s.spin, Math.min(age, SHARD_FLIGHT + 0.1) * 11);
+      // full size through the flight, then gone by SHARD_LIFE (nothing pops: an eased shrink)
+      shardS.setScalar(1 - 0.85 * THREE.MathUtils.smoothstep(age, SHARD_FLIGHT * 0.6, SHARD_LIFE));
       shards.setMatrixAt(i, shardM.compose(shardP, shardQ, shardS));
+      // the two-frame gold flash on a fresh shatter
+      const flash = 1 - THREE.MathUtils.smoothstep(age, 0, 0.08);
+      shards.setColorAt(i, shardCol.setRGB(1 + 1.6 * flash, 1 + 1.4 * flash, 1 + 0.7 * flash));
+      shardsLive++;
+      shardMaxY = Math.max(shardMaxY, shardP.y - s.gy);
     }
     shards.instanceMatrix.needsUpdate = true;
+    if (shards.instanceColor) shards.instanceColor.needsUpdate = true;
   };
 
   return {
     group, speed, strike, update,
     sendAll: () => { for (const m of mobs) if (m.state === 'idle') { m.state = 'chase'; m.st = 0; } return 'they come'; },
     poi: () => (poiSet ? poiV : null),
-    hud: () => `goblins ${mobs.map((m) => m.state).join('/')} · hit-stop 0.04 · shake 4/0.15 · spd ${speed.value.toFixed(3)} m/s · felled ${killed}`,
+    hud: () => `goblins ${mobs.map((m) => m.state).join('/')} · brake to ${BRAKE_TO} m, windup at ${REACH} m · shake 4/0.15 · spd ${speed.value.toFixed(3)} m/s · felled ${killed}`,
+    probe: () => ({
+      goblins: mobs.map((m, i) => ({ i, state: m.state as GobState, d: Math.hypot(heroAt.x - m.x, heroAt.z - m.z), x: m.x, z: m.z })),
+      shardsLive, shardMaxY, felled: killed,
+    }),
   };
 }
