@@ -7,21 +7,17 @@ import * as THREE from 'three';
 import { colorize, makeWorldMaterial, mergeGeos, xf } from '../_shared/material';
 import { BLOOM_LAYER } from '../_shared/post';
 import { rng } from '../_shared/rng';
+// The state machine itself is pure and lives next door, so `tests/unit/sandbox/goblins.test.ts` can
+// run the loop at 60 Hz without a renderer; this file keeps the meshes and the side effects.
+import { BRAKE_TO, gobStep, HIT_R, REACH, SPD, WINDUP, type GobState } from './goblin-step';
+
+export { SPD, type GobState };
 
 const B = (w: number, h: number, d: number, hex: string) => colorize(new THREE.BoxGeometry(w, h, d), hex);
 const CY = (rt: number, rb: number, h: number, seg: number, hex: string) => colorize(new THREE.CylinderGeometry(rt, rb, h, seg), hex);
 const GOB = { base: '#7E3320', dark: '#5A2312', accent: '#E6DCC3', pupil: '#1C1A22', club: '#8B3A1E' };
-export const SPD = 2.125;   // 85 px/s at 40 px per m
-const WINDUP = 0.35, RECOVER = 0.65, REACH = 1.0, HIT_R = 0.25;
-/** The skid's target distance. `enemies.md` §2.4 triggers the windup at the cone's line (REACH), and
- *  a brake that eases to zero *at* that line converges on it and never crosses it — the defect the
- *  review found (three goblins parked at 1.00 m for sixteen seconds). The skid now aims 0.2 m past
- *  the line, so the 0.2 s skid ends inside reach and the trigger stays at the bible's number. */
-const BRAKE_TO = REACH - 0.2;
 // the shatter (enemies.md §2.5 "Death styles in 3D"): 8 shards, 2.0–5.5 m/s, gravity 3.75 m/s², drag
 const SHARD_G = 3.75, SHARD_DRAG = 3.5, SHARD_FLIGHT = 0.5, SHARD_LIFE = 0.9;
-
-export type GobState = 'idle' | 'chase' | 'windup' | 'hit' | 'recover' | 'dead';
 
 export interface GobProbe { i: number; state: GobState; d: number; x: number; z: number }
 
@@ -115,13 +111,17 @@ export function makeGoblins(gap: THREE.Vector3, groundY: (x: number, z: number) 
   const coneGeo = new THREE.CircleGeometry(REACH, 16, -1.2217, 2.4435); // ±70°
   coneGeo.rotateX(-Math.PI / 2);
 
+  // `state` starts at `idle` and must infer as the whole `GobState` union, not as the literal
+  // (a `const` annotated with a union is still narrowed to its initialiser at the use site), so it
+  // is spread in from a typed holder
+  const start: { state: GobState } = { state: 'idle' };
   const mobs = home.map(([hx, hz], i) => {
     const body = goblinBody();
     const cone = new THREE.Mesh(coneGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(GOB.base).multiplyScalar(2.6), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
     cone.position.y = 0.05; cone.layers.enable(BLOOM_LAYER); cone.visible = false;
     body.root.add(cone);
     group.add(body.root);
-    return { ...body, cone, x: hx, z: hz, heading: r() * 6.28, state: 'idle', st: 0, home: [hx, hz] as [number, number], phase: i * 0.7, deadAt: -100, flash: 0 };
+    return { ...body, cone, x: hx, z: hz, heading: r() * 6.28, ...start, st: 0, home: [hx, hz] as [number, number], phase: i * 0.7, deadAt: -100, flash: 0 };
   });
 
   const poiV = new THREE.Vector3(), heroAt = new THREE.Vector3();
@@ -153,30 +153,23 @@ export function makeGoblins(gap: THREE.Vector3, groundY: (x: number, z: number) 
     for (const m of mobs) {
       if (m.state === 'dead' && m.deadAt === -1) { m.deadAt = t; shatter(m.x, groundY(m.x, m.z), m.z, fxT); }
       const d = Math.hypot(hero.x - m.x, hero.z - m.z);
-      m.st += dt;
-      if (m.state === 'dead') {
-        if (t - m.deadAt > 6) { m.state = 'chase'; m.st = 0; m.x = gap.x + (r() - 0.5); m.z = gap.z + (r() - 0.5); m.root.visible = true; }
-      } else if (m.state === 'idle') {
-        if (d < 14) { m.state = 'chase'; m.st = 0; }
-      } else if (m.state === 'chase') {
-        if (d <= REACH) { m.state = 'windup'; m.st = 0; }
-      } else if (m.state === 'windup') {
-        if (m.st >= WINDUP) { m.state = 'hit'; m.st = 0; if (d <= REACH + HIT_R) onHit(); }
-      } else if (m.state === 'hit') {
-        if (m.st >= 0.08) { m.state = 'recover'; m.st = 0; }
-      } else if (m.state === 'recover') {
-        if (m.st >= RECOVER) { m.state = 'chase'; m.st = 0; }
+      // the transitions and the skid brake, from `goblin-step.ts`; the two side effects it can ask
+      // for are the club's connect and the 6 s walk back out of the palisade's gap
+      const step = gobStep(m.state, m.st, d, dt, speed.value, t - m.deadAt);
+      m.state = step.state; m.st = step.st;
+      for (const e of step.events) {
+        if (e === 'hit') onHit();
+        else { m.x = gap.x + (r() - 0.5); m.z = gap.z + (r() - 0.5); m.root.visible = true; }
       }
       // the low bobbing sprint: arms back, head forward, a 0.2 s skid into the stop
-      const moving = m.state === 'chase' && d > BRAKE_TO;
+      const moving = step.moving;
       if (moving) {
         const want = Math.atan2(hero.x - m.x, hero.z - m.z);
         let diff = want - m.heading;
         diff = Math.atan2(Math.sin(diff), Math.cos(diff));
         m.heading += diff * Math.min(1, dt * 7);
-        const brake = THREE.MathUtils.smoothstep(d, BRAKE_TO, BRAKE_TO + speed.value * 0.2); // the skid, past the line
-        m.x += Math.sin(m.heading) * speed.value * brake * dt;
-        m.z += Math.cos(m.heading) * speed.value * brake * dt;
+        m.x += Math.sin(m.heading) * speed.value * step.speedScale * dt;
+        m.z += Math.cos(m.heading) * speed.value * step.speedScale * dt;
       } else if (m.state !== 'dead') {
         const want = Math.atan2(hero.x - m.x, hero.z - m.z);
         let diff = want - m.heading;
@@ -244,7 +237,7 @@ export function makeGoblins(gap: THREE.Vector3, groundY: (x: number, z: number) 
     poi: () => (poiSet ? poiV : null),
     hud: () => `goblins ${mobs.map((m) => m.state).join('/')} · brake to ${BRAKE_TO} m, windup at ${REACH} m · shake 4/0.15 · spd ${speed.value.toFixed(3)} m/s · felled ${killed}`,
     probe: () => ({
-      goblins: mobs.map((m, i) => ({ i, state: m.state as GobState, d: Math.hypot(heroAt.x - m.x, heroAt.z - m.z), x: m.x, z: m.z })),
+      goblins: mobs.map((m, i) => ({ i, state: m.state, d: Math.hypot(heroAt.x - m.x, heroAt.z - m.z), x: m.x, z: m.z })),
       shardsLive, shardMaxY, felled: killed,
     }),
   };

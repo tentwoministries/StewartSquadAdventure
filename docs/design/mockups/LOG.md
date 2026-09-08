@@ -166,6 +166,46 @@ Built to the plan, line by line: the plate is the Forest scene's imported terrai
 
 **Frames saved:** `meadow-golden-s1-02-03`, `-s2-02-03`, `-s3-02-02`, `meadow-golden-beat-02-01` (the frame the hit-stop starts on), `meadow-golden-ribbon-0/1-02-01`, `meadow-golden-shatter-0/1-02-01`, `meadow-check-{meadow-golden,frozen-night,caves-descent,flight-golden}-02-01` (the `kid-isabella.ts` blast radius), `meadow-simt-<scene>-02-01` × 7 (the `scene.ts` blast radius) and `forest-dusk-s1-a-05`.
 
+**The second fix round (2026-09-08, the rules audit's items 8 and 10, `docs/qa/rules/opus-fixes-audit.md`).** Item 8: the row above quoted a summary and an ordering that cannot be one; the probe log is now here verbatim. Item 10: `L1` and `W1` were never re-shot.
+
+| Iter | Fix | Changed | Proof |
+|---|---|---|---|
+| 3.9 | **The state machine extracted to a pure step.** The transitions and the skid brake lived inside a 90-line `update` that only a renderer could run, so the never-crosses defect (`LESSONS.md` Rigs row 5) had no test that could have caught it. `gobStep(state, st, d, dt, speed, deadFor)` returning `{ state, st, speedScale, moving, events }` is now plain numbers with no three import; `goblins.ts` keeps the meshes, the heading, the separation push, the shards, and the two side effects the step only names (`hit`, `respawn`). `THREE.MathUtils.smoothstep` is copied in, verified line for line against `node_modules/three/src/math/MathUtils.js` L167-176 (r0.185.1) | `goblin-step.ts` (new, 115 lines), `goblins.ts` (+21/-28: the import and the `SPD`/`GobState` re-export, the five constants now single-sourced from `goblin-step.ts`, the 20-line transition block replaced by the call and its two events, the mob's `state` typed) | `meadow-goblins.cjs` run before and after on the same URL: the two JSON outputs are **byte-identical**, md5 `b538094c9a1fec8b3382fc3fb7b8941e` both times - every state, every first-entry time to the frame, and the three final positions to sixteen digits. The log is quoted below |
+| 3.10 | **Four pure tests** on `goblin-step.ts` alone: the chase into the attack from 13 m at 2.125 m/s; the brake never zero outside `REACH`, with the defect reproduced (`smoothstep(REACH, REACH, REACH + spd x 0.2) === 0`); `hit -> recover -> chase` at the bible's beats; perception and the 6 s respawn | `tests/unit/sandbox/goblins.test.ts` (new, 119 lines) | `npx vitest run tests/unit/sandbox/goblins.test.ts` -> **4 passed**. `npm run check` green (tsc, eslint, 25 tests in 4 files). Measured, not asserted: in the pure run from 13 m, `windup` at t 5.700 s, `hit` at 6.050 s - **21 frames = 0.3500 s**, `enemies.md` 2.4's Runt windup exactly - and `recover` at 6.1333 s (5 frames, the 0.08 s club-down); `recover -> chase` is 39 frames = 0.6500 s |
+| 3.11 | **`L1` and `W1` re-shot (audit item 10, T-08).** The scene has both stations; the fix pass shot neither, so the only `L1`/`W1` frames were pass 1's `-a-01`. Shot at `?t=golden&step=1` with `ssStep(120)` and the card | `scripts/probes/meadow-shots.cjs` (`SS_SHOT=station`, `SS_NAME=...`: step 120, log the camera and the probe, save) | **Saved:** `meadow-golden-l1-02-01` (camera 63.10, 14.58, 11.03) and `meadow-golden-w1-02-01` (camera 68.92, 27.79, 14.39). **Read - L1 (pitch 32, d 26): a tall thing does enter.** The palisade's stakes stand full height across the right third (about x 1030-1560, y 90-390), the moved totem's post and skull at x 900-940, and two birch canopies are cut by the top edge at x 850-1000 and x 1150-1260 - the vertical scale S1 at pitch 40 has none of. **Read - W1 (pitch 44, d 40): only just.** The palisade and the totem are in frame but foreshortened to marks on the plate (x 880-1360, y 80-290); the only things breaking the top edge are two far canopies at x 720-840 and x 1500-1600, and the plate's own edge (beach at the left, the sky dome's violet at the lower right) is now the frame's biggest shape. W1 stays the diorama; `L1` is the framing that carries T-08 |
+
+**The goblin probe, verbatim** (audit item 8; `node scripts/sandbox-drive.cjs "http://localhost:5173/sandbox/meadow-golden/?shot=S1&t=golden&step=1&beat=1" scripts/probes/meadow-goblins.cjs`, identical before and after 3.9). The ordering the earlier row garbled is this: `?beat=1` sets the three goblins down beside Isabella and fires the whirl on frame one, so all three are felled at **t 0.283** before they ever close; they walk back out of the palisade's gap at **t about 6.3** at 15 m and run the whole loop from there.
+
+```
+t=1.00s  g0 dead    d=1.05m | g1 dead    d=1.01m | g2 dead    d=1.13m  ringAlpha=0.35 felled=3 shardsLive=24
+t=2.00s  g0 dead    d=1.05m | g1 dead    d=1.01m | g2 dead    d=1.13m  ringAlpha=0.35 felled=3 shardsLive=0
+t=3.00s  g0 dead    d=1.05m | g1 dead    d=1.01m | g2 dead    d=1.13m  ringAlpha=0.35 felled=3 shardsLive=0
+t=4.00s  g0 dead    d=1.05m | g1 dead    d=1.01m | g2 dead    d=1.13m  ringAlpha=0.35 felled=3 shardsLive=0
+t=5.00s  g0 dead    d=1.05m | g1 dead    d=1.01m | g2 dead    d=1.13m  ringAlpha=0.35 felled=3 shardsLive=0
+t=6.00s  g0 dead    d=1.05m | g1 dead    d=1.01m | g2 dead    d=1.13m  ringAlpha=0.35 felled=3 shardsLive=0
+t=7.00s  g0 chase   d=14.98m | g1 chase   d=14.57m | g2 chase   d=15.03m  ringAlpha=0.35 felled=3 shardsLive=0
+t=8.00s  g0 chase   d=12.88m | g1 chase   d=12.45m | g2 chase   d=12.91m  ringAlpha=0.35 felled=3 shardsLive=0
+t=9.00s  g0 chase   d=10.78m | g1 chase   d=10.32m | g2 chase   d=10.79m  ringAlpha=0.35 felled=3 shardsLive=0
+t=10.00s  g0 chase   d=8.68m | g1 chase   d=8.20m | g2 chase   d=8.67m  ringAlpha=0.35 felled=3 shardsLive=0
+t=11.00s  g0 chase   d=6.56m | g1 chase   d=6.07m | g2 chase   d=6.54m  ringAlpha=0.35 felled=3 shardsLive=0
+t=12.00s  g0 chase   d=4.43m | g1 chase   d=3.95m | g2 chase   d=4.42m  ringAlpha=0.35 felled=3 shardsLive=0
+t=13.00s  g0 chase   d=2.31m | g1 chase   d=1.82m | g2 chase   d=2.30m  ringAlpha=0.35 felled=3 shardsLive=0
+t=14.00s  g0 windup  d=1.00m | g1 recover d=1.00m | g2 windup  d=1.00m  ringAlpha=0.35 felled=3 shardsLive=0
+t=15.00s  g0 recover d=1.00m | g1 recover d=0.98m | g2 windup  d=0.98m  ringAlpha=0.55 felled=3 shardsLive=0
+t=16.00s  g0 recover d=0.99m | g1 hit     d=0.97m | g2 recover d=0.98m  ringAlpha=1.15 felled=3 shardsLive=0
+
+states_reached      : chase, dead, hit, recover, windup   (all five, on all three goblins)
+first_entry_times   : g0.chase 0.017  g1.chase 0.017  g2.chase 0.017
+                      g0.dead  0.283  g1.dead  0.283  g2.dead  0.283
+                      g1.windup 13.433  g1.hit 13.783  g1.recover 13.867
+                      g2.windup 13.867  g0.windup 13.933
+                      g2.hit 14.217  g0.hit 14.283  g2.recover 14.300  g0.recover 14.367
+windup -> hit       : g0 0.350  g1 0.350  g2 0.350   (enemies.md 2.4, the Runt's 0.35 s)
+hit -> recover      : g1 0.084  g2 0.083             (the one-tick club-down, 0.08 s)
+ring_flash_frames   : 58        ring_alpha_max: 1.25        felled: 3
+final               : g0 recover d=0.9871068614885737  g1 hit d=0.9727834591079609  g2 recover d=0.9810330145712526
+```
+
 ### Scene 5 — the west rim at dawn (spelled out, brief §3.5; `sandbox/rim-dawn/`, id `rim`)
 
 The Forest plate exactly as `sandbox/forest-dusk/main.ts` builds it (terrain, trees, props, scatter, fx), minus the deer's wandering, plus the one new thing. The dawn keyframe is the plan's column verbatim, and the two below-rim clouds are moved to (−72, −10, 36) and (−80, −13, 46) through `SceneDef.clouds`.

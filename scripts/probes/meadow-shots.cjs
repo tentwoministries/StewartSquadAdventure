@@ -2,13 +2,30 @@
 //   beat     — the `?beat=1` connect: step to the frame the hit-stop starts on, save it
 //   ribbon   — X, then +0.1 s and +0.4 s (ssStep(6) / ssStep(18); ssSnap renders one more frame)
 //   shatter  — send the goblins, close, Ground Pound, then +0.4 s and +0.8 s from the impact
+//   station  — the plain station frame the URL's `?shot=` names: ssStep(120), then save as SS_NAME
 // Every save carries the card and the explicit `?t=` of the URL (T-29).
 //   SS_SHOT=beat node scripts/sandbox-drive.cjs "http://localhost:5173/sandbox/meadow-golden/?shot=S3&t=golden&step=1&beat=1" scripts/probes/meadow-shots.cjs
+//   SS_SHOT=station SS_NAME=meadow-golden-l1-02 node scripts/sandbox-drive.cjs "http://localhost:5173/sandbox/meadow-golden/?shot=L1&t=golden&step=1" scripts/probes/meadow-shots.cjs
 module.exports = async (page, h) => {
   const shot = process.env.SS_SHOT;
   await h.sleep(12000);
   const out = { url: page.url(), shot };
   const probe = () => h.evaluate(() => globalThis.ssWorld.probe());
+
+  if (shot === 'station') {
+    const name = process.env.SS_NAME;
+    if (!name) throw new Error('SS_SHOT=station needs SS_NAME (lowercase, no extension)');
+    // the camera, the light and the scatter are static here; 120 frames is the two seconds of drift,
+    // pollen and cook-fire the frame is judged with (T-29: `?t=` is explicit in the URL above)
+    out.t = await h.step(120);
+    out.station = await h.evaluate(() => {
+      const c = globalThis.ssCtx.camera;
+      return { camera: [c.position.x, c.position.y, c.position.z].map((v) => Number(v.toFixed(3))) };
+    });
+    out.probe = await probe();
+    out.file = await h.snap(name);
+    return out;
+  }
 
   if (shot === 'beat') {
     out.stepped = await h.evaluate(() => {
