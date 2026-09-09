@@ -13,6 +13,7 @@ Written 2026-09-07, rows and phrases added 2026-09-08. This file routes a new se
 | Opus 5 experiment | Five demo scenes built by an Opus 5 session from `docs/design/mockups/OPUS_EXPERIMENT_BRIEF.md`, judged 2026-09-08 (`OPUS_EXPERIMENT_VERDICT.md`, now also on the demo lane). Four scenes cherry-picked and fixed on the demo lane 2026-09-08 (`OPUS_FIX_PLAN.md`); the Rootways stays on the branch as the record. | `phase-0.75-opus-experiment` | (removed 2026-09-08: deregistered from git, its stray vite on :5182 stopped, the folder deleted) | — | **closed 2026-09-08**; the branch is kept, not merged |
 | Fable control | The same brief's Rootways and Crash Meadow built cold by a Fable session, then reviewed blind, for the apples-to-apples comparison (`docs/design/mockups/FABLE_CONTROL_BRIEF.md`). Cut from `8266a7b`, the tip the experiment started from. | `phase-0.75-fable-control` | `StewartSquad-control/` (:5183) | `docs/NEXT_SESSION.md` there | planned; opened by the "control build" session |
 | **0.85 story and play** | The read-through walkthrough of the whole game (`docs/story/WALKTHROUGH.md`), the kids' suggestions list, the storyboard. Story, flow, gameplay mechanics, progression. Docs only, no code. | `phase-0.85-story` | `StewartSquad-story/` | `docs/NEXT_SESSION.md` there | open |
+| **Showcase** | Five demos built to be looked at, not adopted (`docs/design/mockups/SHOWCASE_BRIEF.md`): the Crystal Colossus, a Rootways room, the biome hand-off, the Volcanic Rift, the camp's growth stages, under `sandbox/showcase/`. Quarantined by the brief's six rules (§1) and left by one of three exits (§2: adopt the scene by directory plus the normal loop; adopt the lesson as rows; scrap). Never merged whole. `npx vite --port 5184 --strictPort` from inside it. | `phase-0.75-showcase` | `StewartSquad-showcase/` (:5184) | `docs/NEXT_SESSION.md` there | open 2026-09-08; cut from the demo lane at `a03c35a`; nothing built |
 | main | The integration branch. Holds the Design Bible gate `p0.5-design-bible`. Receives 0.75 and 0.85 at their application steps, then the build phases start from it. | `main` | never checked out in a lane worktree | `docs/NEXT_SESSION.md` | untouched by the lanes |
 
 All worktree paths are siblings of the primary checkout under `C:/Documents TEMP/ClaudeCode/`. `git worktree list` from any checkout shows what exists and which commit each is on.
@@ -37,6 +38,9 @@ All worktree paths are siblings of the primary checkout under `C:/Documents TEMP
 | "apply the tweaks", "application session", "lock the design" | 0.75 application step | on `phase-0.75-visual-studies`; `PHASE_0.75_BRIEF.md` §4; ends with a merge to `main` and `p0.75-design-locked` |
 | "apply the suggestions", "update the bible from the story", "surgical update" | 0.85 application step | on `phase-0.85-story`; `docs/story/PHASE_0.85_BRIEF.md` §4; ends with a merge to `main` and `p0.85-story-locked` |
 | "ready to launch", "start Phase 1", "start the build", "the pilot" | Phase 1 build | see §5 |
+| "showcase", "the showcase", "the five demos", "show the kids what you can do", "Showcase lane: session N" | Showcase | move to `StewartSquad-showcase/`, confirm branch `phase-0.75-showcase`, read its handoff, run the next session of `SHOWCASE_BRIEF.md` §3 |
+| "Showcase lane: fixes" (with screenshots or a list), "Showcase lane: show the kids" | Showcase | a fix pass in the delegated loop on that branch only; or :5184 and the hub's Showcase tab (the Rift only with `?postgame=1` on Andrew's say-so) |
+| "keep <scene>" / "adopt the lesson from <scene>" / "scrap the showcase" | Showcase → the demo lane | the matching exit in `SHOWCASE_BRIEF.md` §2, executed from the demo lane's worktree |
 | something that fits no lane | ask | one question naming the two closest lanes, then proceed |
 
 If two lanes fit, the more specific wins (a Desert scene question goes to 0.75 biomes, not 0.75 studies). Never guess silently: the session's first message says which lane it took and why in one line.
@@ -81,5 +85,5 @@ Paste this at the top of `docs/NEXT_SESSION.md`, under the Working Rules, in eve
 
 ```
 ## Routing (2026-09-07): read docs/LANES.md first
-This checkout is lane <name> on branch <branch>. If Andrew's first line names another lane, move to that lane's worktree before reading further. Open lanes: 0.75 visual studies (primary checkout), 0.75 demo (StewartSquad-demo, a tag), 0.75 scratch (StewartSquad-scratch), 0.85 story and play (StewartSquad-story). Default when unnamed: 0.75 visual studies.
+This checkout is lane <name> on branch <branch>. If Andrew's first line names another lane, move to that lane's worktree before reading further. Open lanes: 0.75 visual studies (primary checkout), 0.75 demo (StewartSquad-demo, a tag), 0.75 scratch (StewartSquad-scratch), 0.85 story and play (StewartSquad-story), showcase (StewartSquad-showcase, :5184; five demos, nothing there is canon). Default when unnamed: 0.75 visual studies.
 ```
