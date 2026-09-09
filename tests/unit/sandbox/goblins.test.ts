@@ -11,8 +11,8 @@
 // proves the same states on the real scene; these tests are what fails fast when a number moves.
 import { describe, expect, it } from 'vitest';
 import {
-  BRAKE_TO, HIT_HOLD, NOTICE, REACH, RECOVER, RESPAWN, SKID, SPD, WINDUP, brakeAt, gobStep,
-  smoothstep, type GobEvent, type GobState,
+  BRAKE_TO, HIT_HOLD, HOLD_MAX, NOTICE, REACH, RECOVER, RESPAWN, SKID, SLOT_OFF, SLOT_R, SPD,
+  WINDUP, brakeAt, gobStep, slotPoint, smoothstep, type GobEvent, type GobState,
 } from '../../../sandbox/meadow-golden/goblin-step';
 
 const DT = 1 / 60;
@@ -37,8 +37,9 @@ interface Run {
  * Steps a goblin closing on a stationary hero straight down the line, exactly as `goblins.ts`
  * integrates it: `d -= speed · speedScale · dt` each frame.
  */
-function run(opts: { state?: GobState; st?: number; d0: number; seconds: number; speed?: number; deadFor?: number }): Run {
+function run(opts: { state?: GobState; st?: number; d0: number; seconds: number; speed?: number; deadFor?: number; hold?: number }): Run {
   const speed = opts.speed ?? SPD;
+  const hold = opts.hold ?? 0;
   let state: GobState = opts.state ?? 'chase';
   let st = opts.st ?? 0;
   let d = opts.d0;
@@ -52,7 +53,7 @@ function run(opts: { state?: GobState; st?: number; d0: number; seconds: number;
   for (let f = 0; f < frames; f++) {
     t += DT;
     deadFor += DT;
-    const out = gobStep(state, st, d, DT, speed, deadFor);
+    const out = gobStep(state, st, d, DT, speed, deadFor, hold);
     if (d > REACH) minScaleOutsideReach = Math.min(minScaleOutsideReach, out.speedScale);
     for (const e of out.events) events.push([e, Number(t.toFixed(4))]);
     if (out.state !== state) { state = out.state; if (!(state in firstAt)) firstAt[state] = Number(t.toFixed(4)); order.push(state); }
@@ -115,5 +116,46 @@ describe('gobStep — the rest of the loop', () => {
     expect(held).toMatchObject({ state: 'dead', speedScale: 0, moving: false, events: [] });
     const back = gobStep('dead', 0, 1, DT, SPD, RESPAWN + DT);
     expect(back).toMatchObject({ state: 'chase', st: 0, events: ['respawn'] });
+  });
+});
+
+// T-63 / T-64, round 2: the swing became an eased 0.12 s arc (`HIT_HOLD` 0.08 → 0.12) and the pack
+// fans out onto slots instead of arriving in a file. Both are pinned here as well as in the stepped
+// probe, because the never-run rule's whole point is that neither may be judged by eye.
+describe('gobStep — the round-2 loop (T-63, T-64)', () => {
+  it('reaches every state at 60 Hz with the 0.12 s hit, and a stagger only delays the swing', () => {
+    const r = run({ state: 'idle', d0: 13, seconds: 12 });
+    expect(r.order.slice(0, 5)).toEqual(['idle', 'chase', 'windup', 'hit', 'recover']);
+    expect(new Set(r.order)).toEqual(new Set(['idle', 'chase', 'windup', 'hit', 'recover']));
+    // 0.12 s is 7.2 frames, so `recover` opens on the 8th
+    expect(HIT_HOLD).toBeCloseTo(0.12, 12);
+    expect(Math.round((r.firstAt.recover! - r.firstAt.hit!) / DT)).toBe(8);
+    // the stagger (enemies.md §2.5 `atkT`, "so a pack never swings in unison") gates on time in
+    // `chase`, never on distance, so a swing is only ever later — it can never fail to fire, which
+    // is the shape the never-attacks defect had. It bites where a pack re-swings: out of `recover`
+    // already inside reach, not on the long run in (13 m takes 5.7 s of chase, past any stagger).
+    const back = { state: 'recover' as GobState, st: RECOVER - DT / 2, d0: 0.85, seconds: 2 };
+    const quick = run({ ...back, hold: 0 });
+    const slow = run({ ...back, hold: HOLD_MAX });
+    expect(quick.firstAt.windup!).toBeCloseTo(2 * DT, 4);   // `firstAt` is stamped to 4 dp
+    expect(slow.firstAt.windup! - quick.firstAt.windup!).toBeGreaterThan(HOLD_MAX - DT);
+    expect(slow.firstAt.windup! - quick.firstAt.windup!).toBeLessThanOrEqual(HOLD_MAX + DT);
+    expect(slow.order).toContain('hit');
+    expect(r.firstAt.windup!).toBeGreaterThan(HOLD_MAX);
+  });
+
+  it('fans the pack out: three slots on one approach bearing are ≥ 1.2 m apart, and inside REACH', () => {
+    // three goblins coming in on one bearing (due north-east of the hero at the origin)
+    const b = 0.7854;
+    const pts = [0, 1, 2].map((i) => slotPoint(0, 0, b, i));
+    for (const p of pts) expect(Math.hypot(p.x, p.z)).toBeCloseTo(SLOT_R, 9);
+    const gaps: number[] = [];
+    for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) gaps.push(Math.hypot(pts[i]!.x - pts[j]!.x, pts[i]!.z - pts[j]!.z));
+    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(1.2);
+    expect(Math.min(...gaps)).toBeCloseTo(2 * SLOT_R * Math.sin(Math.abs(SLOT_OFF[1]! - SLOT_OFF[0]!) / 2), 9);
+    // the ring is strictly inside the trigger line, or a goblin parks on its slot and never swings —
+    // the never-attacks defect wearing a different hat
+    expect(SLOT_R).toBeLessThan(REACH);
+    expect(SLOT_R).toBeGreaterThan(BRAKE_TO);
   });
 });

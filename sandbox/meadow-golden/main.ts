@@ -35,10 +35,13 @@ const STATIONS: Record<string, Station> = {
   // T-30: the note is read off the render, not written beside the numbers. The camera these numbers
   // give is (59.9, 16.2, 9.2) looking WNW along bearing 240°, so the frame spans bearings 213°–267°
   // and depressions 22.5°–57.5° from it — which is where each thing below actually falls.
-  S1: { name: 'The meadow', target: [44, 0.8, 0], yaw: 300, pitch: 40, d: 24, note: "goblin camp A upper-right (palisade, cook-fire, cart and cage), the furrow's wreck-heap upper-left, Isabella and Liam centre with their rings, the moved totem left of them, long golden shadows across the grass; no tree enters at pitch 40 — L1 is the framing that has them" },
+  S1: { name: 'The meadow', target: [44, 0.8, 0], yaw: 300, pitch: 40, d: 24, note: "goblin camp A upper-right (palisade, cook-fire, cart and cage), the furrow's wreck-heap upper-left, Isabella and Liam centre with their rings, the moved totem upper-centre, reading as a lit brazier on a carved post at 28 m, long golden shadows across the grass; no tree enters at pitch 40 — L1 is the framing that has them" },
   S2: { name: 'Goblin camp A', target: [40, 0.9, -14], yaw: 20, pitch: 38, d: 18, note: 'the gap, the cart and the cage, the cook-fire' },
   S3: { name: 'The beat', target: [44, 0.9, 2], yaw: 330, pitch: 34, d: 14, note: 'the fight at the distance the game plays at' },
-  S4: { name: 'The totem', target: [58, 1.2, 18], yaw: 250, pitch: 20, d: 9, note: 'the carved face, the rag streamer, the skull on its spike' },
+  // T-30: read off `meadow-golden-s4-04`. The station stands 72° round from the totem's
+  // meadow-facing side, which is why the round-1 totem read as a blank post from here; the head is
+  // now carved on all four sides, so the note is what the render holds.
+  S4: { name: 'The war-totem', target: [58, 1.2, 18], yaw: 250, pitch: 20, d: 9, note: "the carved goblin head at eye level — brow, eye holes, a bone war-paint bar, the jaw's tusks and the four corner ears — over the bone-cord wraps, the bone-tooth trophy string and the two crystal shards, with the iron brazier's coals at 3.2 m and the second totem small on the far bank" },
   W1: { name: 'The meadow, wide', target: [44, 0, 0], yaw: 300, pitch: 44, d: 40, note: 'the whole 45 x 45 m of open grass, ringed by its four totems' },
   L1: { name: 'The meadow, lower', target: [44, 0.8, 0], yaw: 300, pitch: 32, d: 26, note: 'S1 dropped: the trees on the meadow edge enter the frame' },
   CU: { name: 'Isabella close-up', target: [44, 0.75, 2], yaw: 330, pitch: 10, d: 4.2, note: 'she faces bearing 150, so the camera at yaw 330 has her face and the hammer' },

@@ -13,7 +13,9 @@ import { distToWater, groundY, inside } from '../forest-dusk/terrain';
 
 const B = (w: number, h: number, d: number, hex: string) => colorize(new THREE.BoxGeometry(w, h, d), hex);
 const CY = (rt: number, rb: number, h: number, seg: number, hex: string) => colorize(new THREE.CylinderGeometry(rt, rb, h, seg), hex);
-const emis = (hex: string, gain: number) => ({ color: new THREE.Color(hex).multiplyScalar(gain).getStyle(), glow: 1 });
+// The emissive gain rides `aGlow`, not a pre-multiplied colour: the `multiplyScalar(g).getStyle()`
+// idiom the other scenes use clamps at 1.0 (Color.getStyle rounds to 0–255), which would have
+// silently thrown away the totem glints' 1.8. `colorize(geo, hex, { color, glow })` is the honest form.
 
 export const CAMP = { x: 40, z: -14, r: 6 };          // the 12 m ring
 export const GAP = 90;                                 // the palisade's gap faces the meadow
@@ -162,23 +164,115 @@ export function makeProps(): Props {
     fp(CAMP.x - 2.0, CAMP.z + 2.4, 0.6);
   }
 
-  // ---- four goblin totems ringing the meadow ------------------------------------------------------
+  // ---- four war-totems ringing the meadow (T-58) ---------------------------------------------------
+  // Andrew's screenshot ("Not Sure What this Guy Is"): the round-1 totem was a plain dark post with
+  // three white blocks on it and a pale ball on a stick — it read as nothing from every angle. This
+  // is the horde's own language instead (`enemies.md` §2.2 faction: rust skin, bone trinkets, crude
+  // iron; `bosses.md` §2.6.2: "four war-totems … the four totem braziers **emissive-only**"): a
+  // crooked post of two stacked logs with a kink, three bone-cord wraps, a carved goblin face with
+  // the same ears, jaw and brow the creature has, a bone-tooth trophy string and two crystal shards,
+  // the rag banner, and an iron brazier bowl of embers at 3.2 m. No point light: the bible says so.
   const streamers: THREE.Mesh[] = [];
-  for (const [tx, tz] of TOTEMS) {
-    // face, spike and skull ×1.5 on the plan's sizes so they read at 28 m (scores §4 change 2)
-    const face = mergeGeos([
-      B(0.15, 0.075, 0.045, '#E6DCC3').translate(-0.13, 1.9, 0.17), B(0.15, 0.075, 0.045, '#E6DCC3').translate(0.13, 1.9, 0.17),
-      B(0.39, 0.075, 0.045, '#E6DCC3').translate(0, 1.58, 0.17),
-    ]);
-    const post = mergeGeos([CY(0.15, 0.19, 2.4, 6, C.bark).translate(0, 1.2, 0), face,
-      CY(0.025, 0.025, 0.5, 4, C.iron).translate(0, 2.55, 0), colorize(new THREE.IcosahedronGeometry(0.255, 1), '#E6DCC3').translate(0, 2.92, 0)]);
-    const ry = Math.atan2(44 - tx, -(0 - tz)) + Math.PI; // the faces look in at the meadow
+  const GT = { skin: '#7E3320', dark: '#5A2312', bone: '#E6DCC3', socket: C.soot, iron: '#8B3A1E', shard: '#2F7F7A', coal: '#3A1206' };
+  for (const [ti, [tx, tz]] of TOTEMS.entries()) {
+    const parts: THREE.BufferGeometry[] = [];
+    // the two logs, the upper one kinked: rotated about its own centre, then translated (the
+    // hut-roof rule, `LESSONS.md` Rigs) — the kink alternates side so the four are not clones
+    const kink = (ti % 2 ? 1 : -1) * (0.10 + (ti % 3) * 0.02);
+    parts.push(CY(0.175, 0.215, 1.70, 6, C.bark).translate(0, 0.85, 0));
+    const upper = CY(0.140, 0.180, 1.30, 6, C.bark);
+    upper.rotateZ(kink); upper.translate(-Math.sin(kink) * 0.65, 1.70 + Math.cos(kink) * 0.65, 0);
+    parts.push(upper);
+    const topX = -Math.sin(kink) * 1.30, topY = 1.70 + Math.cos(kink) * 1.30;   // the post's own top
+    // three bone-cord wraps, two over the joint and one low down
+    for (const [wy, wr] of [[0.62, 0.205], [1.66, 0.190], [1.80, 0.185]] as [number, number][]) {
+      parts.push(colorize(new THREE.TorusGeometry(wr, 0.022, 4, 10), GT.bone).rotateX(Math.PI / 2).translate(-Math.sin(kink) * Math.max(0, wy - 1.7), wy, 0));
+    }
+    // The carved goblin head: a squared block on the post with the creature's own brow, eye holes,
+    // war-paint bar, jaw and tusks cut into **all four** sides, and four ears rising from its top
+    // corners. One face on a pole reads from one hemisphere; the meadow's stations sit all round the
+    // 28 m ring (S1 inside it, S4 outside and 72° off the meadow-facing side), and Andrew's
+    // screenshot of round 1 is exactly what a landmark looks like from the side it was not carved
+    // for. A totem pole is carved all round anyway (T-58).
+    const fy = 2.34, HS = 0.20;
+    parts.push(B(HS * 2, 0.78, HS * 2, GT.skin).translate(0, fy, 0));
+    for (const [ax, az] of [[0, 1], [0, -1], [1, 0], [-1, 0]] as [number, number][]) {
+      const tx = -az, tz = ax;                          // the side's tangent, in the ground plane
+      const cut = (wTan: number, h: number, dNor: number, hex: string, up: number, out: number, lat = 0) =>
+        (ax !== 0 ? B(dNor, h, wTan, hex) : B(wTan, h, dNor, hex))
+          .translate(ax * out + tx * lat, fy + up, az * out + tz * lat);
+      // the plate is the rust *skin* and the brow, sockets and jaw are the dark and the soot over
+      // it: at 28 m a dark face on a dark post is just a dark post, so the face reads as three
+      // values with one bone war-paint bar carrying it the rest of the way
+      parts.push(cut(0.36, 0.090, 0.10, GT.dark, 0.245, HS + 0.02));                  // the brow ridge
+      for (const s2 of [-1, 1]) parts.push(cut(0.115, 0.085, 0.065, GT.socket, 0.13, HS + 0.025, s2 * 0.088));
+      parts.push(cut(0.28, 0.045, 0.035, GT.bone, 0.02, HS + 0.035));                 // the war paint
+      parts.push(cut(0.30, 0.17, 0.13, GT.dark, -0.22, HS + 0.015));                  // the jaw
+      for (const s2 of [-1, 1]) {
+        parts.push(colorize(new THREE.ConeGeometry(0.032, 0.15, 4), GT.bone)
+          .translate(ax * (HS + 0.05) + tx * s2 * 0.062, fy - 0.11, az * (HS + 0.05) + tz * s2 * 0.062));
+      }
+    }
+    // four long ears out of the top corners, on the diagonals, so two frame whichever face you face
+    for (const [dx, dz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]] as [number, number][]) {
+      const ux = dx / Math.SQRT2, uz = dz / Math.SQRT2;
+      const ear = colorize(new THREE.ConeGeometry(0.055, 0.26, 4), GT.skin).scale(1, 1, 0.5).translate(0, 0.13, 0);
+      ear.applyMatrix4(new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(uz, 0, -ux).normalize(), 0.85));
+      parts.push(ear.translate(ux * 0.20, fy + 0.30, uz * 0.20));
+    }
+    const fz = HS;
+    // the bone-tooth trophy string and two hanging crystal shards, under the face
+    for (let k = 0; k < 5; k++) {
+      const sx = -0.18 + k * 0.09;
+      parts.push(CY(0.006, 0.006, 0.075, 4, GT.bone).translate(sx, fy - 0.44, fz + 0.09));
+      parts.push(colorize(new THREE.ConeGeometry(0.019, 0.065, 3), GT.bone).rotateX(Math.PI).translate(sx, fy - 0.51, fz + 0.09));
+    }
+    for (const s of [-1, 1]) {
+      parts.push(CY(0.005, 0.005, 0.14, 4, GT.iron).translate(s * 0.20, fy - 0.62, fz + 0.05));
+      parts.push(colorize(new THREE.OctahedronGeometry(0.06, 0), GT.shard).scale(0.7, 1.5, 0.7).translate(s * 0.20, fy - 0.75, fz + 0.05));
+    }
+    // the iron brazier bowl at the top, and its ring of rivets
+    // closed, not open-ended: the shared material is FrontSide, so an open bowl would show the sky
+    // through its far inner wall from every station that looks down on it
+    parts.push(CY(0.255, 0.150, 0.20, 8, C.iron).translate(topX, topY + 0.10, 0));
+    // the rim is bone cord, not iron: a light band is what makes the top read against a dark post
+    parts.push(colorize(new THREE.TorusGeometry(0.250, 0.026, 4, 10), GT.bone).rotateX(Math.PI / 2).translate(topX, topY + 0.20, 0));
+    parts.push(CY(0.100, 0.130, 0.09, 6, C.iron).translate(topX, topY + 0.02, 0));
+    parts.push(colorize(new THREE.ConeGeometry(0.185, 0.085, 8), GT.coal).translate(topX, topY + 0.235, 0));
+    const post = mergeGeos(parts);
+    // The faces look in at the meadow. The round-1 line was `atan2(44 − tx, −(0 − tz)) + π`, which is
+    // `atan2(dx, −dz)` turned round — it aimed the carved side *away* from (44, 0), which is why the
+    // "sticks with faces" read as a blank post from inside the ring (T-58, Andrew's screenshot).
+    // Local +z maps to world (sin ry, cos ry), so the honest line is `atan2(dx, dz)`.
+    const ry = Math.atan2(44 - tx, 0 - tz);
     opaque.push(at(post, tx, tz, ry));
-    fp(tx, tz, 0.32);
-    const rag = colorize(new THREE.PlaneGeometry(0.36, 0.95, 1, 3), '#7E3320');
-    rag.translate(0, -0.475, 0);
+    fp(tx, tz, 0.38);
+    // The embers: the bed is 0.126 m² so it stays at gain 0.5 (Tier-0 rule 7 / T-10); only the three
+    // 0.06 m glint quads go to 1.6+. No point light — `bosses.md` §2.6.2 "emissive-only".
+    // The ember bed is a *cone of coals*, charcoal in diffuse with the ember only in the emissive, so
+    // it reads as glowing coals rather than as an orange disc painted on the bowl. Its faces are
+    // 0.014 m² each (well under the 0.1 m² line) and it still stays at the brief's 0.5 gain; only
+    // the four 0.06 m glint quads and the three lifting sparks go to 1.8. No point light: the bible
+    // makes the totem braziers emissive-only (`bosses.md` §2.6.2) and the scene's light count is
+    // unchanged at two (the cook-fire and the cart lantern).
+    const bx = tx + topX * Math.cos(ry), bz = tz - topX * Math.sin(ry);
+    const bedY = groundY(tx, tz) + topY + 0.195;
+    glow.push(xf(colorize(new THREE.ConeGeometry(0.185, 0.10, 8), GT.coal, { color: '#FF6A2A', glow: 0.5 }), bx, bedY + 0.05, bz));
+    for (let k = 0; k < 4; k++) {
+      const a = k * 1.6 + ti;
+      const gl = colorize(new THREE.PlaneGeometry(0.06, 0.06), '#FF6A2A', { color: '#FF6A2A', glow: 1.8 });
+      gl.rotateX(-Math.PI / 2);
+      glow.push(xf(gl, bx + Math.cos(a) * 0.075, bedY + 0.085, bz + Math.sin(a) * 0.075));
+    }
+    for (let k = 0; k < 3; k++) {
+      const a = k * 2.4 + ti * 0.7;
+      glow.push(xf(colorize(new THREE.BoxGeometry(0.045, 0.045, 0.045), '#FF6A2A', { color: '#FF6A2A', glow: 1.8 }),
+        bx + Math.cos(a) * 0.05, bedY + 0.14 + k * 0.05, bz + Math.sin(a) * 0.05));
+    }
+    const rag = colorize(new THREE.PlaneGeometry(0.34, 0.90, 1, 3), '#7E3320');
+    rag.translate(0, -0.45, 0);
     const m = new THREE.Mesh(rag, swayMat);
-    m.position.set(tx + 0.2, groundY(tx, tz) + 2.44, tz); m.rotation.y = ry;
+    m.position.set(tx + Math.cos(ry) * 0.22, groundY(tx, tz) + 1.60, tz - Math.sin(ry) * 0.22); m.rotation.y = ry;
     group.add(m); streamers.push(m);
   }
 
@@ -219,7 +313,6 @@ export function makeProps(): Props {
   opaqueMesh.castShadow = true; opaqueMesh.receiveShadow = true;
   group.add(opaqueMesh);
   if (glow.length) { const g = new THREE.Mesh(mergeGeos(glow), glowMat); g.layers.enable(BLOOM_LAYER); group.add(g); }
-  void emis;
 
   const f = 8.8 + 0.37 * 1.2, ph = 2.1;
   const update = (t: number, dt: number, kf: Keyframe): void => {

@@ -23,8 +23,12 @@ export type GobEvent =
 export const SPD = 2.125;
 /** `enemies.md` §2.4 melee row, Runt rig: the windup is 0.35 s (the cone telegraph fills over it). */
 export const WINDUP = 0.35;
-/** The `hit` tick: one club-down beat before the recover. */
-export const HIT_HOLD = 0.08;
+/**
+ * The `hit` tick: the club-down beat before the recover. `enemies.md` §2.4 makes the damage land at
+ * the *end of the windup* (one tick, on entering `hit`); this number is only how long the swing has
+ * to read as an eased arc, so T-64's 0.12 s arc raised it from 0.08 (the brief allows 0.08 → 0.12).
+ */
+export const HIT_HOLD = 0.12;
 /** The rest of `enemies.md` §2.5's `cd` 1.0 s after the windup and the tick, as the demo plays it. */
 export const RECOVER = 0.65;
 /** `enemies.md` §2.2: melee reach has a 1.0 m floor (strict conversion of `rng` 30 px is 0.75 m). */
@@ -44,6 +48,48 @@ export const SKID = 0.2;
  * trigger stays at the bible's number.
  */
 export const BRAKE_TO = REACH - 0.2;
+
+// ---- T-64: the pack fans out instead of arriving in a file -----------------------------------
+/**
+ * The ring, round the hero, that the three goblins aim at. It is deliberately **inside** `REACH`:
+ * a slot ring at or outside the trigger line is the `LESSONS.md` never-attacks defect wearing a
+ * different hat (the goblin arrives at its slot and `d` stops falling above 1.0 m). At 0.9 m every
+ * goblin crosses the trigger on its way in.
+ */
+export const SLOT_R = 0.9;
+/**
+ * The slot bearings, relative to a goblin's own approach bearing. Three points on a 0.9 m ring must
+ * be ≥ 1.2 m apart pairwise (the brief's check), which needs an adjacent gap of at least
+ * 2·asin(0.6 / 0.9) = 83.6°; ±90° is the round number above it and gives 1.273 m adjacent,
+ * 1.800 m across. The brief's ±45° would have put adjacent slots 0.689 m apart — a file, not a fan.
+ */
+export const SLOT_OFF = [-Math.PI / 2, 0, Math.PI / 2];
+/** `enemies.md` §2.4 pushes two runts apart below r₁+r₂+0.1 = 0.6 m; T-64 opens the demo's to 0.7. */
+export const SEP_R = 0.7;
+/** `enemies.md` §2.4: the push runs at 100 px/s = 2.5 m/s. */
+export const SEP_SPD = 2.5;
+/**
+ * `enemies.md` §2.5: `atkT = rnd(0, cd)` at spawn "so a pack never swings in unison". The demo's
+ * form is a per-goblin hold: the seconds it must have spent in `chase` before the windup may fire.
+ * Capped well under `cd` 1.0 s so a swing is staggered, never cancelled, and under the 0.35 s
+ * windup so three goblins that arrive together still share a frame of telegraph.
+ */
+export const HOLD_MAX = 0.3;
+
+/**
+ * The pack slot for goblin `i`, on a ring round the hero, given its approach bearing. `rad` defaults
+ * to the 0.9 m ring; the scene passes a **larger** radius while the goblin is still far out, so the
+ * three swing onto their own radials on the way in and arrive already spread. Aiming straight at a
+ * 0.9 m slot from 15 m away does not fan anything: the chord to a slot 90° round passes close to the
+ * hero, `d` crosses the trigger early and the goblin swings from wherever it happened to be
+ * (measured: 0.60 m apart, a 65° bearing span).
+ */
+export function slotPoint(hx: number, hz: number, apprB: number, i: number, rad = SLOT_R): { x: number; z: number } {
+  const b = apprB + (SLOT_OFF[((i % SLOT_OFF.length) + SLOT_OFF.length) % SLOT_OFF.length] ?? 0);
+  return { x: hx + Math.sin(b) * rad, z: hz + Math.cos(b) * rad };
+}
+/** How far in the spiral aims each frame: the slot radial at 88 % of the goblin's current distance. */
+export const SLOT_CLOSE = 0.88;
 
 /**
  * `THREE.MathUtils.smoothstep`, copied so this file imports nothing (verified against
@@ -89,9 +135,11 @@ export interface GobOut {
  * @param dt       the frame's step, in seconds (the held sim clock's `dt`)
  * @param speed    the goblin's current speed in m/s (the scene's `[` / `]` keys move it)
  * @param deadFor  seconds since this goblin was felled; only read while `state` is `dead`
+ * @param hold     seconds this goblin must have spent in `chase` before its windup may fire
+ *                 (`enemies.md` §2.5's `atkT`: a pack never swings in unison). 0 = no stagger.
  */
 export function gobStep(
-  state: GobState, st: number, d: number, dt: number, speed: number, deadFor: number,
+  state: GobState, st: number, d: number, dt: number, speed: number, deadFor: number, hold = 0,
 ): GobOut {
   const events: GobEvent[] = [];
   let s = state;
@@ -101,7 +149,9 @@ export function gobStep(
   } else if (s === 'idle') {
     if (d < NOTICE) { s = 'chase'; t = 0; }
   } else if (s === 'chase') {
-    if (d <= REACH) { s = 'windup'; t = 0; }
+    // the stagger gates on *time in chase*, never on distance, so it cannot re-make the
+    // never-attacks defect: `hold` always elapses, and `d` has already crossed the trigger
+    if (d <= REACH && t >= hold) { s = 'windup'; t = 0; }
   } else if (s === 'windup') {
     if (t >= WINDUP) { s = 'hit'; t = 0; if (d <= REACH + HIT_R) events.push('hit'); }
   } else if (s === 'hit') {
