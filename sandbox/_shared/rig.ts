@@ -219,15 +219,32 @@ export function makeKid(spec: KidSpec, extras: (b: Bones, h: Helpers) => KidHook
     uColor: { value: new THREE.Color(c.glow) }, uAlpha: { value: 0.35 },
     uCurve: WORLD_U.uCurve, uCurveCenter: WORLD_U.uCurveCenter,
   };
+  // T-61c: the ring also takes the *ground's* steps. `aLift` is one float per vertex, added to world
+  // y **after** the curve term (never folded into it: the curve rides the shared uniform objects by
+  // reference and a copy would re-break T-41). On flat ground every lift is 0 and the frame is the
+  // one it was; on the caves' relieved tiers the ring drapes over the column tops it lies on instead
+  // of demanding a flat one. RingGeometry(0.45, 0.84, 48) is 98 vertices (verified against three
+  // r185: indexed, two radial rings at exactly 0.45 and 0.84, z = 0), so that is 98 `groundY` calls
+  // per moved kid per frame; the rim the eye reads at 0.62 lies between the two rings.
+  const ringGeo = new THREE.RingGeometry(0.45, 0.84, 48);
+  const ringPos = ringGeo.getAttribute('position') as THREE.BufferAttribute;
+  const ringN = ringPos.count;
+  const ringLift = new Float32Array(ringN);
+  const ringLiftAttr = new THREE.BufferAttribute(ringLift, 1);
+  ringGeo.setAttribute('aLift', ringLiftAttr);
+  /** The world xz each lift was sampled at (the *breathed* radius of the frame it was taken on):
+   *  what a probe has to raycast if it is to compare like with like. */
+  const ringXZ = new Float32Array(ringN * 2);
   const ring = new THREE.Mesh(
-    new THREE.RingGeometry(0.45, 0.84, 48),
+    ringGeo,
     new THREE.ShaderMaterial({
       uniforms: ringU, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -2,
-      vertexShader: `varying vec2 vP; uniform float uCurve; uniform vec2 uCurveCenter;
+      vertexShader: `varying vec2 vP; uniform float uCurve; uniform vec2 uCurveCenter; attribute float aLift;
         void main(){ vP = position.xy;
           vec4 ssW = modelMatrix * vec4(position, 1.0);
           float ssD = length(ssW.xz - uCurveCenter);
           ssW.y -= uCurve * ssD * ssD;
+          ssW.y += aLift;
           gl_Position = projectionMatrix * viewMatrix * ssW; }`,
       fragmentShader: `uniform vec3 uColor; uniform float uAlpha; varying vec2 vP; void main(){ float r = length(vP);
         float soft = uAlpha * (1.0 - smoothstep(0.55, 0.80, r)) * smoothstep(0.45, 0.55, r);
@@ -238,6 +255,25 @@ export function makeKid(spec: KidSpec, extras: (b: Bones, h: Helpers) => KidHook
   ring.rotation.x = -Math.PI / 2; ring.position.y = 0.04; ring.layers.enable(BLOOM_LAYER); // T-56: the ring sits at +0.04, above a stepped tier's column-top tolerance (0.05 m), with the polygon offset
   const ringScale = 0.7 + 0.3 * (spec.legs / 0.78);
   root.add(ring);
+  // the per-frame conform: refreshed on any frame the kid has moved more than 0.02 m (and once at
+  // the start), timed so a probe can quote the cost. `ring.rotation.x = −90°` maps the ring's own
+  // (x, y, 0) to (x, 0, −y); then the root's yaw and position put it in the world.
+  let ringMs = 0, ringDone = false;
+  const ringLast = new THREE.Vector3(1e9, 0, 1e9);
+  const updateRingLift = (): void => {
+    if (!ground) return;
+    const t0 = performance.now();
+    const s = ring.scale.x, cy = Math.cos(root.rotation.y), sy = Math.sin(root.rotation.y);
+    const rx = root.position.x, rz = root.position.z, ryy = root.position.y;
+    for (let i = 0; i < ringN; i++) {
+      const lx = ringPos.getX(i) * s, lz = -ringPos.getY(i) * s;
+      const wx = rx + lx * cy + lz * sy, wz = rz - lx * sy + lz * cy;
+      ringXZ[i * 2] = wx; ringXZ[i * 2 + 1] = wz;
+      ringLift[i] = THREE.MathUtils.clamp(ground(wx, wz) - ryy, -0.6, 0.8);
+    }
+    ringLiftAttr.needsUpdate = true;
+    ringMs = performance.now() - t0;
+  };
   const ringLight = new THREE.PointLight(c.glow, 3, 3, 2);
   ringLight.position.y = 0.3;
   root.add(ringLight);
@@ -299,13 +335,16 @@ export function makeKid(spec: KidSpec, extras: (b: Bones, h: Helpers) => KidHook
     head.rotation.y -= 0.035 * sw;
     const rs = 1 + 0.06 * Math.sin(t * 5.236);
     ring.scale.setScalar(rs * ringScale);
+    if (!ringDone || ringLast.distanceToSquared(root.position) > 0.0004) { updateRingLift(); ringLast.copy(root.position); ringDone = true; }
+    else ringMs = 0;
     const fl = t - flT;
     hooks.update({ t, dt, idle, blend, w, fl: fl >= 0 && fl < hooks.flourishLen ? fl : -1, look: tmp, speed, groundRel });
   };
   const probe = ssProbeReg();
   probe['world'] = () => ({ curve: WORLD_U.uCurve.value, center: [WORLD_U.uCurveCenter.value.x, WORLD_U.uCurveCenter.value.y] });
   probe[`${spec.name.toLowerCase()}.rig`] = () => ({
-    speed, blend, ring: { y: ring.position.y, scale: ring.scale.x, visible: ring.visible },
+    speed, blend,
+    ring: { y: ring.position.y, scale: ring.scale.x, visible: ring.visible, verts: ringN, ms: ringMs, lift: Array.from(ringLift), xz: Array.from(ringXZ) },
     root: [root.position.x, root.position.y, root.position.z],
     armSwing: { r: R.sh.rotation.x, l: L.sh.rotation.x },
   });

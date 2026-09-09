@@ -13,7 +13,7 @@ import type { Station } from '../_shared/shot';
 import { lightWater } from '../_shared/water';
 import { makeCreatures } from './creatures';
 import { makeProps } from './props';
-import { FLOOR_Y, groundY, HEART, insideCave, makeCave } from './terrain';
+import { columnTopAt, FLOOR_Y, groundY, HEART, insideCave, makeCave, makeRock, nextRelief, reliefMode, reliefStats, setRelief, stairY, tierOf } from './terrain';
 
 const STATIONS: Record<string, Station> = {
   S1: { name: 'Lamplight Landing', target: [0, 1.0, -33], yaw: 175, pitch: 26, d: 21, note: 'the four kids in a line at the mouth, Quartz under his lamp, the void beyond and the heart pulsing 26 m below' },
@@ -44,16 +44,27 @@ runScene({
   sky: 'cave', shadowHalf: 36, curveDefault: 0,
   prev: 'frozen-night', next: 'forest-dusk',
   build: (scene) => {
+    // T-61: the relief setting is read before anything is built, so `?relief=flat|chunky|blocks`
+    // gives a reproducible frame of each; `J` cycles it live (below).
+    setRelief(new URLSearchParams(location.search).get('relief'));
     const cave = makeCave();
+    let rock = { tiers: cave.tiers, stairs: cave.stairs };
     scene.add(cave.shell, cave.tiers, cave.floor, cave.stairs, cave.pool.mesh);
     const props = makeProps();
     scene.add(props.group);
     const creatures = makeCreatures();
+    creatures.place(rock.stairs, rock.tiers);
     scene.add(creatures.group);
     // cave dust (pt.dust) and crystal sparkle (pt.sparkle) rising short near the heart
     const dust = drifters(160, K.dust, 3, 0.7, { x: 0, z: 0, w: 100, d: 90, y0: FLOOR_Y + 0.5, y1: 12 }, 0, 7);
     const sparkle = drifters(60, K.sparkle, 3.5, 1.4, { x: HEART.x, z: HEART.z, w: 14, d: 14, y0: FLOOR_Y, y1: FLOOR_Y + 9 }, 0.5, 8);
     scene.add(dust.pts, sparkle.pts);
+    // a stepped probe's window on to the terrain (the rigs' `ssRigProbe` pattern): read-only, so a
+    // probe can ask "is this point on a stair" and "which column tops out here" instead of guessing
+    // from `groundY` alone. Never drives the scene.
+    (window as unknown as Record<string, unknown>)['ssCaves'] = {
+      stairY, tierOf, columnTopAt, relief: reliefMode, stats: reliefStats, stations: STATIONS,
+    };
     const kidPos: THREE.Vector3[] = [];
     let lampFraction = 0.55;
     return {
@@ -73,9 +84,35 @@ runScene({
         dust.update(t, 0.8); sparkle.update(t, 0.6 + 0.6 * props.pulse());
       },
       poi: () => creatures.poi(),
-      hud: () => [...props.hud(), ...creatures.hud(), 'Tab swaps the walked kid · the others idle where they stand · stand by a dark lamp 1.5 s to light it (bats leave the ledge)'],
+      hud: () => {
+        const st = reliefStats();
+        const pct = st.total ? Math.round((100 * st.hist[2]!) / st.total) : 0;
+        return [
+          `relief ${reliefMode()} (J cycles flat/chunky/blocks · ?relief=) · ${st.total} tier columns, ${pct} % at the tier's own height, levels [${st.hist.join(', ')}] over −0.36 … +0.54 m × ${reliefMode() === 'blocks' ? 2 : 1}`,
+          ...props.hud(), ...creatures.hud(),
+          'Tab swaps the walked kid · the others idle where they stand · stand by a dark lamp 1.5 s to light it (bats leave the ledge)',
+        ];
+      },
       keys: {
         '0': { help: 'light the next lamp', run: () => props.lightNext() },
+        j: {
+          help: 'relief flat/chunky/blocks',
+          run: () => {
+            // The rock is rebuilt, not re-scened: the shell, the floor and the pool are untouched.
+            // Re-grounding the kids and re-casting the salamanders is a teleport, which Tier-0 rule 3
+            // would normally forbid — `J` is a debug comparison key, outside that rule by intent, and
+            // nothing in the shipped scene changes the relief at run time.
+            const mode = nextRelief();
+            scene.remove(rock.tiers, rock.stairs);
+            rock.tiers.geometry.dispose(); rock.stairs.geometry.dispose();
+            rock = makeRock();
+            scene.add(rock.tiers, rock.stairs);
+            props.reground();
+            creatures.place(rock.stairs, rock.tiers);
+            for (const k of (window as unknown as { ssKids: { root: THREE.Object3D }[] }).ssKids) k.root.position.y = groundY(k.root.position.x, k.root.position.z);
+            return `relief ${mode}`;
+          },
+        },
         '[': { help: 'pulse faster', run: () => { props.period.value = Math.max(3, props.period.value - 1); return `heart period ${props.period.value} s`; } },
         ']': { help: 'pulse slower', run: () => { props.period.value = Math.min(14, props.period.value + 1); return `heart period ${props.period.value} s`; } },
       },

@@ -1,6 +1,11 @@
 // Probe: walking on to the Crystal Caves' first stair from a 90° fan of bearings, and down it
-// (T-55, docs/qa/briefs/reel-fixes-caves-03.md check 2). LESSONS.md §0 rule 8: a mechanic is not
-// built until a stepped probe has shown it run, so this is what makes the fix done, not the test.
+// (T-55, docs/qa/briefs/reel-fixes-caves-03.md check 2; extended for T-61b, reel-fixes-caves-04.md
+// check 2). LESSONS.md §0 rule 8: a mechanic is not built until a stepped probe has shown it run,
+// so this is what makes the fix done, not the test.
+//
+// Round 2 adds one column: the largest change in Liam's y in a single frame. The stair is stacked
+// boxes again, so he steps rather than glides — and the number says whether that is a step (a
+// 0.19 m riser on the first stair, 0.29 m on the second) or a fall.
 //
 //   node scripts/sandbox-drive.cjs "http://localhost:5173/sandbox/caves-descent/?shot=S1&t=half&step=1" scripts/probes/caves-stair.cjs
 //
@@ -45,7 +50,7 @@ module.exports = async (page, h) => {
       };
       globalThis.dispatchEvent(new globalThis.KeyboardEvent('keydown', { key: 'w', bubbles: true }));
       const start = { x: sx, y: hero.position.y, z: sz };
-      let inRock = -99, over = -99, noHit = 0, yawNow = yaw, minY = hero.position.y;
+      let inRock = -99, over = -99, noHit = 0, yawNow = yaw, minY = hero.position.y, maxDy = 0, maxDyOn = 0, prevY = hero.position.y;
       const track = [];
       for (let f = 0; f < frames; f++) {
         if (reaim && f % 20 === 0 && hero.position.y < -0.25) {
@@ -63,6 +68,12 @@ module.exports = async (page, h) => {
         const p = hero.position;
         const hit = topAt(p.x, p.y, p.z);
         minY = Math.min(minY, p.y);
+        // two numbers: every frame, and only the frames he is already on a tread and stays on one
+        // (the Landing sits at 0 and the first tread at −0.19, so `< −0.25` is 'on the stair')
+        const dy = Math.abs(p.y - prevY);
+        maxDy = Math.max(maxDy, dy);
+        if (prevY < -0.25 && p.y < -0.25) maxDyOn = Math.max(maxDyOn, dy);
+        prevY = p.y;
         if (hit === null) noHit++;
         else { inRock = Math.max(inRock, hit - p.y); over = Math.max(over, p.y - hit); }
         if (f % Math.max(40, Math.round(frames / 6)) === 39) track.push({ f: f + 1, x: +p.x.toFixed(2), y: +p.y.toFixed(3), z: +p.z.toFixed(2), rock: hit === null ? null : +hit.toFixed(3) });
@@ -74,6 +85,7 @@ module.exports = async (page, h) => {
         final: { x: +p.x.toFixed(2), y: +p.y.toFixed(3), z: +p.z.toFixed(2) },
         onStair: w.groundY(p.x, p.z) < -0.2, lowestY: +minY.toFixed(3),
         maxIntoRock: +inRock.toFixed(4), maxOverRock: +over.toFixed(4), framesWithNoRockUnderHim: noHit,
+        maxSingleFrameDy: +maxDy.toFixed(4), maxSingleFrameDyOnTheStair: +maxDyOn.toFixed(4),
         yawEnd: +yawNow.toFixed(1), track,
       };
     }, { mx: MOUTH.x, mz: MOUTH.z, back, yaw, reaim, frames });

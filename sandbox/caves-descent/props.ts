@@ -14,7 +14,7 @@ import { BLOOM_LAYER } from '../_shared/post';
 import { deg, rng } from '../_shared/rng';
 import { C, type Keyframe } from '../_shared/style';
 import type { Circle } from '../_shared/walk';
-import { FALL, FLOOR_Y, floorY, GALLERY, groundY, HEART, PLINTH, stairY, TIER1_Y } from './terrain';
+import { clearOfStair, FALL, FLOOR_Y, floorY, GALLERY, groundY, HEART, PLINTH, stairY, TIER1_Y } from './terrain';
 
 const B = (w: number, h: number, d: number, hex: string) => colorize(new THREE.BoxGeometry(w, h, d), hex);
 const CY = (rt: number, rb: number, h: number, seg: number, hex: string) => colorize(new THREE.CylinderGeometry(rt, rb, h, seg), hex);
@@ -29,12 +29,26 @@ export interface Props {
   pulse: () => number;
   period: { value: number };
   onLampLit: (cb: (x: number, y: number, z: number) => void) => void;
+  /** T-61: `J` rebuilds the tiers under the props, so every rim crystal that was scattered on to the
+   *  ground is put back on the new ground. The hook-lamps, roots and stalactites keep their built
+   *  heights — `J` is a debug comparison key, and the shipped setting builds them together. */
+  reground: () => void;
   hud: () => string[];
 }
 
-export const LAMPS: [number, number, number][] = [ // x, z, y (hung at 2 m over the ground)
+/** Round-1 deferral (b): three of the fourteen hook-lamps stood *inside* the first stair's band —
+ *  `[-20,-31]` 1.0 m off the centreline, `[-27,-25]` 1.4 m, `[-33,-17]` on it — hung 1.4 m over the
+ *  treads they sat above. Each is moved sideways along its own cross-section normal to **0.4 m
+ *  outside the band's edge**, at the same arc, and hung from the ramp height there: a lamp on the
+ *  stair's flank, which is what `dungeons.md` §2.7's "wall-lamps on hooks along the stair" asks for.
+ *  Still cd 0 (emissive only), still fourteen, no new point light. */
+const MOVED = new Set(['-20,-31', '-27,-25', '-33,-17']);
+export const LAMPS: [number, number, number][] = ([ // x, z, y (hung at 2 m over the ground)
   [-8, -40, 0], [-12, -34, 0], [-20, -31, -1.5], [-27, -25, -5], [-33, -17, -9.5], [-36, -6, -11], [-38, 8, -11], [-36, 22, -11], [-26, 30, -12.5], [-16, 34, -19], [-6, 33, -24], [14, 30, -26], [22, 8, -26], [-2, -6, -26],
-];
+] as [number, number, number][]).map(([x, z, y]): [number, number, number] => {
+  const c = MOVED.has(`${x},${z}`) ? clearOfStair(x, z, 0.4) : null;
+  return c ? [c[0], c[1], c[2]] : [x, z, y];
+});
 
 export function makeProps(): Props {
   const r = rng(77);
@@ -115,19 +129,21 @@ export function makeProps(): Props {
   glow.push(xf(colorize(new THREE.PlaneGeometry(2.6, 5.0), '#8FD3F4', emis('#8FD3F4', 0.6)).rotateX(Math.PI / 2), FALL.x, FALL.top + 0.4, FALL.z, 0.5));
   // ---- rim crystals: instanced, three hues; each instance's glow = proximity × the heart's pulse -----
   const crystalGeo = mergeGeos([0, 1, 2].map((i) => { const h = 0.6 + i * 0.35, g = colorize(new THREE.CylinderGeometry(0.06, 0.16, h, 5), K.crystal, emis(K.crystalLight, 0.7)); g.translate(0, h / 2, 0); g.rotateX((i - 1) * 0.35); g.rotateY(i * 2.1); g.translate((i - 1) * 0.18, 0, (i % 2) * 0.15); return g; }));
-  const crystalSpots: { x: number; y: number; z: number; s: number; nx: number; nz: number }[] = [];
+  const crystalSpots: { x: number; y: number; z: number; s: number; nx: number; nz: number; ground: boolean }[] = [];
   // nothing grows through a tread: a scattered spot inside a stair's band is dropped, never nudged
   // (`stairY` returns null off the stair) — the same test the tier cut uses (T-55)
-  const spot = (x: number, z: number, y: number, s: number, nx = 0, nz = 0) => { if (stairY(x, z) !== null) return; crystalSpots.push({ x, y, z, s, nx, nz }); };
+  const spot = (x: number, z: number, y: number, s: number, nx = 0, nz = 0, ground = true) => { if (stairY(x, z) !== null) return; crystalSpots.push({ x, y, z, s, nx, nz, ground }); };
   for (let i = 0; i < 220; i++) { const a = r() * 6.28, d = 8 + r() * 44; const x = Math.cos(a) * d, z = Math.sin(a) * d * 0.85; const y = groundY(x, z); if (Math.hypot(x - HEART.x, z - HEART.z) < 12) continue; if (Math.abs(y - FLOOR_Y) < 2 || Math.abs(y - TIER1_Y) < 1 || Math.abs(y) < 1) spot(x, z, y, 0.5 + r() * 1.2); }
-  for (let i = 0; i < 160; i++) { const a = r() * 6.28; const rr = 0.9 + r() * 0.06; const x = Math.cos(a) * 62 * rr, z = Math.sin(a) * 54 * rr; const y = FLOOR_Y + r() * 30; spot(x, z, y, 0.8 + r() * 1.8, -Math.cos(a), -Math.sin(a)); }
+  for (let i = 0; i < 160; i++) { const a = r() * 6.28; const rr = 0.9 + r() * 0.06; const x = Math.cos(a) * 62 * rr, z = Math.sin(a) * 54 * rr; const y = FLOOR_Y + r() * 30; spot(x, z, y, 0.8 + r() * 1.8, -Math.cos(a), -Math.sin(a), false); }
   for (let i = 0; i < 24; i++) { const a = r() * 6.28, d = 2 + r() * 5; spot(GALLERY.x + Math.cos(a) * d, GALLERY.z + Math.sin(a) * d, TIER1_Y, 1.0 + r() * 1.3); }
   const crystals = new THREE.InstancedMesh(crystalGeo, glowMat, crystalSpots.length);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), col = new THREE.Color();
+  const crystalQ: THREE.Quaternion[] = [];
   crystalSpots.forEach((c, i) => {
     const up = new THREE.Vector3(0, 1, 0);
     const n = c.nx || c.nz ? new THREE.Vector3(c.nx, 0.3, c.nz).normalize() : up;
     q.setFromUnitVectors(up, n).multiply(new THREE.Quaternion().setFromAxisAngle(up, r() * 6.28));
+    crystalQ.push(q.clone());
     m.compose(new THREE.Vector3(c.x, c.y, c.z), q, new THREE.Vector3(c.s, c.s, c.s)); crystals.setMatrixAt(i, m);
     const hue = [K.crystal, K.crystalLight, K.crystalPale][i % 3]!; crystals.setColorAt(i, col.set(hue));
   });
@@ -206,6 +222,16 @@ export function makeProps(): Props {
   };
   return {
     group, footprints, update, period,
+    reground: () => {
+      for (let i = 0; i < crystalSpots.length; i++) {
+        const c = crystalSpots[i]!;
+        if (!c.ground) continue;
+        c.y = groundY(c.x, c.z);
+        m.compose(new THREE.Vector3(c.x, c.y, c.z), crystalQ[i]!, new THREE.Vector3(c.s, c.s, c.s));
+        crystals.setMatrixAt(i, m);
+      }
+      crystals.instanceMatrix.needsUpdate = true;
+    },
     pulse: () => pulseV,
     setLampFraction: (f) => { lamps.forEach((lp, i) => { const on = i === lamps.length - 1 || i < Math.round(f * (lamps.length - 1)); lp.l.target = on ? 1 : 0; lp.l.lit = on ? 1 : 0; }); },
     lightNext: () => { const lp = lamps.find((q2) => q2.l.target < 1); if (!lp) return 'every lamp is lit'; lightLamp(lp); return `lamp ${lamps.indexOf(lp) + 1} of ${lamps.length} lights`; },

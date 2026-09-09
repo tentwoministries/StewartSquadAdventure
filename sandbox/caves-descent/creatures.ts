@@ -10,8 +10,8 @@ import { makeWander } from '../_shared/creature';
 import { colorize, makeWorldMaterial, mergeGeos, xf } from '../_shared/material';
 import { blinkers } from '../_shared/particles';
 import { BLOOM_LAYER } from '../_shared/post';
-import { rng } from '../_shared/rng';
-import { FLOOR_Y, GALLERY, HEART, POOL, TIER1_Y } from './terrain';
+import { clamp, rng } from '../_shared/rng';
+import { FLOOR_Y, GALLERY, HEART, PATHS, POOL, SHOULDER, TIER1_Y, halfAt, onStair, ptAt, treadY } from './terrain';
 import { LAMPS } from './props';
 
 const mat = makeWorldMaterial({ roughness: 0.9 });
@@ -22,6 +22,9 @@ const mesh = (g: THREE.BufferGeometry, mm: THREE.Material = mat) => { const m = 
 export interface Creatures {
   group: THREE.Group;
   update: (t: number, dt: number, pulse: number, litFraction: number, kids: THREE.Vector3[], activeMoving: boolean) => void;
+  /** T-62: (re-)cast the two salamanders against the rock meshes in the scene. Called once at build
+   *  and again whenever `J` rebuilds the tiers and the stair under them. */
+  place: (stairs: THREE.Mesh, tiers: THREE.Mesh) => void;
   poi: () => THREE.Vector3 | null;
   hud: () => string[];
 }
@@ -36,13 +39,110 @@ export function makeCreatures(): Creatures {
   const spotMat = makeWorldMaterial({ emissive: true, roughness: 0.5 });
   const salaGeo = mergeGeos([xf(B(0.5, 0.08, 0.14, K.salamander), 0, 0.04), xf(colorize(new THREE.ConeGeometry(0.06, 0.45, 4), K.salamander).rotateZ(Math.PI / 2), -0.45, 0.04), xf(B(0.16, 0.08, 0.14, K.salamander), 0.3, 0.04), ...([[0.15, 0.1], [0.15, -0.1], [-0.12, 0.1], [-0.12, -0.1]] as [number, number][]).map(([x, z]) => xf(B(0.06, 0.03, 0.12, K.salamander), x, 0.02, z)), xf(B(0.03, 0.03, 0.03, '#1A1410'), 0.36, 0.09, 0.05), xf(B(0.03, 0.03, 0.03, '#1A1410'), 0.36, 0.09, -0.05)]);
   const spotsGeo = mergeGeos([-0.15, 0.0, 0.15].map((x, i) => xf(colorize(new THREE.IcosahedronGeometry(0.03, 0), K.salamanderSpot, { color: new THREE.Color(K.salamanderSpot).multiplyScalar(1.4).getStyle(), glow: 1 }), x, 0.09, (i % 2 ? 0.04 : -0.04))));
-  const salamanders: { root: THREE.Group; spots: THREE.Mesh; base: THREE.Vector3; toward: THREE.Vector3; climb: number; still: number }[] = [];
-  for (const [x, y, z, ry] of [[-24.5, -3.5, -30, 0.6], [-35, -9, -14, 1.1]] as [number, number, number, number][]) {
-    const root = node(x, y, z); root.rotation.y = ry; root.add(mesh(salaGeo));
+  // T-62: a clinging creature is placed by a **cast** against the surface it clings to, never by a
+  // typed point. Round 1 rebuilt the stair under the two hand-typed points and they were left
+  // hanging in the air over the tiers ("are they supposed to float?"). Each salamander now lives in
+  // the stair's own coordinates — (path, arc s, height h above the tread) — and every frame a ray is
+  // cast from the centreline at that arc and height, across the band, against the drawn `stairs` and
+  // `tiers`; the hit is the belly's point and the hit's normal is the body's local +y. It therefore
+  // stays on the rock through the whole climb, and through a `J` rebuild.
+  const BELLY = 0.02;      // the root sits this far off the wall: a cast down local −y hits at 0.02
+  const H_LO = 0.5, H_HI = 0.9;   // the brief's band: 0.5–0.9 m above the tread
+  const ray = new THREE.Raycaster();
+  const dirV = new THREE.Vector3(), upV = new THREE.Vector3(), xV = new THREE.Vector3(), zV = new THREE.Vector3();
+  const basis = new THREE.Matrix4(), wantQ = new THREE.Quaternion();
+  let rockMeshes: THREE.Object3D[] = [];
+  interface Cling { p: THREE.Vector3; n: THREE.Vector3; on: string; side: number }
+  /** Cast across the band at arc `s`, `h` above that step's tread. `prefer` is the side the animal is
+   *  already on: it is tried first and kept if it hits, because a stair whose *other* wall happens to
+   *  come nearer for a metre would otherwise flip the body through 180° mid-climb (measured: the
+   *  belly 1.54 m off the rock for the sixth of a second the eased turn took). Only when the side it
+   *  is on runs out does it change wall. */
+  const cast = (pi: number, s: number, h: number, prefer = 0): Cling | null => {
+    const p = PATHS[pi]!;
+    if (!rockMeshes.length) return null;
+    const a = ptAt(p, s), y = treadY(p, s) + h;
+    let best: Cling | null = null, bestD = Infinity;
+    for (const side of prefer > 0 ? [1, -1] : prefer < 0 ? [-1, 1] : [1, -1]) {
+      dirV.set(a.nx * side, 0, a.nz * side);
+      ray.set(new THREE.Vector3(a.x, y, a.z), dirV);
+      ray.far = halfAt(p, s) + SHOULDER;
+      for (const hit of ray.intersectObjects(rockMeshes, false)) {
+        if (!hit.face) continue;
+        const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+        if (Math.abs(n.y) > 0.5) continue;                    // a tread or a shoulder, not a wall
+        if (n.dot(dirV) > 0) n.negate();                      // the face that looks back at the stair
+        n.y = 0;
+        if (n.lengthSq() < 1e-6) continue;
+        if (hit.distance < bestD) { bestD = hit.distance; best = { p: hit.point.clone(), n: n.normalize(), on: hit.object.name, side }; }
+        break;
+      }
+      if (best && prefer !== 0) return best;      // the side it is on answered: stay on it
+    }
+    return best;
+  };
+  /** The first arc past `from` where a wall stands beside the stair — where it is cut into a tier. */
+  const findArc = (pi: number, from: number): number | null => {
+    const p = PATHS[pi]!;
+    for (let s = from; s <= p.len - 1; s += 0.3) if (cast(pi, s, (H_LO + H_HI) / 2)) return s;
+    return null;
+  };
+  /** How far toward `want` the wall actually reaches: the climb is marched, never assumed (the
+   *  Density row's rule). Without it a salamander walks its target off the end of the wall and
+   *  freezes there with nothing under its belly. */
+  const reachable = (pi: number, from: number, want: number, h: number, prefer: number): number => {
+    const dir = Math.sign(want - from);
+    if (dir === 0) return from;
+    let best = from;
+    for (let s = from + dir * 0.2; dir > 0 ? s <= want : s >= want; s += dir * 0.2) {
+      const c = cast(pi, s, h, prefer);
+      if (!c || c.side !== prefer) return best;   // the wall it is on stops here
+      best = s;
+    }
+    const c = cast(pi, want, h, prefer);
+    return c && c.side === prefer ? want : best;
+  };
+  interface Sala { root: THREE.Group; spots: THREE.Mesh; path: number; s: number; h: number; s0: number; h0: number; sT: number; hT: number; climb: number; still: number; on: boolean; surf: string; side: number }
+  const salamanders: Sala[] = [];
+  for (let i = 0; i < 2; i++) {
+    const root = node(0, 0, 0); root.name = `salamander${i}`; root.add(mesh(salaGeo));
     const spots = mesh(spotsGeo, spotMat); spots.layers.enable(BLOOM_LAYER); root.add(spots);
     group.add(root);
-    salamanders.push({ root, spots, base: new THREE.Vector3(x, y, z), toward: new THREE.Vector3(x, y, z), climb: 0, still: 0 });
+    salamanders.push({ root, spots, path: i, s: 0, h: 0.7, s0: 0, h0: 0.7, sT: 0, hT: 0.7, climb: 0, still: 0, on: false, surf: '?', side: 0 });
   }
+  /** Set the root from a cast: the belly on the wall, local +y the wall's outward normal, local +x
+   *  along the wall pointing *up*-stair (the rig is built along +x, head at +x). The basis is built
+   *  as a matrix, not as an Euler, so nothing accumulates and nothing needs wrapping (LESSONS Rigs
+   *  rows 6 and 8: a full orientation on a non-vertical surface is a basis, checked by reading the
+   *  world directions of the local axes in a probe). */
+  const settle = (sa: Sala, ease: number): void => {
+    const c = cast(sa.path, sa.s, sa.h, sa.side);
+    if (!c) { sa.on = false; return; }
+    sa.on = true; sa.surf = c.on; sa.side = c.side;
+    const a = ptAt(PATHS[sa.path]!, sa.s);
+    upV.copy(c.n);
+    xV.set(-a.nz, 0, a.nx);                       // the tangent, pointing up-stair (s decreasing)
+    xV.addScaledVector(upV, -upV.dot(xV)).normalize();
+    zV.copy(xV).cross(upV);
+    basis.makeBasis(xV, upV, zV);
+    wantQ.setFromRotationMatrix(basis);
+    if (ease >= 1) sa.root.quaternion.copy(wantQ); else sa.root.quaternion.slerp(wantQ, ease);
+    sa.root.position.copy(c.p).addScaledVector(c.n, BELLY);
+  };
+  /** Re-cast both salamanders against the rock in the scene now (also after `J` rebuilds it). */
+  const place = (stairs: THREE.Mesh, tiers: THREE.Mesh): void => {
+    rockMeshes = [stairs, tiers];
+    salamanders.forEach((sa, i) => {
+      // the first on the first stair where it is cut into the Landing, the second on the second
+      // stair where it is cut into the gallery ledge; each keeps the arc it had if that arc still
+      // has a wall, so `J` does not teleport a climbing salamander back to its start
+      const found = findArc(i, i === 0 ? 4 : 6);
+      const s = sa.s > 0 && cast(i, sa.s, sa.h, sa.side) ? sa.s : (found ?? 6);
+      sa.s0 = found ?? 6; sa.h0 = (H_LO + H_HI) / 2;
+      sa.s = s; sa.sT = s; sa.h = sa.h || sa.h0; sa.hT = sa.h;
+      settle(sa, 1);
+    });
+  };
   // the crystal beetle on the gallery ledge, rolling a glowing shard
   const beetle = mesh(mergeGeos([xf(colorize(new THREE.IcosahedronGeometry(0.1, 1), K.beetle).scale(1.3, 0.8, 1), 0, 0.08), xf(B(0.08, 0.05, 0.08, '#5A8AA8'), 0.13, 0.05), ...[-0.06, 0, 0.06].map((x) => xf(B(0.02, 0.02, 0.24, '#5A8AA8'), x, 0.03, 0))]));
   const shard = mesh(colorize(new THREE.OctahedronGeometry(0.12, 0), K.crystalLight, { color: new THREE.Color(K.crystalLight).multiplyScalar(1.2).getStyle(), glow: 1 }), spotMat); shard.layers.enable(BLOOM_LAYER);
@@ -59,16 +159,34 @@ export function makeCreatures(): Creatures {
     poiSet = false;
     const active = kids[0]!;
     moths.forEach((m, i) => { m.update(t, i < Math.round(litFraction * LAMPS.length) || i === LAMPS.length - 1 ? 0.9 : 0.05); });
-    // salamanders: spots pulse; if the active kid stands still within 6 m for 3 s, climb 1 m closer (up to 3 m)
+    // salamanders (T-62): spots pulse on the heart's oscillator; if the active kid stands still
+    // within 6 m for 3 s the salamander climbs 1 m closer (up to 3 m) — the same 3 s / 1 m / 0.8 per
+    // second numbers as before, and the same slow drift Andrew liked — but the metre is walked along
+    // the wall's own surface (arc and height), and the belly is re-cast every frame so it stays on
+    // the rock instead of drifting out over the void.
+    spotMat.emissiveIntensity = 0.6 + 0.9 * pulse;
     for (const s of salamanders) {
-      spotMat.emissiveIntensity = 0.6 + 0.9 * pulse;
+      const p = PATHS[s.path]!;
       const d = Math.hypot(s.root.position.x - active.x, s.root.position.z - active.z);
       s.still = !activeMoving && d < 6 ? s.still + dt : 0;
-      if (s.still > 3 && s.climb < 3) { s.climb += 1; s.still = 0; s.toward.set(active.x, active.y + 0.5, active.z); }
-      if (activeMoving && d < 3) { s.climb = 0; }
-      const target = s.base.clone().lerp(s.toward, Math.min(1, s.climb / Math.max(1, s.base.distanceTo(s.toward)) * 1));
-      s.root.position.lerp(target, Math.min(1, dt * 0.8));
-      s.root.position.y = Math.max(s.root.position.y, s.base.y - 0.5);
+      if (s.still > 3 && s.climb < 3) {
+        s.climb += 1; s.still = 0;
+        // one metre of wall: spend it along the arc toward where the kid stands on the stair, and
+        // what is left of it on the height that brings the belly up to his
+        const q = onStair(p, active.x, active.z, true);
+        const want = clamp(s.sT + clamp(clamp(q.s, 1, p.len - 1) - s.sT, -1, 1), 1, p.len - 1);
+        const reach = reachable(s.path, s.s, want, s.h, s.side);
+        const step = Math.abs(reach - s.sT);
+        s.sT = reach;
+        const rest = Math.max(0, 1 - step);
+        const hWant = clamp(active.y - treadY(p, s.sT) + 0.3, H_LO, H_HI);
+        const hNext = clamp(s.hT + clamp(hWant - s.hT, -rest, rest), H_LO, H_HI);
+        if (cast(s.path, s.sT, hNext, s.side)) s.hT = hNext;
+      }
+      if (activeMoving && d < 3) { s.climb = 0; s.sT = s.s0; s.hT = s.h0; }
+      const k = Math.min(1, dt * 0.8);
+      s.s += (s.sT - s.s) * k; s.h += (s.hT - s.h) * k;
+      settle(s, Math.min(1, dt * 6));
       if (s.climb > 0 && d < 8) { poiV.copy(s.root.position); poiSet = true; }
     }
     // the beetle and its shard
@@ -88,7 +206,7 @@ export function makeCreatures(): Creatures {
     void HEART;
   };
   return {
-    group, update, poi: () => (poiSet ? poiV : null),
-    hud: () => [`moths ${LAMPS.length} × 6 at the lit lamps · salamanders 2 (stand still 3 s) · the beetle rolls its shard · fish 8 under the heart`],
+    group, update, place, poi: () => (poiSet ? poiV : null),
+    hud: () => [`moths ${LAMPS.length} × 6 at the lit lamps · salamanders 2 clinging (stand still 3 s): ${salamanders.map((s) => `stair ${s.path + 1} arc ${s.s.toFixed(2)} h ${s.h.toFixed(2)} on ${s.surf} climb ${s.climb}${s.on ? '' : ' OFF-WALL'}`).join(' · ')} · the beetle rolls its shard · fish 8 under the heart`],
   };
 }
