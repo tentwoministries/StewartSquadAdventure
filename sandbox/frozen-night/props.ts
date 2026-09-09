@@ -56,8 +56,8 @@ export function makeProps(): Props {
     parts.push(B(L - 0.2, 2.9, W - 0.2, '#4A3020').translate(0, 1.5, 0));
     const th = 0.72, half = 1.5;
     for (const s of [-1, 1]) {
-      parts.push(B(L + 1.4, 0.16, half * 2, F.hutRoof).applyMatrix4(new THREE.Matrix4().makeRotationX(-s * th)).translate(0, 3.1 + half * Math.sin(th), s * half * Math.cos(th)));
-      parts.push(B(L + 1.6, 0.36, half * 2 + 0.2, F.snow).applyMatrix4(new THREE.Matrix4().makeRotationX(-s * th)).translate(0, 3.1 + half * Math.sin(th) + 0.22, s * half * Math.cos(th)));
+      parts.push(B(L + 1.4, 0.16, half * 2, F.hutRoof).applyMatrix4(new THREE.Matrix4().makeRotationX(s * th)).translate(0, 3.1 + half * Math.sin(th), s * half * Math.cos(th)));
+      parts.push(B(L + 1.6, 0.36, half * 2 + 0.2, F.snow).applyMatrix4(new THREE.Matrix4().makeRotationX(s * th)).translate(0, 3.1 + half * Math.sin(th) + 0.22, s * half * Math.cos(th)));
     }
     parts.push(B(L + 1.7, 0.3, 0.5, F.snow).translate(0, 3.1 + 2 * half * Math.sin(th) + 0.1, 0));
     parts.push(B(0.7, 2.2, 0.7, F.chimney).translate(1.6, 4.4, -0.6), B(0.9, 0.2, 0.9, F.snow).translate(1.6, 5.55, -0.6));
