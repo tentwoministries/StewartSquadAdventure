@@ -11,8 +11,9 @@
 // proves the same states on the real scene; these tests are what fails fast when a number moves.
 import { describe, expect, it } from 'vitest';
 import {
-  BRAKE_TO, HIT_HOLD, HOLD_MAX, NOTICE, REACH, RECOVER, RESPAWN, SKID, SLOT_OFF, SLOT_R, SPD,
-  WINDUP, brakeAt, gobStep, slotPoint, smoothstep, type GobEvent, type GobState,
+  BRAKE_TO, HERO_BAND, HERO_OUT, HERO_R, HIT_HOLD, HOLD_MAX, NOTICE, REACH, RECOVER, RESPAWN, SKID,
+  SLOT_OFF, SLOT_R, SPD, WINDUP, brakeAt, gobStep, heroClear, slotPoint, smoothstep,
+  type GobEvent, type GobState,
 } from '../../../sandbox/meadow-golden/goblin-step';
 
 const DT = 1 / 60;
@@ -157,5 +158,36 @@ describe('gobStep — the round-2 loop (T-63, T-64)', () => {
     // the never-attacks defect wearing a different hat
     expect(SLOT_R).toBeLessThan(REACH);
     expect(SLOT_R).toBeGreaterThan(BRAKE_TO);
+  });
+
+  // Audit 10 (`meadow-golden-hit-04-02`): a goblin's torso stood inside Isabella's shoulder while
+  // the club stayed 0.619 m clear. The floor is hero 0.30 + goblin HIT_R 0.25 = 0.55 m, and it is a
+  // property, not an observation: the band damps the *inward* travel to nothing at the floor, so a
+  // goblin driven straight at the hero at any speed stops short of it instead of converging on it.
+  it('holds the hero’s 0.55 m however hard a goblin is driven at her, and eases out of an overlap', () => {
+    // the band is entirely inside the brake's target, so the chase's timing cannot change
+    expect(HERO_R + HERO_BAND).toBeLessThan(BRAKE_TO);
+    expect(HERO_R + HERO_BAND).toBeLessThan(REACH);
+    // driven in at 4 m/s (nearly twice the goblin's own SPD) from 0.9 m for two seconds
+    let d = 0.9, worst = Infinity, jump = 0;
+    for (let f = 0; f < 120; f++) {
+      const raw = d - 4 * DT;                       // where this frame's travel would have put it
+      const next = heroClear(d, raw, DT);
+      jump = Math.max(jump, Math.abs(next - raw));  // the correction is never bigger than the travel
+      d = next;
+      worst = Math.min(worst, d);
+    }
+    expect(worst).toBeGreaterThanOrEqual(HERO_R);
+    expect(jump).toBeLessThanOrEqual(4 * DT + 1e-12);
+    // outside the band it is inert: the slot steering, the brake and the pack push are untouched
+    expect(heroClear(2, 1.9, DT)).toBe(1.9);
+    expect(heroClear(BRAKE_TO, BRAKE_TO - 0.01, DT)).toBe(BRAKE_TO - 0.01);
+    // and a goblin the hero has walked into eases back out to the floor — bounded per frame, so it
+    // does not pop (§0 rule 3), and it arrives rather than converging on it
+    let e = 0.2;
+    const steps: number[] = [];
+    for (let f = 0; f < 60; f++) { const n = heroClear(e, e, DT); steps.push(n - e); e = n; }
+    expect(Math.max(...steps)).toBeLessThanOrEqual(HERO_OUT * DT + 1e-12);
+    expect(e).toBeCloseTo(HERO_R, 12);
   });
 });

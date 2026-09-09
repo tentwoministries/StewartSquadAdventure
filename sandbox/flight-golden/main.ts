@@ -43,9 +43,17 @@ interface SeatPose {
   inShX: number; inShZ: number; inFaX: number;    // the inboard arm (the one no grip is solved onto)
   outShX: number; outShZ: number; outFaX: number; // the outboard arm's rest pose, before the solve
 }
-/** Legs straight out along the deck (or over the wing's leading edge): the only leg pose the
- *  1.205 m between the well's deck and the top wing leaves room for. */
+/** Legs straight out over the wing's leading edge, boots hanging: the wing riders' pose. */
 const LEGS_OUT = { th: -1.5338, shin: 0, foot: 1.5338 };
+/** The same legs in the well, but with the toes carried forward instead of hanging: at 1.5338 the
+ *  boot dropped 0.31 m below the hip, which put every well rider's foot 0.19 m under the deck and
+ *  out through the belly (fix C2, the mesh probe — the bone probe scored it clear). */
+const WELL_LEGS = { th: -1.5338, shin: 0, foot: 0.45 };
+/** How far a well rider leans out over the coaming. A head sits 0.63–0.74 m over its own hips, so
+ *  0.30 rad carries it 0.19–0.22 m outboard: with the hips 0.18 m apart (all the flush fuselage
+ *  allows, flight.ts WELL_Z) the four heads still read as four from the chase (fix C3). It is also
+ *  what kids do in an open cockpit — heroes.md §2.4.7 already has Noah leaning out. */
+const WELL_LEAN = 0.32;
 const REST = { inShX: -0.55, inShZ: -0.22, inFaX: -0.75, outShX: -0.55, outShZ: -0.22, outFaX: -0.75 };
 /** heroes.md §2.4.7's four in-flight clips, kept whole: only the hand a grip is solved onto moves.
  *  Noah leans out and tracks the ground; Collette holds her pigtails down against the wind;
@@ -56,8 +64,8 @@ function poseFor(v: SeatVariant, i: number): SeatPose {
     const outer = v === 'b' && (i === 1 || i === 2);
     return { ...LEGS_OUT, spineX: -0.05, spineZ: outer ? -0.35 : 0.06, hipsX: 0, ...REST };
   }
-  const base = { ...LEGS_OUT, spineX: -0.10, spineZ: 0, hipsX: 0, ...REST };
-  if (i === 1) return { ...base, spineX: 0.20, spineZ: 0.34 };                                     // Noah leans out
+  const base = { ...WELL_LEGS, spineX: -0.10, spineZ: WELL_LEAN, hipsX: 0, ...REST };
+  if (i === 1) return { ...base, spineX: 0.20, spineZ: 0.42 };                                     // Noah leans out
   if (i === 2) return { ...base, inShX: -2.15, inShZ: 0.35, inFaX: -1.25 };                        // Collette holds a pigtail
   if (i === 3) return { ...base, inShX: -0.25, inShZ: 1.85, inFaX: -0.15 };                        // Isabella, an arm up
   return base;                                                                                     // Liam sits still
@@ -183,7 +191,10 @@ runScene({
     // the palms itself off the rigs, so no check reads the scene's own report of where they ended.
     win['ssSeatApi'] = {
       variant: () => seatsTo, from: () => seatsFrom, blend: () => seatBlend,
-      seats: SEATS, onWing, grip: (v: SeatVariant, i: number, side: 'outer' | 'inner', grab: number) => gripFor(v, i, side, grab),
+      // the sockets as plain [x, y, z] triples, the shape every flight probe already reads
+      seats: Object.fromEntries(SEAT_VARIANTS.map((v) => [v, SEATS[v].map((s) => [s.x, s.y, s.z])])),
+      kind: (v: SeatVariant, i: number) => SEATS[v][i]!.kind,
+      onWing, grip: (v: SeatVariant, i: number, side: 'outer' | 'inner', grab: number) => gripFor(v, i, side, grab),
     };
 
     // Where each kid looks (npcs.md §2.3.7, and the scene's own intent). The runtime overwrites a
@@ -241,7 +252,7 @@ runScene({
           const pA = poseFor(seatsFrom, i), pB = poseFor(seatsTo, i);
           // which physical limb is outboard: the rig's R sits at local +x, which the +90° socket
           // turns onto the plane's −z (T-57), so a kid on the plane's left grips with R
-          const outerIsR = SEATS[seatsTo][i]![2] < 0;
+          const outerIsR = SEATS[seatsTo][i]!.z < 0;
           const out: Limb = outerIsR ? b.R : b.L, inn: Limb = outerIsR ? b.L : b.R;
           const outS = outerIsR ? 1 : -1, innS = -outS;
           b.LL.th.rotation.x = b.RL.th.rotation.x = mix(pA.th, pB.th, sw);

@@ -4,19 +4,28 @@
 //
 //   node scripts/sandbox-drive.cjs "http://localhost:5173/sandbox/caves-descent/?shot=S1&t=half&step=1&relief=chunky" scripts/probes/caves-salamander-04.cjs
 //
-// For each of the two: at rest, and then with Liam parked still 4 m away up-stair, a cast from the
+// For each of the **four** (round 2's fix A5: two per stair, the brainstorm's own number): at rest,
+// and then with Liam parked still 4 m away up-stair, a cast from the
 // belly along the body's own local −y must hit `stairs` or `tiers` within 0.06 m — at rest, at the
 // first climb trigger, and at every 10 frames of the 240 that follow it. The run is timed from the
 // trigger because the trigger itself costs 3 s of standing still (the bible's number, unchanged) and
 // the lerp is 0.8/s (Andrew liked the slow drift): 240 frames of climbing, not 240 frames of waiting.
 // The whole-run figure from a standing start is quoted too.
+//
+// Each animal is measured on a **fresh load**. With four of them, two to a stair, parking Liam for
+// the first also starts the second (its own trigger is a kid within 6 m standing still), so a
+// single session left the later ones already at the climb cap of 3 and their run measured nothing.
 const SAMPLE = 10, RUN = 240, ARM = 400;
+const BASE = 'http://localhost:5173/sandbox/caves-descent/';
 
 module.exports = async (page, h) => {
-  await h.sleep(12000);
-  const out = { url: page.url(), relief: await h.evaluate(() => globalThis.ssWorld.hud()[0]), salamanders: [] };
+  const out = { url: page.url(), relief: null, salamanders: [] };
 
-  for (const idx of [0, 1]) {
+  for (const idx of [0, 1, 2, 3]) {
+    await page.goto(`${BASE}?shot=S1&t=half&step=1&relief=chunky`, { waitUntil: 'load' });
+    await page.waitForFunction(() => !!globalThis.ssWorld && !!globalThis.ssStep, { timeout: 60000 });
+    await h.sleep(12000);
+    out.relief ??= await h.evaluate(() => globalThis.ssWorld.hud()[0]);
     const r = await h.evaluate(async (args) => {
       const { idx, SAMPLE, RUN, ARM } = args;
       const T = globalThis.ssTHREE;
@@ -48,10 +57,24 @@ module.exports = async (page, h) => {
       };
       const dist = () => sal.position.distanceTo(liam.root.position);
 
-      // park Liam 4 m up-stair of the salamander and 1.5 m in from the wall, on the ground there
+      // Park Liam 4 m up-stair of the salamander, **on the stair's own centreline** — the animal
+      // climbs along the wall, in arc, so the kid it is asked to close on has to be up or down the
+      // same stair. The spot is read from the scene (`ssCaves.stairPt`, the drawn centreline at that
+      // arc) and asserted on the band with `stairY`, never taken as a fixed offset along the body's
+      // own axes: on a column's side face the body's +x is not the stair's direction, and round 1's
+      // "4 m along local +x, 1.5 m off the wall" put Liam on a tier 5 m below the animal.
       sal.updateMatrixWorld(true);
       sal.matrixWorld.extractBasis(xA, yA, zA);
-      const stand = sal.position.clone().addScaledVector(xA.normalize(), 4).addScaledVector(yA.normalize(), 1.5);
+      xA.normalize(); yA.normalize();
+      const me = globalThis.ssCaves.salamanders()[idx];
+      let stand = sal.position.clone().addScaledVector(xA, 4).addScaledVector(yA, 1.5), onBand = false, standArc = null;
+      for (const arc of [me.arc - 4, me.arc + 4, me.arc - 3, me.arc + 3]) {
+        if (arc < 0.5) continue;
+        const q = globalThis.ssCaves.stairPt(me.path, arc);
+        if (arc > q.len) continue;
+        if (globalThis.ssCaves.stairY(q.x, q.z) === null) continue;
+        stand = new T.Vector3(q.x, 0, q.z); onBand = true; standArc = arc; break;
+      }
       liam.root.position.set(stand.x, w.groundY(stand.x, stand.z), stand.z);
       globalThis.ssStep(2);
 
@@ -73,7 +96,7 @@ module.exports = async (page, h) => {
       }
       return {
         idx, restBelly: +rest.belly.toFixed(4), restAxes: rest.axes, restPos: rest.pos, restDistance: +rest.d.toFixed(3),
-        liam: [+liam.root.position.x.toFixed(2), +liam.root.position.y.toFixed(3), +liam.root.position.z.toFixed(2)],
+        liam: [+liam.root.position.x.toFixed(2), +liam.root.position.y.toFixed(3), +liam.root.position.z.toFixed(2)], liamOnTheStair: onBand, liamArc: standArc, salamander: me,
         framesToFirstClimb: armed, distanceAtFirstClimb: +startClimb.toFixed(3),
         distanceAfterRun: +dist().toFixed(3),
         closedOverRun: +(startClimb - dist()).toFixed(3),

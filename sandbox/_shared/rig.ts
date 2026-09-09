@@ -223,10 +223,25 @@ export function makeKid(spec: KidSpec, extras: (b: Bones, h: Helpers) => KidHook
   // y **after** the curve term (never folded into it: the curve rides the shared uniform objects by
   // reference and a copy would re-break T-41). On flat ground every lift is 0 and the frame is the
   // one it was; on the caves' relieved tiers the ring drapes over the column tops it lies on instead
-  // of demanding a flat one. RingGeometry(0.45, 0.84, 48) is 98 vertices (verified against three
-  // r185: indexed, two radial rings at exactly 0.45 and 0.84, z = 0), so that is 98 `groundY` calls
-  // per moved kid per frame; the rim the eye reads at 0.62 lies between the two rings.
-  const ringGeo = new THREE.RingGeometry(0.45, 0.84, 48);
+  // of demanding a flat one.
+  //
+  // Round 2, fix A4: the ring is built on **three** radial rings — 0.45, 0.62 and 0.84 — so that
+  // heroes.md §2.7.5's crisp rim at 0.62, the edge the eye actually reads, is a real vertex ring
+  // whose lift is *sampled* rather than interpolated. With two rings (round 1) the rim ramped
+  // straight across a step: measured 0.2533 m of error on 8 of 20 stands over the caves' 0.54 m
+  // relief. Verified against three r185 before relying on it: `RingGeometry(0.45, 0.84, 48, 2)` is
+  // **147 vertices / 576 indices** in three concentric rings of 49 — but its radii are evenly
+  // spaced, so its middle ring lands at 0.645, *not* at 0.62; those 49 vertices are pulled in to
+  // exactly 0.62 here. 147 vertices is 147 `groundY` calls per moved kid per frame (588 for four).
+  const ringGeo = new THREE.RingGeometry(0.45, 0.84, 48, 2);
+  {
+    const rp = ringGeo.getAttribute('position') as THREE.BufferAttribute;
+    for (let i = 0; i < rp.count; i++) {
+      const x = rp.getX(i), y = rp.getY(i), r = Math.hypot(x, y);
+      if (Math.abs(r - 0.645) < 1e-6) rp.setXY(i, (x / r) * 0.62, (y / r) * 0.62);
+    }
+    rp.needsUpdate = true;
+  }
   const ringPos = ringGeo.getAttribute('position') as THREE.BufferAttribute;
   const ringN = ringPos.count;
   const ringLift = new Float32Array(ringN);

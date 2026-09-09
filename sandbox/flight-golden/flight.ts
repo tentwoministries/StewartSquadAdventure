@@ -4,7 +4,7 @@
 // the plane climbs through, and the two bounces on landing. Speeds and altitudes: npcs.md §2.2.4.
 import * as THREE from 'three';
 import { colorize, makeWorldMaterial, mergeGeos, xf } from '../_shared/material';
-import { CABANE, LOWER_WING, makePlane, WELL, type PlaneSolid } from '../_shared/plane';
+import { BENCH, CABANE, deckAt, halfAt, LOWER_WING, makePlane, PILOT, topAt, WELL, type PlaneSolid } from '../_shared/plane';
 
 import { rng } from '../_shared/rng';
 import { C } from '../_shared/style';
@@ -95,28 +95,63 @@ export const SEAT_NOTE: Record<SeatVariant, string> = {
   c: 'C · front and back — Liam and Noah on the wing roots, Collette and Isabella in the well',
 };
 
-/** Hip height in the well: 0.22 m over the deck, the highest that keeps a head under the top wing
- *  (the deck is 0.80 m and the upper wing's underside 2.005 m: 1.205 m for a 1.43 m seated Liam). */
-export const HIP_WELL = WELL.floorTop + 0.22;
-/** Hip height on the lower wing: the thigh's own radius over the wing's top surface. */
-export const HIP_WING = LOWER_WING.top + 0.09;
-/** The two kid rows in the well. The forward row clears the front bulkhead by 0.06 m with Liam's
- *  legs out; the aft row clears the forward row's hips by 0.01 m and Ed's knees by 0.06 m. */
-const ROW_FWD = 0.0, ROW_AFT = -0.85, WELL_Z = 0.16;
+/** Where a seat is: the well's benches, or the lower wing. Round-2 fix C5 (audit 13): the grip solve
+ *  used to ask `SEATS[v][i][1] === HIP_WING`, a float equality that a fourth variant seating a kid at
+ *  either derived height would have silently broken. A seat says what it is. */
+export type SeatKind = 'well' | 'wing';
+export interface Seat { x: number; y: number; z: number; kind: SeatKind }
+
+/** Hip height on a well bench: the deepest kid's hip block over the pad (`BENCH.hip`). The fore
+ *  bench is 0.215 m higher than the aft one, which is what separates four heads from the chase
+ *  camera (fix C3) — at one height the far row's heads sit behind the near row's. */
+export const HIP_FWD = BENCH.fwd.top + BENCH.hip;
+export const HIP_AFT = BENCH.aft.top + BENCH.hip;
+/** Hip height on the lower wing: a 0.13 m saddle pad and the hip block over it. The band is narrow
+ *  and the mesh probe set both ends of it (fix C2): under 0.97 m the riders' capes and coat tails
+ *  sit inside the 0.09 m wing, over 0.965 m a seated Liam's head is inside the upper wing at
+ *  2.005 m. 0.958 m is what is left. */
+export const HIP_WING = LOWER_WING.top + 0.193;
+/** The taller saddle: Noah's coat tail and Isabella's skirt hem both need 1.02 m to pass the wing
+ *  without a vertex inside it, and both of them still clear the upper wing by 0.14 m. */
+export const HIP_WING_HI = LOWER_WING.top + 0.255;
+/** The saddle each wing rider sits on: what makes 0.19–0.26 m over the wing read as a seat. */
+export const WING_PAD = { len: 0.44, halfZ: 0.17 } as const;
+/**
+ * The two kid rows in the well, and how far apart they sit **across**. 0.09 m, not the fix brief's
+ * 0.17: the brief's number assumes a 0.68 m well the whole way, but that is the fuselage's width at
+ * the *aft bulkhead* only and C1 forbids the well leaving the taper. The interior half-width is
+ * `innerAt(x)` = 0.2755 m at the fore bench and 0.2888 m at the aft one, and Liam's thigh reaches
+ * 0.179 m from his own centre, so 0.0965 m is the whole budget. The four-read is bought back with
+ * the bench step above and the outboard lean in `main.ts` (a head is 0.74 m over its hips, so a
+ * 0.30 rad lean carries it 0.22 m out): heads 0.60 m apart across, hips 0.18 m apart.
+ */
+const ROW_FWD = BENCH.fwd.x, ROW_AFT = BENCH.aft.x;
+/** How far off the centreline each kid rides, **per kid**, from the mesh probe's own measurements of
+ *  that kid's widest mesh against `innerAt(x)`: Collette's robe is 0.63 m across and Isabella's
+ *  skirt 0.54 m against a 0.60 m interior, so the girls ride the centreline and the boys take the
+ *  offset. The heads are separated by the lean, not by the hips. */
+const WZ = { liam: 0.10, noah: 0.13, collette: -0.005, isabella: -0.015 };
 /** The wing riders: 0.25 m behind the leading edge, so every kid's boots hang over it. */
 const WING_X = 1.05, WING_IN = 0.72, WING_OUT = 1.36;
 
+const well = (x: number, y: number, z: number): Seat => ({ x, y, z, kind: 'well' });
+const wing = (z: number, y: number = HIP_WING): Seat => ({ x: WING_X, y, z, kind: 'wing' });
+
 /** seat.0–3 (Liam, Noah, Collette, Isabella) per variant; Isabella is on the plane's left (−z) in
- *  all three (npcs.md §2.2.1: "Isabella on the left (she called dibs)"). */
-export const SEATS: Record<SeatVariant, readonly (readonly [number, number, number])[]> = {
-  a: [[ROW_FWD, HIP_WELL, WELL_Z], [ROW_AFT, HIP_WELL, WELL_Z], [ROW_AFT, HIP_WELL, -WELL_Z], [ROW_FWD, HIP_WELL, -WELL_Z]],
-  b: [[WING_X, HIP_WING, WING_IN], [WING_X, HIP_WING, WING_OUT], [WING_X, HIP_WING, -WING_OUT], [WING_X, HIP_WING, -WING_IN]],
-  c: [[WING_X, HIP_WING, WING_IN], [WING_X, HIP_WING, -WING_IN], [ROW_AFT, HIP_WELL, WELL_Z], [ROW_AFT, HIP_WELL, -WELL_Z]],
+ *  all three (npcs.md §2.2.1: "Isabella on the left (she called dibs)") and, in A, front-left. */
+export const SEATS: Record<SeatVariant, readonly Seat[]> = {
+  a: [well(ROW_FWD, HIP_FWD, WZ.liam), well(ROW_AFT, HIP_AFT, WZ.noah), well(ROW_AFT, HIP_AFT, WZ.collette), well(ROW_FWD, HIP_FWD, WZ.isabella)],
+  b: [wing(WING_IN), wing(WING_OUT, HIP_WING_HI), wing(-WING_OUT), wing(-WING_IN, HIP_WING_HI)],
+  // C's two well riders sit one behind the other rather than abreast — the same reason A's rows are
+  // 0.18 m apart and not 0.34: neither girl's skirt fits the fuselage off the centreline.
+  c: [wing(WING_IN), wing(-WING_IN, HIP_WING_HI), well(ROW_AFT, HIP_AFT, -WZ.collette), well(ROW_FWD, HIP_FWD, WZ.isabella)],
 };
 /** True where the kid rides the lower wing rather than sitting in the well. */
-export const onWing = (v: SeatVariant, i: number): boolean => SEATS[v][i]![1] === HIP_WING;
-/** The lap strap's band: over the thighs, 0.20 m ahead of the hips and 0.085 m over them. */
-export const STRAP = { x: WING_X + 0.20, y: HIP_WING + 0.085, halfZ: 0.30, grip: 0.13 } as const;
+export const onWing = (v: SeatVariant, i: number): boolean => SEATS[v][i]!.kind === 'wing';
+/** The lap strap's band: over the thighs, 0.20 m ahead of the hips and 0.085 m over them. The
+ *  height follows the rider's own saddle, so both saddle heights get the strap over the thighs. */
+export const STRAP = { x: WING_X + 0.20, over: 0.085, halfZ: 0.30, grip: 0.13 } as const;
+export const strapY = (hipY: number): number => hipY + STRAP.over;
 /** A hand's grip: a point on real geometry in **plane space**, and the weight the solve runs at
  *  (0 = the hand keeps the kid's own clip). Every term is continuous in `grab`, so nothing pops
  *  when the stall-drop starts or ends (Tier-0 rule 3). */
@@ -133,18 +168,23 @@ const lerp = (a: number, b: number, u: number): number => a + (b - a) * u;
  *               strap with both on the drop.
  */
 export function gripFor(v: SeatVariant, i: number, side: 'outer' | 'inner', grab: number): Grip {
-  const [sx, , sz] = SEATS[v][i]!;
+  const { x: sx, z: sz } = SEATS[v][i]!;
   const s = Math.sign(sz) || 1, g = Math.min(1, Math.max(0, grab));
-  if (!onWing(v, i)) return { x: sx, y: WELL.rimTop, z: s * WELL.rimZ, w: side === 'outer' ? 1 : g };
-  const strapY = STRAP.y + 0.025, az = Math.abs(sz);
+  // the well's rim is the lip on top of the coaming, and the coaming is the fuselage's own skin, so
+  // the hand goes on the taper's own top line at that x — 0.07 m over it, which is a palm resting on
+  // the lip rather than sunk into it (fix C1: the rim no longer stands 0.30 m proud of the fuselage)
+  // both hands take the rail beside the kid: measured both ways, this is the one the two aft-bench
+  // riders reach exactly (0.000 and 0.014 m); the far rail is worse for three of the four
+  if (!onWing(v, i)) return { x: sx, y: topAt(sx) + 0.07, z: s * (halfAt(sx) - WELL.wall / 2), w: side === 'outer' ? 1 : g };
+  const sy = strapY(SEATS[v][i]!.y) + 0.025, az = Math.abs(sz);
   if (az < (WING_IN + WING_OUT) / 2) { // the inner rider: the strut, and the strap in the other hand
     if (side === 'inner') return { x: CABANE.xs[1], y: 1.28, z: s * CABANE.z, w: 1 };
-    return { x: STRAP.x, y: strapY, z: s * (az + STRAP.grip), w: 1 };
+    return { x: STRAP.x, y: sy, z: s * (az + STRAP.grip), w: 1 };
   }
-  if (side === 'outer') return { x: STRAP.x, y: strapY, z: s * (az + STRAP.grip), w: 1 };
+  if (side === 'outer') return { x: STRAP.x, y: sy, z: s * (az + STRAP.grip), w: 1 };
   return { // flat on the wing, easing onto the strap through the drop
     x: lerp(WING_X, STRAP.x, g),
-    y: lerp(LOWER_WING.top + 0.045, strapY, g),
+    y: lerp(LOWER_WING.top + 0.09, sy, g),
     z: s * lerp(az - 0.30, az - 0.10, g),
     w: 1,
   };
@@ -162,6 +202,11 @@ export interface Flight {
   setSeats: (v: SeatVariant) => void;
   /** The plane's solids in plane space, and the two conversions the bone check needs. */
   solids: PlaneSolid[];
+  /** The cockpit well's own numbers, and the taper it is cut out of, for the mesh probe (fix C2):
+   *  the footprint a vertex has to be inside before "below the floor" means anything. */
+  well: typeof WELL;
+  halfWidthAt: (x: number) => number;
+  floorAt: (x: number) => number;
   toPlane: (world: THREE.Vector3, out: THREE.Vector3) => THREE.Vector3;
   fromPlane: (x: number, y: number, z: number, out: THREE.Vector3) => THREE.Vector3;
   chase: (out: THREE.Object3D, kind: 'CH' | 'WG' | 'ED', look?: LookOffset) => void;
@@ -215,8 +260,8 @@ export function makeFlight(): Flight {
   // The old single bench at 0.74 m is what put the hips *inside* the fuselage box (T-66).
   const seatSets: Record<SeatVariant, THREE.Group[]> = { a: [], b: [], c: [] };
   for (const v of SEAT_VARIANTS) {
-    for (const [sx, sy, sz] of SEATS[v]) {
-      const s = new THREE.Group(); s.position.set(sx, sy, sz); s.rotation.y = Math.PI / 2;
+    for (const seat of SEATS[v]) {
+      const s = new THREE.Group(); s.position.set(seat.x, seat.y, seat.z); s.rotation.y = Math.PI / 2;
       plane.group.add(s); seatSets[v].push(s);
     }
   }
@@ -225,11 +270,13 @@ export function makeFlight(): Flight {
   // thighs with an iron buckle, on two posts down to the wing. Built once at B's four z's; C shows
   // the pair at ±0.72. World geometry on the shared material, so it takes the world's bend (T-41).
   const straps: THREE.Mesh[] = [];
-  for (const [, , sz] of SEATS.b) {
-    const band = B(0.05, 0.02, STRAP.halfZ * 2, C.planeFin).translate(STRAP.x, STRAP.y, sz);
-    const buckle = B(0.07, 0.045, 0.09, C.iron).translate(STRAP.x, STRAP.y + 0.02, sz);
-    const posts = [1, -1].map((s) => B(0.05, STRAP.y - LOWER_WING.top, 0.03, C.planeFin).translate(STRAP.x, (STRAP.y + LOWER_WING.top) / 2, sz + s * STRAP.halfZ));
-    const m = new THREE.Mesh(mergeGeos([band, buckle, ...posts]), mat);
+  for (const { y: sy, z: sz } of SEATS.b) {
+    const sty = strapY(sy), padH = sy - BENCH.hip - LOWER_WING.top;
+    const band = B(0.05, 0.02, STRAP.halfZ * 2, C.planeFin).translate(STRAP.x, sty, sz);
+    const buckle = B(0.07, 0.045, 0.09, C.iron).translate(STRAP.x, sty + 0.02, sz);
+    const posts = [1, -1].map((s) => B(0.05, sty - LOWER_WING.top, 0.03, C.planeFin).translate(STRAP.x, (sty + LOWER_WING.top) / 2, sz + s * STRAP.halfZ));
+    const pad = B(WING_PAD.len, padH, WING_PAD.halfZ * 2, C.iron).translate(WING_X, LOWER_WING.top + padH / 2, sz);
+    const m = new THREE.Mesh(mergeGeos([band, buckle, pad, ...posts]), mat);
     m.castShadow = true; m.visible = false;
     plane.group.add(m); straps.push(m);
   }
@@ -240,7 +287,7 @@ export function makeFlight(): Flight {
   // socket turns +90° (the same T-26 correction as the seats), and he sits at 0.95 m so the wide
   // pale collar reads just above the deck.
   const ed = new THREE.Group();
-  ed.position.set(-1.35, 0.95, 0); ed.rotation.y = Math.PI / 2;
+  ed.position.set(PILOT.x, PILOT.y, 0); ed.rotation.y = Math.PI / 2;
   const edBody = new THREE.Mesh(mergeGeos([
     xf(CY(0.21, 0.25, 0.52, 7, ED.base), 0, 0.26),
     xf(colorize(new THREE.TorusGeometry(0.22, 0.075, 5, 12), ED.collar).rotateX(Math.PI / 2), 0, 0.50),
@@ -324,6 +371,7 @@ export function makeFlight(): Flight {
     group, plane: plane.group, whiteOut: 0, stall: 0, pos, fwd: tan,
     speed: 0, distance: 0, bankDeg: 0, bounce: 0, length: L,
     seatVariant, solids: plane.solids,
+    well: WELL, halfWidthAt: halfAt, floorAt: deckAt,
     setSeats: (v) => { seatVariant = v; flight.seatVariant = v; showStraps(v); },
     seatAt: (v, i, out) => { const s = seatSets[v][i]!; s.getWorldPosition(tmp); out.position.copy(tmp); s.getWorldQuaternion(q); out.quaternion.copy(q); },
     seat: (i, out) => flight.seatAt(seatVariant, i, out),

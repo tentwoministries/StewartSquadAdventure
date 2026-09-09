@@ -13,7 +13,7 @@ import type { Station } from '../_shared/shot';
 import { lightWater } from '../_shared/water';
 import { makeCreatures } from './creatures';
 import { makeProps } from './props';
-import { columnTopAt, FLOOR_Y, groundY, HEART, insideCave, makeCave, makeRock, nextRelief, reliefMode, reliefStats, setRelief, stairY, tierOf } from './terrain';
+import { columnTopAt, FLOOR_Y, groundY, HEART, insideCave, makeCave, makeRock, MAX_STEP, nextRelief, PATHS, ptAt, reliefMode, reliefStats, setRelief, stairStats, stairY, stepLimit, tierOf, treadY } from './terrain';
 
 const STATIONS: Record<string, Station> = {
   S1: { name: 'Lamplight Landing', target: [0, 1.0, -33], yaw: 175, pitch: 26, d: 21, note: 'the four kids in a line at the mouth, Quartz under his lamp, the void beyond and the heart pulsing 26 m below' },
@@ -63,13 +63,29 @@ runScene({
     // probe can ask "is this point on a stair" and "which column tops out here" instead of guessing
     // from `groundY` alone. Never drives the scene.
     (window as unknown as Record<string, unknown>)['ssCaves'] = {
-      stairY, tierOf, columnTopAt, relief: reliefMode, stats: reliefStats, stations: STATIONS,
+      stairY, tierOf, columnTopAt, relief: reliefMode, stats: reliefStats, stairs: stairStats, stepLimit, stations: STATIONS,
+      salamanders: creatures.state,
+      /** The centreline of stair `i` at arc `s`: where a probe stands a kid *on* the stair. */
+      stairPt: (i: number, s: number) => { const p = PATHS[i]!; const a = ptAt(p, s); return { x: a.x, z: a.z, y: treadY(p, s), nx: a.nx, nz: a.nz, len: p.len }; },
     };
     const kidPos: THREE.Vector3[] = [];
     let lampFraction = 0.55;
     return {
-      groundY, blockers: props.footprints, waterY: FLOOR_Y - 5, maxStep: 1.1,
-      walkable: (x, z) => insideCave(x, z) && Math.hypot(x - HEART.x, z - HEART.z) > 3,
+      // A3: the step limit is the relief setting's own — 0.60 m at `flat` and `chunky` (the columns'
+      // widest neighbouring pair is 0.54 and the tallest riser 0.435), 1.10 at `blocks` (1.08 and
+      // 0.435). Round 1 ran every setting at 1.10 and a fixed-bearing walk stepped *over* the first
+      // stair's channel wall into the trench, 0.76 m in one frame: a stair's side wall is a wall.
+      // The runtime copies `maxStep` into the walk's options once, when the scene is built, so the
+      // value here is the widest setting's — the envelope — and the limit in force is applied in
+      // `walkable`, which the walk asks about every candidate step it is about to take and which is
+      // therefore read live. `J` changes the relief at run time; this way the two never disagree.
+      groundY, blockers: props.footprints, waterY: FLOOR_Y - 5, maxStep: MAX_STEP.blocks,
+      walkable: (x, z) => {
+        if (!insideCave(x, z) || Math.hypot(x - HEART.x, z - HEART.z) <= 3) return false;
+        const hero = (window as unknown as { ssWalk?: { hero: THREE.Object3D } }).ssWalk?.hero;
+        if (!hero) return true;
+        return Math.abs(groundY(x, z) - groundY(hero.position.x, hero.position.z)) <= stepLimit();
+      },
       applyKeyframe: (kf, keyDir) => {
         lightWater(cave.pool, keyDir, K.heart, 0.4, kf.hemi.sky, 20);
         lampFraction = kf.lamps ?? 0.5;
@@ -88,7 +104,7 @@ runScene({
         const st = reliefStats();
         const pct = st.total ? Math.round((100 * st.hist[2]!) / st.total) : 0;
         return [
-          `relief ${reliefMode()} (J cycles flat/chunky/blocks · ?relief=) · ${st.total} tier columns, ${pct} % at the tier's own height, levels [${st.hist.join(', ')}] over −0.36 … +0.54 m × ${reliefMode() === 'blocks' ? 2 : 1}`,
+          `relief ${reliefMode()} (J cycles flat/chunky/blocks · ?relief=) · ${st.total} tier columns, ${pct} % at the tier's own height, levels [${st.hist.join(', ')}] over −0.36 … +0.54 m × ${reliefMode() === 'blocks' ? 2 : 1} · step limit ${stepLimit().toFixed(2)} m`,
           ...props.hud(), ...creatures.hud(),
           'Tab swaps the walked kid · the others idle where they stand · stand by a dark lamp 1.5 s to light it (bats leave the ledge)',
         ];

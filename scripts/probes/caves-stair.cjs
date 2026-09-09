@@ -4,8 +4,13 @@
 // so this is what makes the fix done, not the test.
 //
 // Round 2 adds one column: the largest change in Liam's y in a single frame. The stair is stacked
-// boxes again, so he steps rather than glides — and the number says whether that is a step (a
-// 0.19 m riser on the first stair, 0.29 m on the second) or a fall.
+// boxes again, so he steps rather than glides — and the number says whether that is a step or a
+// fall. Round 2's fix pass (`reel-fixes-04-fixes.md` A1/A3) makes a step 1.20 m of arc — a 0.381 m
+// riser on the first stair, 0.435 on the second — and sets the caves' own step limit to 0.60 m at
+// `flat` and `chunky` (1.10 at `blocks`), so the check is **Δy ≤ 0.40 m**: one riser, never the
+// 0.76 m sideways drop over the channel's wall that 1.10 used to allow. The runs are longer too
+// (600 frames rather than 240) because 240 frames of walking only buy 8 m of travel, and the first
+// flight needs 10.4 to reach −2.0 m.
 //
 //   node scripts/sandbox-drive.cjs "http://localhost:5173/sandbox/caves-descent/?shot=S1&t=half&step=1" scripts/probes/caves-stair.cjs
 //
@@ -23,7 +28,13 @@ const STAIR_BEARING = 236.31; // atan2 of the first segment (−6, +4), the dire
 
 module.exports = async (page, h) => {
   await h.sleep(12000);
-  const out = { url: page.url(), kf: await h.evaluate(() => globalThis.ssKf().name), runs: [] };
+  const out = {
+    url: page.url(), kf: await h.evaluate(() => globalThis.ssKf().name),
+    relief: await h.evaluate(() => globalThis.ssCaves.relief()),
+    stepLimit: await h.evaluate(() => globalThis.ssCaves.stepLimit()),
+    stairs: await h.evaluate(() => globalThis.ssCaves.stairs().map((r) => ({ len: +r.len.toFixed(3), drop: r.drop, steps: r.steps, stepArc: +r.stepArc.toFixed(4), riserMin: +r.riserMin.toFixed(4), riserMax: +r.riserMax.toFixed(4) }))),
+    runs: [],
+  };
 
   const run = async (offDeg, reaim, frames) => {
     const back = (STAIR_BEARING + 180 + offDeg + 360) % 360;      // the bearing from the mouth to the start
@@ -56,10 +67,11 @@ module.exports = async (page, h) => {
         if (reaim && f % 20 === 0 && hero.position.y < -0.25) {
           // aim at the steepest step the walk will actually take: what a player does on a stair
           let bestB = yawNow, bestY = 9;
+          const lim = globalThis.ssCaves && globalThis.ssCaves.stepLimit ? globalThis.ssCaves.stepLimit() : 1.0;
           for (let b = 0; b < 360; b += 10) {
             const nx = hero.position.x + Math.sin(rad(b)) * 1.5, nz = hero.position.z - Math.cos(rad(b)) * 1.5;
             const ny = w.groundY(nx, nz);
-            if (Math.abs(ny - hero.position.y) > 1.0 || !w.walkable(nx, nz)) continue;
+            if (Math.abs(ny - hero.position.y) > lim || !w.walkable(nx, nz)) continue;
             if (ny < bestY) { bestY = ny; bestB = b; }
           }
           yawNow = bestB; globalThis.ssOrbit.current.yaw = yawNow; globalThis.ssOrbit.apply();
@@ -92,8 +104,8 @@ module.exports = async (page, h) => {
     out.runs.push({ bearingOffStair: offDeg, yaw: +yaw.toFixed(2), reaim, frames, ...r });
   };
 
-  for (const off of [-40, 0, 40]) await run(off, false, 240);   // A: the brief's literal run
-  for (const off of [-40, 0, 40]) await run(off, true, 240);    // B: re-aimed down the stair
+  for (const off of [-40, 0, 40]) await run(off, false, 600);   // A: the brief's literal run, held
+  for (const off of [-40, 0, 40]) await run(off, true, 600);    // B: re-aimed down the stair
   for (const off of [-40, 0, 40]) await run(off, true, 900);    // C: 15 s, the whole first flight
   out.hud = await h.hud();
   return out;

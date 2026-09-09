@@ -13,7 +13,7 @@
 //
 //   * every tier column's top is `TIER_TOP[t] + relief(cell)`, quantised to 0.18 m and clustered,
 //     and `groundY` on a tier is the highest drawn column top whose *top hexagon* covers the point;
-//   * the stair's cross-sections are grouped into 0.60 m steps, each a level tread drawn as a box
+//   * the stair's cross-sections are grouped into ~1.20 m steps, each a level tread drawn as a box
 //     with a real riser, and `stairY` returns that staircase;
 //   * `J` (and `?relief=`) cycles flat / chunky / blocks so the family can compare.
 import * as THREE from 'three';
@@ -46,15 +46,34 @@ export const STAIRS: { pts: [number, number, number][]; w: number }[] = [
  *  bearings); a cross-section is TREAD m of arc; the stair's skirt hangs SKIRT below it; a column
  *  the stair crosses tops out CUT below the tread. */
 export const MOUTH_W = 5.0, MOUTH_RUN = 3.0, TREAD = 0.15, SKIRT = 0.6, CUT = 0.3;
-/** T-61b: one drawn step is **four cross-sections** — 0.60 m of arc — and is level at the ramp's
- *  height at the step's *end*, so the risers are uniform (0.190 m on the first stair, 0.290 m on the
- *  second, both inside the 0.12–0.30 m band the acceptance check asks for) and the foot of each
- *  stair lands exactly on its polyline's last y. A step is counted in cross-sections, not in metres
- *  of arc, because the cross-sections' own mitre lines are what `onStair` cuts the stair into: a
- *  step boundary drawn anywhere else disagrees with `stairY` by a whole riser at the seam. */
-export const STEP_SUB = 4;
-/** The nominal arc a step covers; each path's own is `STEP_SUB · len / n`, within 0.2 % of this. */
-export const STEP_ARC = 0.60;
+/** T-61b: one drawn step is a whole number of cross-sections and is level at the ramp's height at
+ *  the step's *end*, so the risers are uniform and the foot of each stair lands exactly on its
+ *  polyline's last y. A step is counted in cross-sections, not in metres of arc, because the
+ *  cross-sections' own mitre lines are what `onStair` cuts the stair into: a step boundary drawn
+ *  anywhere else disagrees with `stairY` by a whole riser at the seam.
+ *
+ *  Round 2, fix A1 (`docs/qa/briefs/reel-fixes-04-fixes.md`): round 1's 0.60 m of arc gave a 0.19 m
+ *  riser — a *fine ribbed* stair, where Andrew's "blockyness" is the reel-2 build's 0.42 m boxes.
+ *  A step is now **1.20 m of arc**, capped so no riser is taller than RISER_MAX: the first stair
+ *  (11 m over 34.71 m of arc) takes eight cross-sections, 1.202 m, a **0.381 m** riser; the second
+ *  (15 m over 31.06 m — half again as steep) would rise 0.580 m over eight, so it takes six,
+ *  0.900 m, a **0.435 m** riser. Both are the reel-2 build's chunk, and both are inside the caves'
+ *  own step limit at every relief setting (MAX_STEP below). */
+export const STEP_ARC = 1.20;
+/** The lighter of the caves' two rock hexes (linear luminance 0.0652 against `K.rockLight`'s
+ *  0.0451): the columns' caps, and the light tread of the alternating stair (A2). */
+export const STEP_LIGHT = '#4A4270';
+/** The tallest riser a step may have. The stair is what a kid walks down: a riser over this and the
+ *  descent is a series of drops rather than steps (the walk probe's single-frame Δy). */
+export const RISER_MAX = 0.45;
+/** How many cross-sections one step covers: the most that fits inside STEP_ARC of arc, then shaved
+ *  until the riser it implies is inside RISER_MAX. Inclusive of RISER_MAX itself (± an epsilon). */
+function stepSub(len: number, n: number, drop: number): number {
+  const cell = len / n;                                   // one cross-section's arc
+  let sub = Math.max(1, Math.round(STEP_ARC / cell));
+  while (sub > 1 && (drop * sub * cell) / len > RISER_MAX + 1e-9) sub--;
+  return sub;
+}
 /** The level apron the stair keeps on its tier before the first tread drops: at least a column's
  *  reach, so no rock that is left standing behind the mouth can poke through the steps in front. */
 export const APRON_BACK = 3.5;
@@ -68,6 +87,14 @@ export type Relief = 'flat' | 'chunky' | 'blocks';
 export const RELIEF_Q: Record<Relief, number> = { flat: 0, chunky: 0.18, blocks: 0.36 };
 /** The six levels, in quanta: −2 … +3. About half the columns land on 0. */
 export const RELIEF_LEVELS = [-2, -1, 0, 1, 2, 3];
+/** Round 2, fix A3: the caves' own step limit, per relief setting. A stair's side wall is a wall —
+ *  round 1 ran the whole scene at 1.10 m and a fixed-bearing walk stepped *over* the first stair's
+ *  channel wall into the trench, 0.76 m of drop in one frame, because 1.10 allowed it. The limit is
+ *  the widest pair the setting can actually draw plus a little: at `flat` and `chunky` the columns'
+ *  widest neighbouring pair is 0.54 m and the tallest riser 0.435, so **0.60**; at `blocks` the pair
+ *  is 1.08, so **1.10**. Read live (the setting changes on `J`), so it is a function, not a copy. */
+export const MAX_STEP: Record<Relief, number> = { flat: 0.60, chunky: 0.60, blocks: 1.10 };
+export function stepLimit(): number { return MAX_STEP[relief]; }
 /** No two columns within NB_R of each other differ by more than MAX_JUMP quanta (0.54 m at chunky,
  *  1.08 at blocks — both inside `maxStep`). NB_R is the reach a 2.2 m sample pair can span: a point
  *  is at most 1.212 m from a lattice centre and at most 1.55 m inside a column's top hexagon, so two
@@ -97,8 +124,16 @@ export interface StairPath {
   ap: number;
   /** Cross-sections from the mouth to the foot (so `pts.length === ap + n + 1`). */
   n: number;
-  /** One step's arc, `STEP_SUB · len / n`, and how many steps there are. */
+  /** How many cross-sections one drawn step covers at most (this path's own; see `stepSub`). */
+  sub: number;
+  /** The mean arc of one step (`len / steps`) and how many steps there are. */
   stepArc: number; steps: number;
+  /** The step boundaries, in cross-sections from the mouth: `edges[0] = 0`, `edges[steps] = n`, and
+   *  step k runs from `edges[k]` to `edges[k + 1]`. Spread evenly (`round(k · n / steps)`), so every
+   *  step is `sub` or `sub − 1` cross-sections and the last one is a whole step rather than a stub:
+   *  round 1 left a remainder step of 3 cross-sections at the foot, a half-riser (0.217 m) below the
+   *  band the acceptance check asks for. */
+  edges: number[];
   idx: Map<number, number[]>;
 }
 
@@ -153,9 +188,15 @@ function buildPath(st: { pts: [number, number, number][]; w: number }): StairPat
   for (let k = Math.round(APRON_BACK / TREAD); k >= 1; k--) head.push({ x: pts[0]!.x - (t0x / L0) * TREAD * k, z: pts[0]!.z - (t0z / L0) * TREAD * k, y: pts[0]!.y, nx: pts[0]!.nx, nz: pts[0]!.nz, s: -TREAD * k });
   pts.unshift(...head);
   const m = MOUTH_W + APRON_BACK;
+  const sub = stepSub(len, n, Math.abs(y1 - y0));
+  // `ceil` so no step is longer than `sub` cross-sections — that is what holds every riser inside
+  // RISER_MAX — and the boundaries then spread evenly over the whole flight.
+  const steps = Math.max(1, Math.ceil(n / sub));
+  const edges: number[] = [];
+  for (let k = 0; k <= steps; k++) edges.push(Math.round((k * n) / steps));
   const p: StairPath = {
     pts, len, w: st.w, x0: x0 - m, x1: x1 + m, z0: z0 - m, z1: z1 + m, y0, y1,
-    ap: head.length, n, stepArc: (STEP_SUB * len) / n, steps: Math.ceil(n / STEP_SUB), idx: new Map(),
+    ap: head.length, n, sub, stepArc: len / steps, steps, edges, idx: new Map(),
   };
   // the cell index: each cross-section pair goes into every 2.5 m cell its own tread quad touches,
   // grown by 0.35 m so a point exactly on the band's edge is still found (the songbirds rule)
@@ -188,15 +229,47 @@ export function ptAt(p: StairPath, s: number): StairPt {
 }
 /**
  * The walking height of the stair at arc s (T-61b). At `flat` it is round 1's ramp, linear in arc
- * length. At `chunky` and `blocks` it is a staircase: 0.60 m of arc per step, the tread level at the
- * ramp's height at the step's **end**, so every riser is the same (`Δy · STEP_ARC / len`) and the
- * foot lands exactly on the polyline's last y. The apron (s ≤ 0) is level with the tier: no lip.
+ * length. At `chunky` and `blocks` it is a staircase: about 1.20 m of arc per step (less where that
+ * would rise more than RISER_MAX), the tread level at the ramp's height at the step's **end**, so
+ * the foot lands exactly on the polyline's last y. Every riser is one or two cross-sections' worth
+ * of the ramp apart (0.381/0.333 m on the first stair, 0.435/0.362 on the second). The apron
+ * (s ≤ 0) is level with the tier: no lip.
  */
 export function treadY(p: StairPath, s: number): number {
-  const ramp = (a: number): number => p.y0 + (p.y1 - p.y0) * (clamp(a, 0, p.len) / p.len);
-  if (relief === 'flat' || s <= 0) return ramp(s);
-  const k = Math.min(Math.floor(s / p.stepArc), p.steps - 1);
-  return ramp((k + 1) * p.stepArc);
+  if (relief === 'flat' || s <= 0) return p.y0 + (p.y1 - p.y0) * (clamp(s, 0, p.len) / p.len);
+  return stepTop(p, stepAt(p, s));
+}
+/** The step whose tread the arc `s` stands on (0 … steps − 1). The boundaries are the cross-sections
+ *  in `p.edges` — the very mitre lines `onStair` cuts the stair into — so the drawn seam and the
+ *  walked seam are the same line. A point exactly on a boundary belongs to the **lower** step
+ *  (`>=`), the convention the drawn boxes are built to. */
+export function stepAt(p: StairPath, s: number): number {
+  const i = (clamp(s, 0, p.len) * p.n) / p.len;              // the arc, in cross-sections from the mouth
+  let k = clamp(Math.floor((i * p.steps) / p.n), 0, p.steps - 1);
+  while (k > 0 && i < p.edges[k]!) k--;
+  while (k < p.steps - 1 && i >= p.edges[k + 1]!) k++;
+  return k;
+}
+/** Step k's tread height: the ramp at the step's **end**, so the foot of the stair lands exactly on
+ *  the polyline's last y and the mouth's first riser is a whole one. */
+export function stepTop(p: StairPath, k: number): number {
+  return p.y0 + (p.y1 - p.y0) * (p.edges[Math.min(k + 1, p.steps)]! / p.n);
+}
+/** A1's numbers, read off the built paths so a probe quotes the geometry and not the intention:
+ *  per stair, its arc, its drop, how many steps it is cut into, the arc of a step and the shortest
+ *  and tallest riser on it (at `flat` the stair is a ramp and the risers are 0). */
+export function stairStats(): { len: number; drop: number; steps: number; stepArc: number; riserMin: number; riserMax: number }[] {
+  return PATHS.map((p) => {
+    let lo = Infinity, hi = 0;
+    for (let k = 0; k < p.steps; k++) {
+      const rise = (k === 0 ? p.y0 : stepTop(p, k - 1)) - stepTop(p, k);
+      lo = Math.min(lo, rise); hi = Math.max(hi, rise);
+    }
+    return {
+      len: p.len, drop: Math.abs(p.y1 - p.y0), steps: p.steps, stepArc: p.stepArc,
+      riserMin: relief === 'flat' ? 0 : lo, riserMax: relief === 'flat' ? 0 : hi,
+    };
+  });
 }
 
 function inPoly(x: number, z: number, poly: [number, number][]): boolean {
@@ -535,7 +608,7 @@ export function makeRock(): { tiers: THREE.Mesh; stairs: THREE.Mesh } {
     // point is that the two agree. A 0.1 m flare over a 27 m column was invisible anyway.
     const g = colorize(new THREE.CylinderGeometry(HEX_R, HEX_R, h, 6), c.light ? K.rockLight : K.rock);
     const gc = g.getAttribute('color') as THREE.BufferAttribute, gp = g.getAttribute('position') as THREE.BufferAttribute;
-    for (let i = 0; i < gp.count; i++) if (gp.getY(i) > h / 2 - 0.01) { const cc = new THREE.Color('#4A4270'); gc.setXYZ(i, cc.r, cc.g, cc.b); }
+    for (let i = 0; i < gp.count; i++) if (gp.getY(i) > h / 2 - 0.01) { const cc = new THREE.Color(STEP_LIGHT); gc.setXYZ(i, cc.r, cc.g, cc.b); }
     g.rotateY(c.rot); g.translate(c.x, bottom + h / 2, c.z);
     geos.push(g);
   }
@@ -574,19 +647,20 @@ export function makeRock(): { tiers: THREE.Mesh; stairs: THREE.Mesh } {
         quad(drop(kL, -SKIRT), drop(kR, -SKIRT), drop(jR, -SKIRT), drop(jL, -SKIRT), cS);
       }
     } else {
-      // T-61b: stacked box steps, the look of the reel-2 build. One box per 0.60 m of arc, its top
-      // face exactly at `treadY` (what the kid walks), a real riser down to the next tread, a 0.3 m
-      // overhang on any side that is out over the void and none where the stair is cut into a tier.
-      // Step −1 is the apron, level with the tier: the mouth is a widening of the floor, not a lip.
+      // T-61b: stacked box steps, the look of the reel-2 build. One box per step (1.20 m of arc,
+      // A1), its top face exactly at `treadY` (what the kid walks), a real riser down to the next
+      // tread, a 0.3 m overhang on any side that is out over the void and none where the stair is
+      // cut into a tier. Step −1 is the apron, level with the tier: the mouth is a widening of the
+      // floor, not a lip.
       for (let k = -1; k < p.steps; k++) {
-        // the step's own cross-sections: [ap + k·SUB, ap + (k+1)·SUB], and [0, ap] for the apron.
+        // the step's own cross-sections: [ap + k·sub, ap + (k+1)·sub], and [0, ap] for the apron.
         // Its end edges are those cross-sections' mitre lines — the very lines `onStair` cuts the
         // stair into — so the drawn seam and the walked seam are the same line, not one within a
         // cross-section of the other (which cost a whole riser at every step boundary).
-        const i0 = k < 0 ? 0 : p.ap + k * STEP_SUB;
-        const i1 = k < 0 ? p.ap : Math.min(p.ap + (k + 1) * STEP_SUB, p.pts.length - 1);
-        const y = k < 0 ? p.pts[0]!.y : treadY(p, k * p.stepArc + 1e-6);
-        const yn = k + 1 < p.steps ? treadY(p, (k + 1) * p.stepArc + 1e-6) : y - 0.5;
+        const i0 = k < 0 ? 0 : p.ap + p.edges[k]!;
+        const i1 = k < 0 ? p.ap : Math.min(p.ap + p.edges[k + 1]!, p.pts.length - 1);
+        const y = k < 0 ? p.pts[0]!.y : stepTop(p, k);
+        const yn = k + 1 < p.steps ? stepTop(p, k + 1) : y - 0.5;
         const depth = Math.max(0.5, y - yn + 0.25);
         const lo = y - depth;
         const mid = p.pts[Math.floor((i0 + i1) / 2)]!;
@@ -602,8 +676,22 @@ export function makeRock(): { tiers: THREE.Mesh; stairs: THREE.Mesh } {
             if (t >= 0 && lw !== null && TIER_TOP[t]! > lw + 1e-6) { over[si] = 0.02; break; }
           }
         }
-        const cT = new THREE.Color(k % 2 ? K.rockLight : '#4A4270').multiplyScalar(0.95 + r() * 0.10);
-        const cR = cT.clone().multiplyScalar(0.62);
+        // A2, the colours. Round 1 alternated `K.rockLight` and `#4A4270` per step and the two read
+        // about 5 % apart at the study framing. The reason is that they are nearly the same
+        // brightness *the other way round* from the brief's reading: measured against three r185
+        // with ColorManagement on, `#4A4270` has linear luminance 0.0652 and `K.rockLight`
+        // (`#3E3660`) 0.0451 — the "light" hex was the darker one, so lifting it and dropping the
+        // other cancelled out. `#4A4270` therefore takes the **light** tread (×1.18) and
+        // `K.rockLight` the **dark** one. The lift is ×1.32 against ×0.72 rather than the brief's
+        // ×1.18 / ×0.80: at ×1.18 / ×0.80 the six sampled treads came out 1.255 apart at the worst
+        // pair against the 1.25 the check asks for — inside it, but by 0.005, and a lamp standing
+        // beside one step is worth more than that. ×1.32 / ×0.72 is a linear albedo ratio of 2.65
+        // and measures 1.38 at the worst pair. The riser face of each step is a further ×0.7 of its
+        // tread, and
+        // the per-step jitter is ±2 % rather than ±5 % so that `jitterColor`'s own ±5 % (kept,
+        // applied per triangle below) cannot close the gap under the 1.25 the check asks for.
+        const cT = new THREE.Color(k % 2 ? STEP_LIGHT : K.rockLight).multiplyScalar((k % 2 ? 1.32 : 0.72) * (0.98 + r() * 0.04));
+        const cR = cT.clone().multiplyScalar(0.7);
         const cS = new THREE.Color(K.rock).multiplyScalar(0.82 + r() * 0.2);
         const L: number[][] = [], R: number[][] = [];
         // 6 cm of pad off each open end of the stair, so a point sampled exactly on the first or
@@ -638,7 +726,13 @@ export function makeRock(): { tiers: THREE.Mesh; stairs: THREE.Mesh } {
       const y = treadY(p, (a.s + b.s) / 2);
       const lw = lowTread(mx, mz);
       if (lw === null) continue;
-      const cW = new THREE.Color(K.rock).multiplyScalar(0.7 + r() * 0.16);
+      // A6: the channel wall is the surface a salamander clings to and the surface the eye has to
+      // read it *against*. At `K.rock × 0.7` (linear luminance 0.0165) it rendered as a black plane
+      // in the caves' own light — a pale animal on it reads as floating, which is the complaint
+      // T-62 exists to answer. `K.rockLight × 0.62` is 0.0280: still the darkest face of the stair
+      // (a dark tread is 0.0325 and its riser 0.0227 before the light falls on it), still rock, but
+      // it takes the hook-lamps' 9 cd and the kids' ring lights instead of swallowing them.
+      const cW = new THREE.Color(K.rockLight).multiplyScalar(0.62 + r() * 0.14);
       for (const side of [1, -1]) {
         // the wall stands on the band's own edge, so the walkable band is never roofed by a shoulder
         const nx = a.nx * side, nz = a.nz * side, h = side > 0 ? ha - 0.02 : 0.02 - ha, h2 = side > 0 ? hb - 0.02 : 0.02 - hb;

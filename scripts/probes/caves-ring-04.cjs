@@ -8,21 +8,23 @@
 // compares like with like at the breathed radius) and raycasts the drawn `tiers`/`stairs` under
 // them. `|aLift + root.y + 0.04 − top|` must be ≤ 0.06 at every vertex.
 //
-// RingGeometry(0.45, 0.84, 48) is 98 vertices: 0..48 the inner ring at r = 0.45, 49..97 the outer at
-// r = 0.84 (verified against three r185). heroes.md §2.7.5's crisp rim sits at r = 0.62, which is
-// *between* the two, so the rim is checked by interpolating the two vertices at each of 12 angles —
-// that is what the shader does to draw it.
+// Round 2's fix A4 rebuilt the ring on **three** radial rings: 147 vertices, 0..48 at r = 0.45,
+// 49..97 at r = **0.62** and 98..146 at r = 0.84 (`RingGeometry(0.45, 0.84, 48, 2)`, verified
+// against three r185 as 147 verts / 576 indices, with its evenly-spaced middle ring at 0.645 pulled
+// in to 0.62). heroes.md §2.7.5's crisp rim is therefore a real vertex ring now, and this probe
+// reads it directly instead of interpolating: round 1's interpolated rim was out by up to 0.2533 m
+// where a 0.54 m step fell inside the band, which is the defect A4 exists to close.
 //
 // Then the cost: 120 frames with all four kids moved every frame, summing the four rigs' own
 // `performance.now()` measurement of the lift update. Must be under 0.5 ms per frame for four kids.
-const RIM_T = (0.62 - 0.45) / (0.84 - 0.45);
+const RIM_R = 0.62;
 
 module.exports = async (page, h) => {
   await h.sleep(12000);
   const out = { url: page.url(), relief: await h.evaluate(() => globalThis.ssWorld.hud()[0]), stands: [] };
 
   // --- part A: 20 stands -------------------------------------------------------------------------
-  const A = await h.evaluate(async (rimT) => {
+  const A = await h.evaluate(async (rimR) => {
     const T = globalThis.ssTHREE;
     const w = globalThis.ssWorld;
     const izzy = globalThis.ssKids[3];
@@ -47,29 +49,24 @@ module.exports = async (page, h) => {
       const lift = rig.ring.lift, xz = rig.ring.xz;
       const spread = Math.max(...lift) - Math.min(...lift);
       const rec = { x: +x.toFixed(3), z: +z.toFixed(3), y: +izzy.root.position.y.toFixed(4), spread: +spread.toFixed(4), verts: rig.ring.verts };
-      // every vertex, and then the rim at 0.62 interpolated between the two radial rings
-      let worstV = 0, worstVAt = '', worstRim = 0, holes = 0;
+      // 147 vertices in three equal radial rings: 0.45, then the rim at 0.62, then 0.84
+      let worstV = 0, worstVAt = '', worstRim = 0, holes = 0, rimVerts = 0;
+      const n3 = lift.length / 3;                              // 49 vertices per radial ring
       for (let i = 0; i < lift.length; i++) {
         const top = topAt(xz[i * 2], xz[i * 2 + 1], izzy.root.position.y);
         if (top === null) { holes++; continue; }
         const e = Math.abs(lift[i] + izzy.root.position.y + 0.04 - top);
-        if (e > worstV) { worstV = e; worstVAt = `v${i} r${i < 49 ? 0.45 : 0.84}`; }
+        const r = i < n3 ? 0.45 : i < 2 * n3 ? rimR : 0.84;
+        if (e > worstV) { worstV = e; worstVAt = `v${i} r${r}`; }
+        if (r === rimR) { rimVerts++; worstRim = Math.max(worstRim, e); }
       }
-      for (let k = 0; k < 12; k++) {
-        const i = Math.round((k * 48) / 12), o = 49 + i;
-        const lx = xz[i * 2] + (xz[o * 2] - xz[i * 2]) * rimT, lz = xz[i * 2 + 1] + (xz[o * 2 + 1] - xz[i * 2 + 1]) * rimT;
-        const li = lift[i] + (lift[o] - lift[i]) * rimT;
-        const top = topAt(lx, lz, izzy.root.position.y);
-        if (top === null) { holes++; continue; }
-        worstRim = Math.max(worstRim, Math.abs(li + izzy.root.position.y + 0.04 - top));
-      }
-      rec.worstVertex = +worstV.toFixed(4); rec.worstVertexAt = worstVAt; rec.worstRim062 = +worstRim.toFixed(4); rec.holes = holes;
+      rec.worstVertex = +worstV.toFixed(4); rec.worstVertexAt = worstVAt; rec.worstRim062 = +worstRim.toFixed(4); rec.rimVerts = rimVerts; rec.holes = holes;
       rec.kind = spread > 0.05 ? 'edge' : 'flat';
       if (rec.kind === 'edge' && edge.length < 8) edge.push(rec);
       else if (rec.kind === 'flat' && flat.length < 12) flat.push(rec);
     }
     return [...edge, ...flat];
-  }, RIM_T);
+  }, RIM_R);
   out.stands = A;
   out.worstVertex = Math.max(...A.map((s) => s.worstVertex));
   out.worstRim062 = Math.max(...A.map((s) => s.worstRim062));

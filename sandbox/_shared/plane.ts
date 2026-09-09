@@ -9,10 +9,22 @@
 //      **left** (z −2.4; the plane flies along +x, so left is −z) and trailing aft. It hangs at
 //      −80° with a parked plane's own small sway and lies out at −5° at full wind.
 //   2. The fuselage was one solid four-sided cylinder, so the kids' hips sat *inside* the box and
-//      their legs came out of the sides ("the kids clip pretty hard through it"). The cylinder is
-//      now the **nose** (x +0.70 … +3.10) and the **tail** (x −3.10 … −2.10) cut from the *same*
-//      taper — the outline Andrew liked is the same numbers — with an **open cockpit well** between
-//      them: floor, two side walls, two bulkheads and a padded rim, a real cockpit you can see into.
+//      their legs came out of the sides ("the kids clip pretty hard through it"). It is now the
+//      same taper with an **open cockpit well** cut into its top.
+//
+// Round 2 fix pass (`docs/qa/briefs/reel-fixes-04-fixes.md` C1, audit item 4). The first well was a
+// 0.90 m box with its floor at 0.62 m, so the middle 2.8 m of the fuselage stepped *out and down*
+// from the yellow taper and hung a soot trough under the belly — visible in `desert-noon-parked-04`
+// and `frozen-night-parked-04`. Andrew: the plane "almost looks perfect already … I don't want to
+// break something that is actually already almost there". So the well is now **flush**: it is a slot
+// cut in the top of the fuselage's own taper and nothing else. Every piece of it is derived from
+// `halfAt(x)` — the taper's own half-width — so
+//   * the outer face of each side skin **is** the taper's own surface;
+//   * the lip that caps the skin has its top on the taper's own top line, `topAt(x)`;
+//   * the belly under the deck fills the taper down to `botAt(x)` and never below it.
+// Nothing of the well is outside the plane it would be without one: `tests/unit/sandbox/flight.test`
+// rasterises both silhouettes (from the side and from below) and asserts a strict subset.
+//
 // Everything else — footprint, cowl, wings, struts, wheels, tail, colours — is untouched, except
 // that the two cabane struts are now mirrored to z −0.45 as well (they stood on one side only).
 import * as THREE from 'three';
@@ -29,31 +41,60 @@ const R_NOSE = 0.30, R_TAIL = 0.52;
 const radiusAt = (x: number): number => R_TAIL + (R_NOSE - R_TAIL) * ((x + LEN / 2) / LEN);
 /** A 4-gon turned 45° is an axis-aligned square of half-extent r/√2. */
 const HALF = Math.SQRT1_2;
+/** The fuselage's own axis: every section is a square centred on this height. */
+export const AXIS_Y = 0.95;
+/** The fuselage's own half-width at plane-space x — the one number the whole cockpit is built from.
+ *  0.3426 m at the well's aft end, 0.2724 m at its fore end (the brief's "taper 0.29–0.34 m"). */
+export const halfAt = (x: number): number => HALF * radiusAt(x);
+/** The fuselage's own top and bottom lines at x. The well's lip sits *on* the top line; the well's
+ *  belly never reaches below the bottom line. */
+export const topAt = (x: number): number => AXIS_Y + halfAt(x);
+export const botAt = (x: number): number => AXIS_Y - halfAt(x);
 
 /**
  * The numbers the cockpit well is made of, in **plane space** (x aft−fore, nose at +x; y up from the
  * wheels' ground; z the plane's right positive, so the plane's **left is −z**). The flight scene
- * seats the kids against these, and the bone-in-solid probe tests against `solids` below, so there
- * is exactly one source for "where is the cockpit".
+ * seats the kids against these, and the bone/mesh probes test against `solids` below, so there is
+ * exactly one source for "where is the cockpit".
  */
 export const WELL = {
   /** The opening, fore and aft. */
   x0: -2.10, x1: 0.70,
-  /** The floor slab: it sits on 0.62 m and its deck — what the kids' boots stand on — is 0.80 m,
-   *  clear of the lower wing's top (0.765 m) which passes straight through this bay. */
-  floorY: 0.62, floorTop: 0.80,
-  /** The coaming's height: the walls run from the deck to here and the padded rim caps them. */
-  rimY: 1.45,
-  /** Half the well's outer width: npcs.md §2.2.1's 0.9 m fuselage, and the width the old cockpit
-   *  rim box already had in the frames Andrew liked. */
-  halfZ: 0.45,
-  /** Wall thickness, so the inside is ±0.35 m. */
-  wall: 0.10,
-  /** The rim's top face: where a hand goes. */
-  rimTop: 1.55,
-  /** The rim rails' centre line in z. */
-  rimZ: 0.40,
+  /** The deck forward of the lower wing's trailing edge: 0.035 m over the wing's top (0.765 m),
+   *  which passes straight through that part of the bay. */
+  deck: 0.80,
+  /** Aft of the wing there is nothing under the well but the fuselage's own bottom skin, so the
+   *  floor drops to this far over `botAt(x)` — a real cockpit floor, deep enough that a robe or a
+   *  cape hangs *in* it instead of into a slab of belly. */
+  keel: 0.03,
+  /** The skin: the coaming's thickness, so the interior half-width is `halfAt(x) − wall`. A real
+   *  fabric-over-frame coaming, not a wall — 0.60 m of interior at the aft bench where the first
+   *  well had 0.70 m of box sticking out of the fuselage. */
+  wall: 0.014,
+  /** The padded lip: the top of the skin, in `C.iron`, its top face on `topAt(x)`. */
+  lip: 0.055,
+  /** How the tapered pieces are cut: one box per 0.2 m of x, each at its *fore* (narrowest) section,
+   *  so every slice lies strictly inside the taper and the drawn shape and `solids` are the same
+   *  boxes. The worst step between slices is 0.0025 m. */
+  slice: 0.1,
 } as const;
+/** The interior half-width at x: what a kid's hips, thighs and boots have to fit inside. */
+export const innerAt = (x: number): number => halfAt(x) - WELL.wall;
+/** The cockpit floor at x: the wing-spar deck forward of the wing's trailing edge, the fuselage's
+ *  own keel aft of it. One step, at the trailing edge, and it is a slice boundary. */
+export const deckAt = (x: number): number => (x > LOWER_WING.x0 ? WELL.deck : botAt(x) + WELL.keel);
+/** The two benches in the well, fore and aft: `x` their centre, `top` the pad a hip sits on. The
+ *  fore bench is 0.22 m higher so four heads separate from the chase camera (fix C3). */
+export const BENCH = {
+  fwd: { x: -0.42, top: 1.23 },
+  aft: { x: -1.05, top: 1.03 },
+  len: 0.46,
+  pad: 0.06,
+  /** A hip point is this far over the pad it sits on: the deepest kid's hip block (0.07 · torso). */
+  hip: 0.07,
+} as const;
+/** Ed's socket: the rear cockpit (npcs.md §2.2.1). The kids are always ahead of him. */
+export const PILOT = { x: -1.35, y: 0.95 } as const;
 
 /** The two cabane struts, now on both sides (T-66): plane-space x, and z ±0.45. */
 export const CABANE = { xs: [0.0, 1.2] as const, z: 0.45, y0: 0.73, y1: 2.03, r: 0.045 } as const;
@@ -66,23 +107,39 @@ export const PENNANT = { segments: 4, segLen: 0.28, w0: 0.16, w1: 0.06 } as cons
 /** A solid of the plane, as an axis-aligned box in plane space: what a bone may not be inside. */
 export interface PlaneSolid { name: string; x0: number; x1: number; y0: number; y1: number; z0: number; z1: number }
 
-/** The tapered sections are boxed at their *widest* radius, so "outside the box" is conservative. */
+/** The x of every slice boundary across the well, fore to aft inclusive. */
+function sliceEdges(): number[] {
+  const n = Math.max(1, Math.round((WELL.x1 - WELL.x0) / WELL.slice));
+  const out: number[] = [];
+  for (let k = 0; k <= n; k++) out.push(WELL.x0 + ((WELL.x1 - WELL.x0) * k) / n);
+  return out;
+}
+
+/** The tapered sections are boxed at their *widest* radius, so "outside the box" is conservative;
+ *  the well's own pieces are boxed at exactly the boxes they are drawn as. */
 function solidsOf(): PlaneSolid[] {
-  const noseH = radiusAt(WELL.x1) * HALF, tailH = radiusAt(-LEN / 2) * HALF;
+  const noseH = halfAt(WELL.x1), tailH = halfAt(-LEN / 2);
   const box = (name: string, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number): PlaneSolid => ({ name, x0, x1, y0, y1, z0, z1 });
-  return [
-    box('nose', WELL.x1, LEN / 2, 0.95 - noseH, 0.95 + noseH, -noseH, noseH),
+  const out: PlaneSolid[] = [
+    box('nose', WELL.x1, LEN / 2, AXIS_Y - noseH, AXIS_Y + noseH, -noseH, noseH),
     box('cowl', LEN / 2 - 0.55, LEN / 2 + 0.15, 0.41, 1.49, -0.54, 0.54),
-    box('tail', -LEN / 2, WELL.x0, 0.95 - tailH, 0.95 + tailH, -tailH, tailH),
-    box('well.floor', WELL.x0, WELL.x1, WELL.floorY, WELL.floorTop, -WELL.halfZ, WELL.halfZ),
-    box('well.wall.R', WELL.x0, WELL.x1, WELL.floorTop, WELL.rimY, WELL.halfZ - WELL.wall, WELL.halfZ),
-    box('well.wall.L', WELL.x0, WELL.x1, WELL.floorTop, WELL.rimY, -WELL.halfZ, -WELL.halfZ + WELL.wall),
-    box('well.bulkhead.aft', WELL.x0, WELL.x0 + WELL.wall, WELL.floorTop, WELL.rimY, -WELL.halfZ + WELL.wall, WELL.halfZ - WELL.wall),
-    box('well.bulkhead.fwd', WELL.x1 - WELL.wall, WELL.x1, WELL.floorTop, WELL.rimY, -WELL.halfZ + WELL.wall, WELL.halfZ - WELL.wall),
-    box('wing.lower', LOWER_WING.x0, LOWER_WING.x1, LOWER_WING.bottom, LOWER_WING.top, -LOWER_WING.halfZ, LOWER_WING.halfZ),
-    box('wing.upper', -0.10, 1.30, 2.005, 2.095, -3.6, 3.6),
-    box('tailplane', -3.0, -2.2, 1.115, 1.185, -1.2, 1.2),
+    box('tail', -LEN / 2, WELL.x0, AXIS_Y - tailH, AXIS_Y + tailH, -tailH, tailH),
   ];
+  const e = sliceEdges();
+  for (let k = 0; k + 1 < e.length; k++) {
+    const a = e[k]!, b = e[k + 1]!;          // a is aft of b; the slice is cut at b, its fore section
+    const h = halfAt(b), inn = h - WELL.wall, top = AXIS_Y + h, bot = AXIS_Y - h, deck = deckAt(b);
+    out.push(box(`well.belly.${k}`, a, b, bot, deck, -h, h));
+    out.push(box(`well.skin.R.${k}`, a, b, deck, top, inn, h));
+    out.push(box(`well.skin.L.${k}`, a, b, deck, top, -h, -inn));
+  }
+  const hAft = halfAt(WELL.x0 + WELL.wall), hFwd = halfAt(WELL.x1);
+  out.push(box('well.bulkhead.aft', WELL.x0, WELL.x0 + WELL.wall, deckAt(WELL.x0 + WELL.wall), AXIS_Y + hAft, -hAft + WELL.wall, hAft - WELL.wall));
+  out.push(box('well.bulkhead.fwd', WELL.x1 - WELL.wall, WELL.x1, WELL.deck, AXIS_Y + hFwd, -hFwd + WELL.wall, hFwd - WELL.wall));
+  out.push(box('wing.lower', LOWER_WING.x0, LOWER_WING.x1, LOWER_WING.bottom, LOWER_WING.top, -LOWER_WING.halfZ, LOWER_WING.halfZ));
+  out.push(box('wing.upper', -0.10, 1.30, 2.005, 2.095, -3.6, 3.6));
+  out.push(box('tailplane', -3.0, -2.2, 1.115, 1.185, -1.2, 1.2));
+  return out;
 }
 
 /** Signed clearance of a plane-space point from a box: > 0 outside, < 0 inside (the deepest face). */
@@ -115,37 +172,59 @@ function pennantQuad(len: number, wS: number, wE: number, hex: string): THREE.Bu
   return mergeGeos([colorize(g, hex)]);
 }
 
-export function makePlane(x: number, y: number, z: number, bearing: number, mat = makeWorldMaterial()): Plane {
+/** `well: false` builds the fuselage as the one uncut taper it was — the reference the silhouette
+ *  check measures the cockpit against (fix C1). Nothing in the demo scenes passes it. */
+export interface PlaneOpts { well?: boolean }
+
+export function makePlane(x: number, y: number, z: number, bearing: number, mat = makeWorldMaterial(), opts: PlaneOpts = {}): Plane {
+  const withWell = opts.well !== false;
   const group = new THREE.Group();
   const len = LEN;
   const parts: THREE.BufferGeometry[] = [];
-  // ---- the fuselage, cut into a nose and a tail off the same taper (T-66) ------------------------
+  // ---- the fuselage: one taper, with the cockpit cut out of the top of it (T-66, C1) -------------
   const section = (x0: number, x1: number): THREE.BufferGeometry => {
     const g = CY(radiusAt(x1), radiusAt(x0), x1 - x0, 4, C.planeYellow);
-    g.rotateY(Math.PI / 4); g.rotateZ(-Math.PI / 2); g.translate((x0 + x1) / 2, 0.95, 0);
+    g.rotateY(Math.PI / 4); g.rotateZ(-Math.PI / 2); g.translate((x0 + x1) / 2, AXIS_Y, 0);
     return g;
   };
-  parts.push(section(WELL.x1, len / 2));   // the nose
-  parts.push(section(-len / 2, WELL.x0));  // the tail
-  // ---- the open cockpit well: floor, two walls, two bulkheads, and the padded rim round it -------
-  const wLen = WELL.x1 - WELL.x0, wMid = (WELL.x0 + WELL.x1) / 2;
-  const wallH = WELL.rimY - WELL.floorTop, wallMid = (WELL.rimY + WELL.floorTop) / 2;
-  const inner = WELL.halfZ - WELL.wall;
-  // the floor slab; its deck is the cockpit interior, which npcs.md §2.2.1 paints `rgba(30,20,15)`
-  parts.push(B(wLen, WELL.floorTop - WELL.floorY, WELL.halfZ * 2, C.soot).translate(wMid, (WELL.floorY + WELL.floorTop) / 2, 0));
-  for (const s of [1, -1]) parts.push(B(wLen, wallH, WELL.wall, C.planeYellow).translate(wMid, wallMid, s * (WELL.halfZ - WELL.wall / 2))); // the side walls
-  for (const bx of [WELL.x0 + WELL.wall / 2, WELL.x1 - WELL.wall / 2]) parts.push(B(WELL.wall, wallH, inner * 2, C.planeYellow).translate(bx, wallMid, 0)); // the bulkheads
-  // and the interior liner: 0.02 m panels on the inside faces only, so the well reads dark, not
-  // yellow, without ever filling the opening the kids sit in
-  for (const s of [1, -1]) parts.push(B(wLen - WELL.wall * 2, wallH, 0.02, C.soot).translate(wMid, wallMid, s * (inner - 0.01)));
-  for (const bx of [WELL.x0 + WELL.wall + 0.01, WELL.x1 - WELL.wall - 0.01]) parts.push(B(0.02, wallH, inner * 2 - 0.04, C.soot).translate(bx, wallMid, 0));
-  // the padded rim, running right round the opening
-  const rimH = WELL.rimTop - WELL.rimY;
-  for (const s of [1, -1]) parts.push(B(wLen + 0.20, rimH, 0.14, C.iron).translate(wMid, (WELL.rimY + WELL.rimTop) / 2, s * WELL.rimZ));
-  for (const rx of [WELL.x0 - 0.03, WELL.x1 + 0.03]) parts.push(B(0.14, rimH, WELL.rimZ * 2 + 0.14, C.iron).translate(rx, (WELL.rimY + WELL.rimTop) / 2, 0));
+  if (!withWell) {
+    parts.push(section(-len / 2, len / 2));
+  } else {
+    parts.push(section(WELL.x1, len / 2));   // the nose
+    parts.push(section(-len / 2, WELL.x0));  // the tail
+    // the well itself, slice by slice, every number off `halfAt` so nothing leaves the taper
+    const e = sliceEdges();
+    for (let k = 0; k + 1 < e.length; k++) {
+      const a = e[k]!, b = e[k + 1]!, mid = (a + b) / 2, w = b - a;
+      const h = halfAt(b), inn = h - WELL.wall, top = AXIS_Y + h, bot = AXIS_Y - h, deck = deckAt(b);
+      // the belly: solid taper from the bottom line up to the floor (nothing hangs under the plane)
+      parts.push(B(w, deck - bot, h * 2, C.planeYellow).translate(mid, (bot + deck) / 2, 0));
+      // the cockpit floor the kids' boots stand on: npcs.md §2.2.1 paints the interior rgba(30,20,15)
+      parts.push(B(w, 0.014, inn * 2, C.soot).translate(mid, deck - 0.007, 0));
+      for (const s of [1, -1]) {
+        // the side skin, its outer face on the taper; the lip caps it, its top on the taper's top
+        parts.push(B(w, top - WELL.lip - deck, WELL.wall, C.planeYellow).translate(mid, (deck + top - WELL.lip) / 2, s * (h - WELL.wall / 2)));
+        parts.push(B(w, WELL.lip, WELL.wall, C.iron).translate(mid, top - WELL.lip / 2, s * (h - WELL.wall / 2)));
+        // the interior liner, so the well reads dark instead of yellow from the inside
+        parts.push(B(w, top - WELL.lip - deck, 0.012, C.soot).translate(mid, (deck + top - WELL.lip) / 2, s * (inn - 0.006)));
+      }
+    }
+    // the two bulkheads, and the same lip across them, so the coaming runs right round the opening
+    for (const [bx, bw] of [[WELL.x0 + WELL.wall / 2, halfAt(WELL.x0 + WELL.wall)], [WELL.x1 - WELL.wall / 2, halfAt(WELL.x1)]] as [number, number][]) {
+      const top = AXIS_Y + bw, inn = bw - WELL.wall, deck = deckAt(bx);
+      parts.push(B(WELL.wall, top - WELL.lip - deck, inn * 2, C.soot).translate(bx, (deck + top - WELL.lip) / 2, 0));
+      parts.push(B(WELL.wall, WELL.lip, inn * 2, C.iron).translate(bx, top - WELL.lip / 2, 0));
+    }
+    // the two benches: pads on posts, inside the well, the fore one higher (fix C3)
+    for (const bench of [BENCH.fwd, BENCH.aft]) {
+      const bh = innerAt(bench.x) - 0.012, floor = deckAt(bench.x);
+      parts.push(B(BENCH.len, BENCH.pad, bh * 2, C.iron).translate(bench.x, bench.top - BENCH.pad / 2, 0));
+      for (const s of [1, -1]) parts.push(B(0.05, bench.top - BENCH.pad - floor, 0.05, C.planeYellowDark).translate(bench.x, (floor + bench.top - BENCH.pad) / 2, s * (bh - 0.05)));
+    }
+  }
   // ---- everything Andrew already liked, unchanged ------------------------------------------------
-  parts.push(CY(0.54, 0.54, 0.7, 8, C.planeYellowDark).rotateZ(Math.PI / 2).translate(len / 2 - 0.2, 0.95, 0)); // cowl
-  parts.push(CY(0.13, 0.13, 0.25, 6, C.iron).rotateZ(Math.PI / 2).translate(len / 2 + 0.25, 0.95, 0)); // hub
+  parts.push(CY(0.54, 0.54, 0.7, 8, C.planeYellowDark).rotateZ(Math.PI / 2).translate(len / 2 - 0.2, AXIS_Y, 0)); // cowl
+  parts.push(CY(0.13, 0.13, 0.25, 6, C.iron).rotateZ(Math.PI / 2).translate(len / 2 + 0.25, AXIS_Y, 0)); // hub
   parts.push(B(1.4, 0.09, 7.2, C.planeGreen).translate(0.6, 2.05, 0)); // upper wing
   parts.push(B(1.4, 0.09, 6.0, C.planeGreen).translate(0.6, 0.72, 0)); // lower wing
   for (const [sx, sz] of [[0.1, 2.4], [1.1, 2.4], [0.1, -2.4], [1.1, -2.4]]) parts.push(CY(0.03, 0.03, 1.3, 5, C.iron).translate(sx!, 1.38, sz!));
@@ -159,7 +238,7 @@ export function makePlane(x: number, y: number, z: number, bearing: number, mat 
   const body = new THREE.Mesh(mergeGeos(parts), mat);
   body.castShadow = true; body.receiveShadow = true;
   const prop = new THREE.Mesh(mergeGeos([B(0.06, 2.3, 0.18, C.iron), B(0.06, 0.18, 2.3, C.iron)]), mat);
-  prop.position.set(len / 2 + 0.4, 0.95, 0); prop.castShadow = true;
+  prop.position.set(len / 2 + 0.4, AXIS_Y, 0); prop.castShadow = true;
   group.add(body, prop);
 
   // ---- T-65, the pennant: four hinged quads off the rear outer strut on the left ------------------

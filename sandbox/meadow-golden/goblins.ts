@@ -22,8 +22,8 @@ import { colorize, makeWorldMaterial, mergeGeos, WORLD_U, xf } from '../_shared/
 import { BLOOM_LAYER } from '../_shared/post';
 import { rng } from '../_shared/rng';
 import {
-  BRAKE_TO, gobStep, HIT_HOLD, HIT_R, HOLD_MAX, REACH, SEP_R, SEP_SPD, SLOT_CLOSE, SLOT_R, slotPoint, SPD,
-  WINDUP, smoothstep, type GobState,
+  BRAKE_TO, gobStep, HERO_BAND, HERO_R, heroClear, HIT_HOLD, HIT_R, HOLD_MAX, REACH, SEP_R, SEP_SPD,
+  SLOT_CLOSE, SLOT_R, slotPoint, SPD, WINDUP, smoothstep, type GobState,
 } from './goblin-step';
 
 export { SPD, type GobState };
@@ -33,14 +33,37 @@ const CY = (rt: number, rb: number, h: number, seg: number, hex: string) => colo
 const CONE = (r: number, h: number, seg: number, hex: string) => colorize(new THREE.ConeGeometry(r, h, seg), hex);
 
 /**
- * Every hex on the body, and where §2.1.3 puts it (Δhue / ΔL against the nearest hero base; the rule
- * passes on Δhue > 20° **or** ΔL > 15 %):
- *   base   `#7E3320` 12°/31 %  — Isabella 25°/19 %   pass   dark `#5A2312` 14°/21 % — 27°/29 % pass
- *   bone   `#E6DCC3` 43°/83 %  — Noah     16°/30 %   pass   iron `#8B3A1E` 15°/33 % — 12°/21 % pass
- *   cloth  `#4A3524` 27°/22 %  — Noah      0°/32 %   pass   pupil `#1C1A22` 255°/12 % — 35°/37 % pass
- *   cord   `#B3AC86` 51°/61 %  — Noah     24°/ 8 %   pass   slate `#4C6C78` 196°/38 % — Liam 23°/10 % pass
- * `C.rope` `#C2A878` (12°/8 % off Noah) and `C.stone` `#6F7D86` (16°/1 % off Liam) both FAIL the
- * reservation, so the belt is bone cord and the stone club head is the bible's slate instead.
+ * **The colour reservation, whole** (`enemies.md` §2.1.3 via §2.2): *no enemy body colour, base or
+ * dark, may sit within 20° of hue **and** 15 % of lightness of any hero base* — so a row passes on
+ * Δhue > 20° **or** ΔL > 15 %. Hero bases: Liam `#2A62CF` 220°/49 %, Noah `#EE7F24` 27°/54 %,
+ * Collette `#9D4FD8` 274°/58 %, Isabella `#D6294E` 347°/50 %. "Nearest hero" is the hero with the
+ * **smallest pass margin** — `max(Δhue / 20, ΔL / 15)`, the one this colour comes closest to
+ * failing against — not the nearest by hue alone; where the two differ the hue twin is named too.
+ * Fourteen rows: the eight on the body, the four on the war-totem (`props.ts`, T-58), and the two
+ * candidates the reservation rejected. Arithmetic from the sRGB → HSL conversion, not from eye.
+ *
+ * | colour         | hex       | hue / L    | nearest hero | Δhue / ΔL      | verdict | where |
+ * |----------------|-----------|------------|--------------|----------------|---------|-------|
+ * | goblin base    | `#7E3320` |  12° / 31 %| Isabella     |  25° / 19 %    | pass    | `GOB.base` — the skin |
+ * | goblin dark    | `#5A2312` |  14° / 21 %| Isabella     |  27° / 29 %    | pass    | `GOB.dark` — brow, jaw, shade |
+ * | bone           | `#E6DCC3` |  43° / 83 %| Noah         |  16° / 30 %    | pass    | `GOB.bone` — tusks, teeth, war paint, necklace, totem wraps |
+ * | pupil          | `#1C1A22` | 255° / 12 %| Liam         |  35° / 37 %    | pass    | `GOB.pupil` — the eye |
+ * | rust iron      | `#8B3A1E` |  15° / 33 %| Noah         |  12° / 21 %    | pass    | `GOB.iron` — club shaft, ear ring, totem pins |
+ * | Forest cloth   | `#4A3524` |  27° / 22 %| Isabella     |  40° / 28 %    | pass    | `GOB.cloth` — loincloth, totem rag banner (Noah is the hue twin at 0°/32 %: passes on ΔL) |
+ * | bone cord      | `#B3AC86` |  51° / 61 %| Noah         |  24° /  8 %    | pass    | `GOB.cord` — the belt, the grip wrap |
+ * | slate          | `#4C6C78` | 196° / 38 %| Liam         |  23° / 10 %    | pass    | `GOB.slate` — the stone club head |
+ * | totem shard    | `#2F7F7A` | 176° / 34 %| Liam         |  43° / 15 %    | pass    | `props.ts` `GT.shard` — the two hung crystal shards |
+ * | totem coal     | `#3A1206` |  14° / 13 %| Isabella     |  27° / 37 %    | pass    | `props.ts` `GT.coal` — the brazier's coal heap |
+ * | totem socket   | `#2A2418` |  40° / 13 %| Isabella     |  53° / 37 %    | pass    | `props.ts` `GT.socket` = `C.soot` — the carved eye holes |
+ * | totem post     | `#5A3A1E` |  28° / 24 %| Noah         |   1° / 30 %    | pass    | `props.ts` `C.bark` — the two stacked logs; Noah is the hue twin and ΔL carries it (Isabella 41°/26 % also passes) |
+ * | REJECTED rope  | `#C2A878` |  39° / 62 %| Noah         |  12° /  8 %    | FAIL    | `C.rope` would have been the belt — it is bone cord instead |
+ * | REJECTED stone | `#6F7D86` | 203° / 48 %| Liam         |  16° /  1 %    | FAIL    | `C.stone` would have been the stone club head — it is the bible's slate instead |
+ *
+ * Two hexes sit outside the reservation and are named rather than tabled: the club's dust
+ * `#C9B08A` (36°/66 %, 9°/13 % off Noah) is not a body colour — it is the meadow's own Ground
+ * Pound dust, matched deliberately so both puffs read the same; and the brazier's ember `#FF6A2A`
+ * (18°/58 %, 9°/5 % off Noah) is an **emissive accent**, which §2.1.3 exempts ("may be any hue
+ * because they are small and glow").
  */
 const GOB = {
   base: '#7E3320', dark: '#5A2312', bone: '#E6DCC3', pupil: '#1C1A22',
@@ -137,7 +160,11 @@ export interface Goblins {
   poi: () => THREE.Vector3 | null;
   hud: () => string;
   /** What a stepped probe reads: every goblin's state and its distance to the hero, and the shards. */
-  probe: () => { goblins: GobProbe[]; shardsLive: number; shardMaxY: number; felled: number };
+  probe: () => {
+    goblins: GobProbe[]; shardsLive: number; shardMaxY: number; felled: number;
+    /** The hero push (audit 10): its floor and band in metres, and what it has done so far. */
+    heroPush: { floor: number; band: number; frames: number; maxCorrection: number };
+  };
 }
 
 interface GobLimb {
@@ -489,6 +516,9 @@ export function makeGoblins(gap: THREE.Vector3, groundY: (x: number, z: number) 
   const clubQ = new THREE.Quaternion(), tipW = new THREE.Vector3(), armW = new THREE.Quaternion();
   const UPY = new THREE.Vector3(0, 1, 0);
   let poiSet = false, killed = 0, ikMiss = 0;
+  // the hero push's own record, for the stepped probe: how many goblin-frames it moved and the
+  // largest single-frame correction it made (a pop would show here, not only in the arm rotations)
+  let heroPushFrames = 0, heroPushMax = 0;
 
   const shatter = (x: number, y: number, z: number, fxT: number): void => {
     for (let k = 0; k < 8; k++) {
@@ -583,6 +613,25 @@ export function makeGoblins(gap: THREE.Vector3, groundY: (x: number, z: number) 
         if (dd < SEP_R && dd > 1e-3) {
           const push = SEP_SPD * 0.5 * dt * smoothstep(SEP_R - dd, 0, 0.12);
           m.x += (dx / dd) * push; m.z += (dz / dd) * push;
+        }
+      }
+
+      // ... and a goblin never enters the hero (audit 10): the same push, one radius out, applied
+      // **after** the slot steering, the back-hop and the pack's own push, so it is the last word on
+      // where the body stands. It is radial, so the tangential part of the travel is kept and the
+      // goblin slides round her instead of stopping dead. `d` is the radius at the top of the frame,
+      // before any of this frame's motion; `heroClear` gives back this frame's inward travel as the
+      // floor is neared, which is why the correction is never bigger than the travel that caused it.
+      if (m.state !== 'dead') {
+        const hx = m.x - hero.x, hz = m.z - hero.z, hd = Math.hypot(hx, hz);
+        if (hd > 1e-4) {
+          const want = heroClear(d, hd, dt);
+          if (want > hd) {
+            const k = want / hd;
+            m.x = hero.x + hx * k; m.z = hero.z + hz * k;
+            heroPushFrames++;
+            heroPushMax = Math.max(heroPushMax, want - hd);
+          }
         }
       }
 
@@ -744,7 +793,7 @@ export function makeGoblins(gap: THREE.Vector3, groundY: (x: number, z: number) 
     group, speed, strike, update,
     sendAll: () => { for (const m of mobs) if (m.state === 'idle') { m.state = 'chase'; m.st = 0; } return 'they come'; },
     poi: () => (poiSet ? poiV : null),
-    hud: () => `goblins ${mobs.map((m) => m.state).join('/')} · brake to ${BRAKE_TO} m, windup at ${REACH} m · slots r ${SLOT_R} m at ±90° · sep ${SEP_R} m · hit ${HIT_HOLD} s arc · shake 4/0.15 · spd ${speed.value.toFixed(3)} m/s · felled ${killed} · ik miss ${ikMiss.toFixed(3)} m`,
+    hud: () => `goblins ${mobs.map((m) => m.state).join('/')} · brake to ${BRAKE_TO} m, windup at ${REACH} m · slots r ${SLOT_R} m at ±90° · sep ${SEP_R} m, hero ${HERO_R} m · hit ${HIT_HOLD} s arc · shake 4/0.15 · spd ${speed.value.toFixed(3)} m/s · felled ${killed} · ik miss ${ikMiss.toFixed(3)} m`,
     probe: () => ({
       goblins: mobs.map((m, i) => {
         m.clubTip.getWorldPosition(tipW);
@@ -763,6 +812,7 @@ export function makeGoblins(gap: THREE.Vector3, groundY: (x: number, z: number) 
         };
       }),
       shardsLive, shardMaxY, felled: killed,
+      heroPush: { floor: HERO_R, band: HERO_R + HERO_BAND, frames: heroPushFrames, maxCorrection: heroPushMax },
     }),
   };
 }

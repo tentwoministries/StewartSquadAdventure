@@ -8,6 +8,10 @@
 //   · T-64's fan: at the frame the three are first all in `windup`, their pairwise distances and
 //     the span of their bearings from the hero
 //   · the club never enters the kid: through every `hit`, |club head − hero `bones.head`| (world)
+//   · the body never enters the kid either (audit 10, fix B1): the smallest goblin-to-hero *centre*
+//     distance over the whole run, and a phase D that walks the hero into the pack to make the push
+//     actually run — the fight alone never drives a goblin inside the band, because the brake has
+//     already stopped the chase at 0.80 m
 //   · the arc lands: the club head's lowest point above the ground at the end of the arc
 //   · nothing pops: the largest per-frame rotation of the club arm, per state
 //   · facing: the root's world +x axis against `heading` at `bearing − 90°`, and headings wrapped
@@ -38,6 +42,9 @@ module.exports = async (page, h) => {
       // up), the worst pairwise separation and the worst bearing span the pack ever shows
       let fightMinPair = Infinity, fightMinSpan = Infinity, fightFrames = 0, unisonWindup = 0, unisonHit = 0;
       let maxHeading = 0, maxFaceErr = 0;
+      // audit 10 / fix B1: the closest a goblin's centre ever comes to the hero's, over the run
+      let minHero = Infinity, minHeroAt = null;
+      const minHeroPer = [Infinity, Infinity, Infinity];
       let ringFlashFrames = 0, maxAlpha = 0;
       const windupSeenAt = [null, null, null];
 
@@ -75,6 +82,12 @@ module.exports = async (page, h) => {
                 if (!(g.state in maxArm) || a > maxArm[g.state]) maxArm[g.state] = a;
               }
               lastQ[g.i] = g.armQ;
+            }
+            // the body against the hero: only a drawn goblin counts (a felled one keeps its last
+            // position for six seconds and is not in the world as far as an overlap goes)
+            if (g.vis) {
+              if (g.d < minHeroPer[g.i]) minHeroPer[g.i] = Number(g.d.toFixed(4));
+              if (g.d < minHero) { minHero = g.d; minHeroAt = { t: Number(t.toFixed(3)), i: g.i, state: g.state, d: Number(g.d.toFixed(4)) }; }
             }
             // the heading stays wrapped to [−π, π], and the built-along-+x facing holds
             maxHeading = Math.max(maxHeading, Math.abs(g.heading));
@@ -131,6 +144,61 @@ module.exports = async (page, h) => {
           pairwise_m: pairs, min_pair_m: Math.min.apply(null, pairs), bearing_span_deg: Number(span.toFixed(1)),
         };
       }
+
+      // ---- phase D (audit 10 / fix B1): the hero walks into the pack --------------------------
+      // The fight on its own never drives a goblin inside the 0.75 m band: the brake stops the
+      // chase at 0.80 m and the windup hops *back*. So the push is made to run — Isabella is
+      // stepped straight at the nearest live goblin at 1.5 m/s (a walk, `walk.ts` WALK_TOP) for
+      // 180 frames, and the floor has to hold while she does it.
+      const minHeroFight = Number(minHero.toFixed(4));
+      const pushBefore = w.probe().heroPush || null;
+      const iz = globalThis.ssActive();
+      const WALK_F = 600;   // ten seconds: the pack has to close from the palisade gap first
+      let walkMin = Infinity, walkMinAt = null, walkClubMin = Infinity, walkClubAt = null;
+      const walkLog = [];
+      for (let f = 0; f < WALK_F; f++) {
+        const p0 = w.probe();
+        const live = p0.goblins.filter((g) => g.vis).sort((a, b) => a.d - b.d)[0];
+        if (live) {
+          const dx = live.x - iz.root.position.x, dz = live.z - iz.root.position.z;
+          const dl = Math.hypot(dx, dz) || 1, s = 1.5 / 60;
+          iz.root.position.x += (dx / dl) * s;
+          iz.root.position.z += (dz / dl) * s;
+          iz.root.position.y = w.groundY(iz.root.position.x, iz.root.position.z);
+        }
+        const tt = globalThis.ssStep(1);
+        const hd2 = heroHead();
+        for (const g of w.probe().goblins) {
+          if (!g.vis) continue;
+          // the push seats an attacking goblin 0.25 m nearer than the brake would: re-measure the
+          // club against the hero's head here too, or the fix could buy a body clear and lose a head
+          if (g.state === 'hit') {
+            const cd = Math.hypot(g.club[0] - hd2.x, g.club[1] - hd2.y, g.club[2] - hd2.z);
+            if (cd < walkClubMin) { walkClubMin = cd; walkClubAt = { t: Number(tt.toFixed(3)), i: g.i, d: Number(cd.toFixed(3)), goblinToHero: Number(g.d.toFixed(3)) }; }
+          }
+          if (g.d < minHeroPer[g.i]) minHeroPer[g.i] = Number(g.d.toFixed(4));
+          if (g.d < minHero) { minHero = g.d; minHeroAt = { t: Number(tt.toFixed(3)), i: g.i, state: g.state, d: Number(g.d.toFixed(4)), phase: 'walk-in' }; }
+          if (g.d < walkMin) { walkMin = g.d; walkMinAt = { t: Number(tt.toFixed(3)), i: g.i, state: g.state, d: Number(g.d.toFixed(4)) }; }
+        }
+        if (f % 60 === 0 || f === WALK_F - 1) {
+          walkLog.push('t=' + tt.toFixed(2) + 's  hero(' + iz.root.position.x.toFixed(2) + ', ' + iz.root.position.z.toFixed(2) + ')  ' +
+            w.probe().goblins.map((g) => 'g' + g.i + ' ' + (g.state + '       ').slice(0, 7) + ' d=' + g.d.toFixed(3) + 'm' + (g.vis ? '' : ' (felled)')).join(' | '));
+        }
+      }
+      out.hero_walk_in = {
+        note: 'Isabella stepped straight at the nearest live goblin at 1.5 m/s for 600 frames (10 s)',
+        min_goblin_to_hero_centre_m: Number(walkMin.toFixed(4)),
+        at: walkMinAt,
+        log: walkLog,
+        min_club_head_to_hero_head_m: walkClubMin === Infinity ? null : Number(walkClubMin.toFixed(3)),
+        club_at: walkClubAt,
+        push_before: pushBefore,
+        push_after: w.probe().heroPush || null,
+      };
+      out.min_goblin_to_hero_centre_m = Number(minHero.toFixed(4));
+      out.min_goblin_to_hero_centre_m_fight_only = minHeroFight;
+      out.min_goblin_to_hero_per_goblin_m = minHeroPer;
+      out.min_goblin_to_hero_at = minHeroAt;
 
       const all = new Set();
       for (const s of seen) for (const v of s) all.add(v);

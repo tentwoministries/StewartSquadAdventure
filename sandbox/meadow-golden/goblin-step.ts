@@ -112,6 +112,45 @@ export function brakeAt(d: number, speed: number): number {
   return smoothstep(d, BRAKE_TO, BRAKE_TO + speed * SKID);
 }
 
+// ---- the hero push (audit 10): a goblin's body never enters the hero's -------------------------
+/**
+ * The floor on a goblin's centre-to-centre distance from the hero: the hero's 0.30 m radius plus
+ * the goblin's own `HIT_R` 0.25 (`enemies.md` §2.1 row 1). `meadow-golden-hit-04-02` had a torso
+ * standing inside Isabella's shoulder while the club itself stayed 0.619 m clear: §2.4's "push
+ * apart" is written enemy-to-enemy, and nothing pushed a runt off a *hero*.
+ */
+export const HERO_R = 0.55;
+/**
+ * The lead-in band above the floor. A push that eases to zero *at* a line converges on the line and
+ * never crosses it — the never-attacks defect (`LESSONS.md` Rigs row 5) read backwards, which is
+ * exactly the property wanted here. Inside `HERO_R + HERO_BAND` the goblin's **inward** radial
+ * travel is damped by the same smoothstep, reaching zero at the floor, so the centre distance
+ * approaches 0.55 m and never crosses it, and the correction each frame is at most that frame's own
+ * inward travel (no pop). 0.20 m puts the band's top at **0.75 m**, inside `BRAKE_TO` (0.80) and
+ * well inside the windup trigger `REACH` (1.00): a chasing goblin has already stopped closing
+ * before the band begins, so the loop's timing cannot change.
+ */
+export const HERO_BAND = 0.2;
+/** How fast a goblin already inside the floor eases back out to it, if the hero walks into one. */
+export const HERO_OUT = SEP_SPD;
+
+/**
+ * The radius the goblin's centre is allowed at this frame, given the radius it had at the top of
+ * the frame (`d0`, before the steering) and the radius its steering and the pack's own push have
+ * just put it at (`dd`). Returns `dd` unchanged outside the band. Never returns less than `dd`:
+ * this only ever pushes out.
+ *
+ * The floor holds by construction: below `HERO_R` the smoothstep is 0, so the whole of this
+ * frame's inward travel is given back and the result is `d0` — and `d0` was the previous frame's
+ * result, which was ≥ `HERO_R` by the same argument.
+ */
+export function heroClear(d0: number, dd: number, dt: number): number {
+  if (dd >= HERO_R + HERO_BAND) return dd;
+  const damped = dd < d0 ? d0 - (d0 - dd) * smoothstep(dd, HERO_R, HERO_R + HERO_BAND) : dd;
+  const out = Math.min(HERO_R, d0 + HERO_OUT * dt);
+  return Math.max(dd, damped, out);
+}
+
 export interface GobOut {
   /** The state after this frame's transition. */
   state: GobState;

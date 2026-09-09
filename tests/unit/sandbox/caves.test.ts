@@ -20,11 +20,13 @@ import * as THREE from 'three';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { rng } from '../../../sandbox/_shared/rng';
 import {
-  CUT, HEART, PATHS, RELIEF_Q, RELIEF_LEVELS, TIER_TOP,
+  CUT, HEART, MAX_STEP, PATHS, RELIEF_Q, RELIEF_LEVELS, RISER_MAX, TIER_TOP,
   columnTopAt, groundY, halfAt, insideCave, makeCave, ptAt, reliefStats, setRelief, stairY, tierOf,
 } from '../../../sandbox/caves-descent/terrain';
 
-const MAX_STEP = 1.1;  // caves-descent/main.ts: the walk's step limit
+/** The walk's step limit at the setting these tests run at (round 2, A3: 0.60 m at `flat` and
+ *  `chunky`, 1.10 at `blocks` — a stair's side wall is a wall). */
+const STEP_LIMIT = MAX_STEP.chunky;
 /** T-61a: three relief quanta is the widest gap the relaxation leaves between two columns that can
  *  answer for points 2.2 m apart — 0.54 m at `chunky`, half of the walk's own step limit. */
 const MAX_RELIEF_STEP = 3 * RELIEF_Q.chunky;
@@ -80,8 +82,10 @@ describe('the caves: the stair the kids walk down (T-55, T-61b)', () => {
   });
 
   it('is a staircase along its centreline and both 1 m offsets, and the drawn tread is the walked one', () => {
-    // brief check (b): every rise is 0 or between 0.12 and 0.30 m (inclusive at both ends), never
-    // negative going down, and the highest `stairs`/`tiers` hit is within 0.05 m of `stairY`.
+    // brief check (b), widened by round 2's A1: every rise is 0 or between **0.25 and 0.45 m**
+    // (inclusive at both ends — the chunkier step is 1.20 m of arc, so 0.381 m on the first stair
+    // and 0.435 on the second), never negative going down, and the highest `stairs`/`tiers` hit is
+    // within 0.05 m of `stairY`.
     const meshes = [cave.tiers, cave.stairs];
     let riseMin = 9, riseMax = 0, worst = 0, worstAt = '', risers = 0;
     for (const p of PATHS) {
@@ -107,8 +111,9 @@ describe('the caves: the stair the kids walk down (T-55, T-61b)', () => {
       }
     }
     expect(risers).toBeGreaterThan(100);
-    expect(riseMin).toBeGreaterThanOrEqual(0.12);
-    expect(riseMax).toBeLessThanOrEqual(0.30);
+    expect(riseMin).toBeGreaterThanOrEqual(0.25);
+    expect(riseMax).toBeLessThanOrEqual(RISER_MAX);
+    expect(riseMax).toBeLessThanOrEqual(STEP_LIMIT);   // and every riser is a step the walk will take
     expect(worst, worstAt).toBeLessThanOrEqual(0.05);
   });
 
@@ -158,7 +163,7 @@ describe('the caves: the stair the kids walk down (T-55, T-61b)', () => {
         let y = groundY(x, z), low = y;
         for (let k = 0; k < 240; k++) {                            // march 12 m, the walk's step rule
           const nx = x + dx * 0.05, nz = z + dz * 0.05, ny = groundY(nx, nz);
-          if (!insideCave(nx, nz) || Math.abs(ny - y) > MAX_STEP) break;
+          if (!insideCave(nx, nz) || Math.abs(ny - y) > STEP_LIMIT) break;
           x = nx; z = nz; y = ny; low = Math.min(low, y);
         }
         reached.push(low - TIER_TOP[tierOf(a0.x, a0.z)]!);
@@ -211,7 +216,7 @@ describe('the caves: the chunky floor a ring is drawn on (T-56, T-61a)', () => {
     }
     expect(pairs).toBeGreaterThan(2000);
     expect(worst, worstAt).toBeLessThanOrEqual(MAX_RELIEF_STEP + 1e-9);
-    expect(worst).toBeLessThan(MAX_STEP);
+    expect(worst).toBeLessThan(STEP_LIMIT);
   });
 
   it('quantises the relief with about half the columns at the tier\'s own height', () => {
@@ -225,6 +230,6 @@ describe('the caves: the chunky floor a ring is drawn on (T-56, T-61a)', () => {
     expect(pct).toBeGreaterThanOrEqual(35);
     expect(pct).toBeLessThanOrEqual(65);
     for (let i = 0; i < st.hist.length; i++) expect(st.hist[i], `level ${RELIEF_LEVELS[i]} unused`).toBeGreaterThan(0);
-    expect(3 * RELIEF_Q.blocks).toBeLessThan(MAX_STEP);   // blocks doubles it and still steps
+    expect(3 * RELIEF_Q.blocks).toBeLessThan(MAX_STEP.blocks);   // blocks doubles it and still steps
   });
 });

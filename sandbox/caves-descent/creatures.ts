@@ -1,5 +1,6 @@
 // Crystal Caves creatures (PHASE_0.75_ANIMALS_BRAINSTORM.md §3, T-14): glow moths that orbit the
-// lit lamps (they are the light's motion), two cave salamanders on the stair wall whose green spots
+// lit lamps (they are the light's motion), **four** cave salamanders on the stair walls — two per
+// stair, the brainstorm's own number, where round 1 shipped two — whose green spots
 // pulse on the heart's oscillator and who climb a metre closer when a kid stands still 3 s, the
 // crystal beetle rolling its glowing shard along the gallery ledge, blind cave fish flickering
 // silver in the pool under the heart's pulse and scattering from the ring's light. The bats are
@@ -22,9 +23,11 @@ const mesh = (g: THREE.BufferGeometry, mm: THREE.Material = mat) => { const m = 
 export interface Creatures {
   group: THREE.Group;
   update: (t: number, dt: number, pulse: number, litFraction: number, kids: THREE.Vector3[], activeMoving: boolean) => void;
-  /** T-62: (re-)cast the two salamanders against the rock meshes in the scene. Called once at build
+  /** T-62: (re-)cast the four salamanders against the rock meshes in the scene. Called once at build
    *  and again whenever `J` rebuilds the tiers and the stair under them. */
   place: (stairs: THREE.Mesh, tiers: THREE.Mesh) => void;
+  /** Read-only: where each salamander is in the stair's own coordinates, for a stepped probe. */
+  state: () => { path: number; arc: number; h: number; side: number; on: boolean; surf: string; climb: number }[];
   poi: () => THREE.Vector3 | null;
   hud: () => string[];
 }
@@ -81,11 +84,55 @@ export function makeCreatures(): Creatures {
     }
     return best;
   };
-  /** The first arc past `from` where a wall stands beside the stair — where it is cut into a tier. */
-  const findArc = (pi: number, from: number): number | null => {
+  /** The metre of wall a climb spends: an animal is only placed where it has that much rock either
+   *  way, or its climb has nothing to walk along and it sits still (measured: 0.06 m of closing over
+   *  240 frames for an animal parked on an isolated column face). */
+  const SPAN = 1.0;
+  /** Which sides of the channel carry wall all along [s − SPAN, s + SPAN] at height h. The cheap
+   *  single cast is tried first, so an arc with no rock beside it costs one ray, not ten. */
+  const sidesAt = (pi: number, s: number, h: number): number[] => {
+    if (!cast(pi, s, h)) return [];
     const p = PATHS[pi]!;
-    for (let s = from; s <= p.len - 1; s += 0.3) if (cast(pi, s, (H_LO + H_HI) / 2)) return s;
+    const out: number[] = [];
+    for (const side of [1, -1]) {
+      let ok = true;
+      for (let d = -SPAN; d <= SPAN + 1e-9 && ok; d += 0.5) {
+        const c = cast(pi, clamp(s + d, 1, p.len - 1), h, side);
+        ok = !!c && c.side === side;
+      }
+      if (ok) out.push(side);
+    }
+    return out;
+  };
+  /** The arc nearest `want` where a wall stands beside the stair — where it is cut into a tier — and
+   *  runs a metre either way. Searched outward from `want` in both directions (A5 asks for arcs 6
+   *  and 14 "or the nearest arcs where the channel wall exists"), never by assuming the typed arc
+   *  has rock beside it. */
+  const findArc = (pi: number, want: number): number | null => {
+    const p = PATHS[pi]!;
+    const h = (H_LO + H_HI) / 2;
+    for (let d = 0; d <= p.len; d += 0.3) {
+      for (const s of d === 0 ? [want] : [want + d, want - d]) {
+        if (s < 1 + SPAN || s > p.len - 1 - SPAN) continue;
+        if (sidesAt(pi, s, h).length) return s;
+      }
+    }
     return null;
+  };
+  /** A5: which side of the channel the animal lies on — of the sides that carry wall here, the one
+   *  whose rock is nearest a hook-lamp, so what it clings to is lit when Quartz's lamps come on (a
+   *  lit hook-lamp is 9 cd over 8 m; `dungeons.md` §2.7's "wall-lamps on hooks along the stair").
+   *  Every candidate is **cast**, never guessed. */
+  const lampSide = (pi: number, s: number, h: number): number => {
+    let bestSide = 0, bestD = Infinity;
+    for (const side of sidesAt(pi, s, h)) {
+      const c = cast(pi, s, h, side);
+      if (!c) continue;
+      let d = Infinity;
+      for (const [lx, lz, ly] of LAMPS) d = Math.min(d, Math.hypot(c.p.x - lx, c.p.y - (ly + 2.1), c.p.z - lz));
+      if (d < bestD) { bestD = d; bestSide = side; }
+    }
+    return bestSide;
   };
   /** How far toward `want` the wall actually reaches: the climb is marched, never assumed (the
    *  Density row's rule). Without it a salamander walks its target off the end of the wall and
@@ -103,12 +150,18 @@ export function makeCreatures(): Creatures {
     return c && c.side === prefer ? want : best;
   };
   interface Sala { root: THREE.Group; spots: THREE.Mesh; path: number; s: number; h: number; s0: number; h0: number; sT: number; hT: number; climb: number; still: number; on: boolean; surf: string; side: number }
+  /** A5: two per stair, at arcs 6 and 14 — or at the nearest arc either way where the channel wall
+   *  actually exists (`findArc`). Four is `PHASE_0.75_ANIMALS_BRAINSTORM.md` §3's own number for the
+   *  Crystal Caves; round 1 shipped two and reported the shortfall. */
+  const SALA: { path: number; arc: number }[] = [
+    { path: 0, arc: 6 }, { path: 0, arc: 14 }, { path: 1, arc: 6 }, { path: 1, arc: 14 },
+  ];
   const salamanders: Sala[] = [];
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < SALA.length; i++) {
     const root = node(0, 0, 0); root.name = `salamander${i}`; root.add(mesh(salaGeo));
     const spots = mesh(spotsGeo, spotMat); spots.layers.enable(BLOOM_LAYER); root.add(spots);
     group.add(root);
-    salamanders.push({ root, spots, path: i, s: 0, h: 0.7, s0: 0, h0: 0.7, sT: 0, hT: 0.7, climb: 0, still: 0, on: false, surf: '?', side: 0 });
+    salamanders.push({ root, spots, path: SALA[i]!.path, s: 0, h: 0.7, s0: 0, h0: 0.7, sT: 0, hT: 0.7, climb: 0, still: 0, on: false, surf: '?', side: 0 });
   }
   /** Set the root from a cast: the belly on the wall, local +y the wall's outward normal, local +x
    *  along the wall pointing *up*-stair (the rig is built along +x, head at +x). The basis is built
@@ -129,17 +182,19 @@ export function makeCreatures(): Creatures {
     if (ease >= 1) sa.root.quaternion.copy(wantQ); else sa.root.quaternion.slerp(wantQ, ease);
     sa.root.position.copy(c.p).addScaledVector(c.n, BELLY);
   };
-  /** Re-cast both salamanders against the rock in the scene now (also after `J` rebuilds it). */
+  /** Re-cast every salamander against the rock in the scene now (also after `J` rebuilds it). */
   const place = (stairs: THREE.Mesh, tiers: THREE.Mesh): void => {
     rockMeshes = [stairs, tiers];
     salamanders.forEach((sa, i) => {
-      // the first on the first stair where it is cut into the Landing, the second on the second
-      // stair where it is cut into the gallery ledge; each keeps the arc it had if that arc still
-      // has a wall, so `J` does not teleport a climbing salamander back to its start
-      const found = findArc(i, i === 0 ? 4 : 6);
-      const s = sa.s > 0 && cast(i, sa.s, sa.h, sa.side) ? sa.s : (found ?? 6);
-      sa.s0 = found ?? 6; sa.h0 = (H_LO + H_HI) / 2;
+      // two per stair, at the nearest arc to the wanted one where the channel wall exists; each
+      // keeps the arc it had if that arc still has a wall, so `J` does not teleport a climbing
+      // salamander back to its start
+      const want = SALA[i]!.arc;
+      const found = findArc(sa.path, want);
+      const s = sa.s > 0 && cast(sa.path, sa.s, sa.h, sa.side) ? sa.s : (found ?? want);
+      sa.s0 = found ?? want; sa.h0 = (H_LO + H_HI) / 2;
       sa.s = s; sa.sT = s; sa.h = sa.h || sa.h0; sa.hT = sa.h;
+      sa.side = lampSide(sa.path, sa.s, sa.h) || sa.side;
       settle(sa, 1);
     });
   };
@@ -207,6 +262,7 @@ export function makeCreatures(): Creatures {
   };
   return {
     group, update, place, poi: () => (poiSet ? poiV : null),
-    hud: () => [`moths ${LAMPS.length} × 6 at the lit lamps · salamanders 2 clinging (stand still 3 s): ${salamanders.map((s) => `stair ${s.path + 1} arc ${s.s.toFixed(2)} h ${s.h.toFixed(2)} on ${s.surf} climb ${s.climb}${s.on ? '' : ' OFF-WALL'}`).join(' · ')} · the beetle rolls its shard · fish 8 under the heart`],
+    state: () => salamanders.map((s) => ({ path: s.path, arc: s.s, h: s.h, side: s.side, on: s.on, surf: s.surf, climb: s.climb })),
+    hud: () => [`moths ${LAMPS.length} × 6 at the lit lamps · salamanders ${salamanders.length} clinging, two a stair (stand still 3 s): ${salamanders.map((s) => `stair ${s.path + 1} arc ${s.s.toFixed(2)} h ${s.h.toFixed(2)} side ${s.side > 0 ? '+' : '−'} on ${s.surf} climb ${s.climb}${s.on ? '' : ' OFF-WALL'}`).join(' · ')} · the beetle rolls its shard · fish 8 under the heart`],
   };
 }
