@@ -4,7 +4,7 @@
 // the plane climbs through, and the two bounces on landing. Speeds and altitudes: npcs.md §2.2.4.
 import * as THREE from 'three';
 import { colorize, makeWorldMaterial, mergeGeos, xf } from '../_shared/material';
-import { makePlane } from '../_shared/plane';
+import { CABANE, LOWER_WING, makePlane, WELL, type PlaneSolid } from '../_shared/plane';
 
 import { rng } from '../_shared/rng';
 import { C } from '../_shared/style';
@@ -81,11 +81,89 @@ const STALL = { at: 7.0, dur: 1.2, drop: 4 };
  */
 export interface LookOffset { yaw: number; pitch: number }
 
+// ---- T-66, the three seating variants ------------------------------------------------------------
+// Andrew: "come up with your best most creative solution to have them flying with Grandpa Ed …
+// brainstorm a few ideas, pick a couple, that I can cycle through". Three, on `N` and `?seats=`.
+// Every socket below is the kid's **hip point** in plane space (nose +x, the plane's left −z);
+// `main.ts` drops the root by the kid's own leg length along the seat's own down axis, so all four
+// hips sit at one height whatever the kid's size — which is what makes four heads read as four.
+export type SeatVariant = 'a' | 'b' | 'c';
+export const SEAT_VARIANTS: readonly SeatVariant[] = ['a', 'b', 'c'];
+export const SEAT_NOTE: Record<SeatVariant, string> = {
+  a: 'A · the well — two rows of two in the cockpit, hands on the rim',
+  b: 'B · wing riders — four on the lower wing, lap straps, a hand on the cabane strut',
+  c: 'C · front and back — Liam and Noah on the wing roots, Collette and Isabella in the well',
+};
+
+/** Hip height in the well: 0.22 m over the deck, the highest that keeps a head under the top wing
+ *  (the deck is 0.80 m and the upper wing's underside 2.005 m: 1.205 m for a 1.43 m seated Liam). */
+export const HIP_WELL = WELL.floorTop + 0.22;
+/** Hip height on the lower wing: the thigh's own radius over the wing's top surface. */
+export const HIP_WING = LOWER_WING.top + 0.09;
+/** The two kid rows in the well. The forward row clears the front bulkhead by 0.06 m with Liam's
+ *  legs out; the aft row clears the forward row's hips by 0.01 m and Ed's knees by 0.06 m. */
+const ROW_FWD = 0.0, ROW_AFT = -0.85, WELL_Z = 0.16;
+/** The wing riders: 0.25 m behind the leading edge, so every kid's boots hang over it. */
+const WING_X = 1.05, WING_IN = 0.72, WING_OUT = 1.36;
+
+/** seat.0–3 (Liam, Noah, Collette, Isabella) per variant; Isabella is on the plane's left (−z) in
+ *  all three (npcs.md §2.2.1: "Isabella on the left (she called dibs)"). */
+export const SEATS: Record<SeatVariant, readonly (readonly [number, number, number])[]> = {
+  a: [[ROW_FWD, HIP_WELL, WELL_Z], [ROW_AFT, HIP_WELL, WELL_Z], [ROW_AFT, HIP_WELL, -WELL_Z], [ROW_FWD, HIP_WELL, -WELL_Z]],
+  b: [[WING_X, HIP_WING, WING_IN], [WING_X, HIP_WING, WING_OUT], [WING_X, HIP_WING, -WING_OUT], [WING_X, HIP_WING, -WING_IN]],
+  c: [[WING_X, HIP_WING, WING_IN], [WING_X, HIP_WING, -WING_IN], [ROW_AFT, HIP_WELL, WELL_Z], [ROW_AFT, HIP_WELL, -WELL_Z]],
+};
+/** True where the kid rides the lower wing rather than sitting in the well. */
+export const onWing = (v: SeatVariant, i: number): boolean => SEATS[v][i]![1] === HIP_WING;
+/** The lap strap's band: over the thighs, 0.20 m ahead of the hips and 0.085 m over them. */
+export const STRAP = { x: WING_X + 0.20, y: HIP_WING + 0.085, halfZ: 0.30, grip: 0.13 } as const;
+/** A hand's grip: a point on real geometry in **plane space**, and the weight the solve runs at
+ *  (0 = the hand keeps the kid's own clip). Every term is continuous in `grab`, so nothing pops
+ *  when the stall-drop starts or ends (Tier-0 rule 3). */
+export interface Grip { x: number; y: number; z: number; w: number }
+const lerp = (a: number, b: number, u: number): number => a + (b - a) * u;
+
+/**
+ * Where kid `i`'s outboard / inboard hand goes under variant `v`, `grab` 0..1 through the
+ * stall-drop (npcs.md §2.3.4, heroes.md §2.4.7: "on the `hopping` stall-drop all four grab").
+ *   the well  — the outer hand is on the rim's top edge beside them, always; the inner hand joins
+ *               it on the drop, so Collette keeps her pigtails and Isabella keeps an arm up.
+ *   the wing  — an inner rider keeps a hand on the cabane strut and the other on the lap strap;
+ *               an outer rider grips the strap and rests the other flat on the wing, and takes the
+ *               strap with both on the drop.
+ */
+export function gripFor(v: SeatVariant, i: number, side: 'outer' | 'inner', grab: number): Grip {
+  const [sx, , sz] = SEATS[v][i]!;
+  const s = Math.sign(sz) || 1, g = Math.min(1, Math.max(0, grab));
+  if (!onWing(v, i)) return { x: sx, y: WELL.rimTop, z: s * WELL.rimZ, w: side === 'outer' ? 1 : g };
+  const strapY = STRAP.y + 0.025, az = Math.abs(sz);
+  if (az < (WING_IN + WING_OUT) / 2) { // the inner rider: the strut, and the strap in the other hand
+    if (side === 'inner') return { x: CABANE.xs[1], y: 1.28, z: s * CABANE.z, w: 1 };
+    return { x: STRAP.x, y: strapY, z: s * (az + STRAP.grip), w: 1 };
+  }
+  if (side === 'outer') return { x: STRAP.x, y: strapY, z: s * (az + STRAP.grip), w: 1 };
+  return { // flat on the wing, easing onto the strap through the drop
+    x: lerp(WING_X, STRAP.x, g),
+    y: lerp(LOWER_WING.top + 0.045, strapY, g),
+    z: s * lerp(az - 0.30, az - 0.10, g),
+    w: 1,
+  };
+}
+
 export interface Flight {
   group: THREE.Group;
   plane: THREE.Group;
-  /** Seat world matrices for the four kids (seat.0..3) and Ed's pilot socket. */
+  /** Seat world transform for kid `i` (seat.0..3) under the **current** variant: the hip point. */
   seat: (i: number, out: THREE.Object3D) => void;
+  /** The same for a named variant, so `main.ts` can ease between two of them on the `N` swap. */
+  seatAt: (v: SeatVariant, i: number, out: THREE.Object3D) => void;
+  /** Which of the three seatings is showing, and how to change it (`N`, `?seats=a|b|c`). */
+  seatVariant: SeatVariant;
+  setSeats: (v: SeatVariant) => void;
+  /** The plane's solids in plane space, and the two conversions the bone check needs. */
+  solids: PlaneSolid[];
+  toPlane: (world: THREE.Vector3, out: THREE.Vector3) => THREE.Vector3;
+  fromPlane: (x: number, y: number, z: number, out: THREE.Vector3) => THREE.Vector3;
   chase: (out: THREE.Object3D, kind: 'CH' | 'WG' | 'ED', look?: LookOffset) => void;
   /** Advance to `t` seconds of the cutscene clock; returns the beat name. */
   set: (t: number, dt: number) => string;
@@ -131,19 +209,31 @@ export function makeFlight(): Flight {
     m.scale.set(1, 0.92, 1);
     plane.group.add(m); blur.push(m);
   }
-  // The bench: four seat sockets, two forward and two behind, Isabella on the left (npcs.md §2.2.1).
-  // Dropped to 0.74 m so the hips sit *in* the fuselage (its deck is about 1.45 m) and the cockpit
-  // rim cuts the four at the waist — T-28 and the scores' change 5 ("their hips sit on top of the
-  // box, not in a cockpit"). Spread to 1.10 m along the fuselage and 0.76 m across so four heads
-  // separate from the wing station. A seat faces the nose: the rig's eyes are on local +z and the
+  // T-66, the sockets: one group per kid per variant, all parented to the plane so a socket is read
+  // straight off the flying body. A seat faces the nose: the rig's eyes are on local +z and the
   // plane is built along +x, so the socket turns +90°, not −90° (LESSONS.md Rigs row 3, T-26).
-  const bench = new THREE.Group();
-  bench.position.set(-0.30, 0.74, 0);
-  plane.group.add(bench);
-  const seats: THREE.Group[] = [];
-  for (const [sx, sz] of [[0.55, 0.38], [0.55, -0.38], [-0.55, 0.38], [-0.55, -0.38]] as [number, number][]) {
-    const s = new THREE.Group(); s.position.set(sx, 0, sz); s.rotation.y = Math.PI / 2; bench.add(s); seats.push(s);
+  // The old single bench at 0.74 m is what put the hips *inside* the fuselage box (T-66).
+  const seatSets: Record<SeatVariant, THREE.Group[]> = { a: [], b: [], c: [] };
+  for (const v of SEAT_VARIANTS) {
+    for (const [sx, sy, sz] of SEATS[v]) {
+      const s = new THREE.Group(); s.position.set(sx, sy, sz); s.rotation.y = Math.PI / 2;
+      plane.group.add(s); seatSets[v].push(s);
+    }
   }
+  let seatVariant: SeatVariant = 'a';
+  // The lap straps (variant B, and the two wing riders of C): a 0.05 × 0.6 m red band over the
+  // thighs with an iron buckle, on two posts down to the wing. Built once at B's four z's; C shows
+  // the pair at ±0.72. World geometry on the shared material, so it takes the world's bend (T-41).
+  const straps: THREE.Mesh[] = [];
+  for (const [, , sz] of SEATS.b) {
+    const band = B(0.05, 0.02, STRAP.halfZ * 2, C.planeFin).translate(STRAP.x, STRAP.y, sz);
+    const buckle = B(0.07, 0.045, 0.09, C.iron).translate(STRAP.x, STRAP.y + 0.02, sz);
+    const posts = [1, -1].map((s) => B(0.05, STRAP.y - LOWER_WING.top, 0.03, C.planeFin).translate(STRAP.x, (STRAP.y + LOWER_WING.top) / 2, sz + s * STRAP.halfZ));
+    const m = new THREE.Mesh(mergeGeos([band, buckle, ...posts]), mat);
+    m.castShadow = true; m.visible = false;
+    plane.group.add(m); straps.push(m);
+  }
+  const showStraps = (v: SeatVariant): void => straps.forEach((m, i) => { m.visible = v === 'b' || (v === 'c' && (i === 0 || i === 3)); });
 
   // ---- Grandpa Ed in the rear cockpit: the lump on the brow, the wide pale collar, the red streak
   // Ed faces the nose: his goggles are on his local +z and the plane is built along +x, so his
@@ -233,7 +323,12 @@ export function makeFlight(): Flight {
   const flight: Flight = {
     group, plane: plane.group, whiteOut: 0, stall: 0, pos, fwd: tan,
     speed: 0, distance: 0, bankDeg: 0, bounce: 0, length: L,
-    seat: (i, out) => { seats[i]!.getWorldPosition(tmp); out.position.copy(tmp); seats[i]!.getWorldQuaternion(q); out.quaternion.copy(q); },
+    seatVariant, solids: plane.solids,
+    setSeats: (v) => { seatVariant = v; flight.seatVariant = v; showStraps(v); },
+    seatAt: (v, i, out) => { const s = seatSets[v][i]!; s.getWorldPosition(tmp); out.position.copy(tmp); s.getWorldQuaternion(q); out.quaternion.copy(q); },
+    seat: (i, out) => flight.seatAt(seatVariant, i, out),
+    toPlane: (world, out) => plane.group.worldToLocal(out.copy(world)),
+    fromPlane: (px, py, pz, out) => plane.group.localToWorld(out.set(px, py, pz)),
     // CH / WG / ED are ridden, not stood in: the station's numbers in main.ts describe the framing,
     // these offsets are what the camera actually does. WG is up 0.85 m on the first pass (about +4°
     // over an 11.4 m eye-to-subject line), the scores' change 5, so four heads separate.
@@ -300,6 +395,9 @@ export function makeFlight(): Flight {
       propAngle += dt * 46 * spin;
       plane.prop.rotation.x = propAngle;
       for (const b of blur) b.visible = spin > 0.45;
+      // T-65: the pennant lies out with the airspeed and hangs when she is parked. The scene drives
+      // it rather than `plane.update`, because the flight owns the propeller itself.
+      plane.pennant(t, THREE.MathUtils.clamp(v / CRUISE_SPEED, 0, 1));
       // the cloud layer: a white-out while the plane is inside it
       flight.stall = stall;
       flight.speed = v; flight.distance = s; flight.bounce = bounce; flight.bankDeg = (roll * 180) / Math.PI;
@@ -315,7 +413,8 @@ export function makeFlight(): Flight {
       });
       return beat;
     },
-    hud: () => `flight ${beat} · ${flight.speed.toFixed(1)} m/s (cruise ${CRUISE_SPEED}) · ${flight.distance.toFixed(1)} / ${L.toFixed(1)} m · alt ${pos.y.toFixed(1)} m · bank ${flight.bankDeg.toFixed(1)}° (max ${MAX_BANK_DEG}) · bounce ${bounce.toFixed(2)} m · cloud ${flight.whiteOut.toFixed(2)}`,
+    hud: () => `flight ${beat} · ${flight.speed.toFixed(1)} m/s (cruise ${CRUISE_SPEED}) · ${flight.distance.toFixed(1)} / ${L.toFixed(1)} m · alt ${pos.y.toFixed(1)} m · bank ${flight.bankDeg.toFixed(1)}° (max ${MAX_BANK_DEG}) · bounce ${bounce.toFixed(2)} m · cloud ${flight.whiteOut.toFixed(2)} · wind ${THREE.MathUtils.clamp(flight.speed / CRUISE_SPEED, 0, 1).toFixed(2)}`,
   };
+  showStraps(seatVariant);
   return flight;
 }
